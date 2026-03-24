@@ -19,8 +19,12 @@ CREATE TYPE "ApartmentStatus" AS ENUM ('IJARA', 'SOTISH');
 -- CreateTable
 CREATE TABLE "regions" (
     "id" BIGSERIAL NOT NULL,
-    "name" TEXT NOT NULL,
-    "countryName" TEXT NOT NULL,
+    "name_uz" TEXT NOT NULL,
+    "name_uz_cyrl" TEXT NOT NULL,
+    "name_ru" TEXT NOT NULL,
+    "country_name_uz" TEXT NOT NULL,
+    "country_name_uz_cyrl" TEXT NOT NULL,
+    "country_name_ru" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -30,15 +34,15 @@ CREATE TABLE "regions" (
 -- CreateTable
 CREATE TABLE "users" (
     "id" BIGSERIAL NOT NULL,
-    "firstName" TEXT NOT NULL,
+    "firstName" TEXT,
     "lastName" TEXT,
-    "age" INTEGER NOT NULL,
-    "gender" "Gender" NOT NULL,
+    "age" INTEGER,
+    "gender" "Gender",
     "phone" TEXT NOT NULL,
     "email" TEXT,
-    "regionId" BIGINT NOT NULL,
+    "regionId" BIGINT,
     "role" "UserRole" NOT NULL,
-    "status" "UserStatus" NOT NULL,
+    "status" "UserStatus" DEFAULT 'ACTIVE',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -48,7 +52,9 @@ CREATE TABLE "users" (
 -- CreateTable
 CREATE TABLE "salary_types" (
     "id" BIGSERIAL NOT NULL,
-    "name" TEXT NOT NULL,
+    "name_uz" TEXT NOT NULL,
+    "name_uz_cyrl" TEXT NOT NULL,
+    "name_ru" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -72,7 +78,9 @@ CREATE TABLE "master_profiles" (
 -- CreateTable
 CREATE TABLE "jobs" (
     "id" BIGSERIAL NOT NULL,
-    "name" TEXT NOT NULL,
+    "name_uz" TEXT NOT NULL,
+    "name_uz_cyrl" TEXT NOT NULL,
+    "name_ru" TEXT NOT NULL,
     "status" "JobStatus" NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -121,7 +129,9 @@ CREATE TABLE "banners" (
 -- CreateTable
 CREATE TABLE "apartment_types" (
     "id" BIGSERIAL NOT NULL,
-    "name" TEXT NOT NULL,
+    "name_uz" TEXT NOT NULL,
+    "name_uz_cyrl" TEXT NOT NULL,
+    "name_ru" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -131,11 +141,17 @@ CREATE TABLE "apartment_types" (
 -- CreateTable
 CREATE TABLE "apartments" (
     "id" BIGSERIAL NOT NULL,
-    "adress" TEXT NOT NULL,
+    "adress_uz" TEXT NOT NULL,
+    "adress_uz_cyrl" TEXT NOT NULL,
+    "adress_ru" TEXT NOT NULL,
     "regionId" BIGINT NOT NULL,
     "roomCount" INTEGER,
-    "desc" TEXT,
-    "title" TEXT NOT NULL,
+    "desc_uz" TEXT,
+    "desc_uz_cyrl" TEXT,
+    "desc_ru" TEXT,
+    "title_uz" TEXT NOT NULL,
+    "title_uz_cyrl" TEXT NOT NULL,
+    "title_ru" TEXT NOT NULL,
     "img" TEXT[],
     "area" DOUBLE PRECISION NOT NULL,
     "pricePerMetr" DOUBLE PRECISION NOT NULL,
@@ -162,7 +178,13 @@ CREATE INDEX "users_role_idx" ON "users"("role");
 CREATE INDEX "users_status_idx" ON "users"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "salary_types_name_key" ON "salary_types"("name");
+CREATE UNIQUE INDEX "salary_types_name_uz_key" ON "salary_types"("name_uz");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "salary_types_name_uz_cyrl_key" ON "salary_types"("name_uz_cyrl");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "salary_types_name_ru_key" ON "salary_types"("name_ru");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "master_profiles_userId_key" ON "master_profiles"("userId");
@@ -171,7 +193,13 @@ CREATE UNIQUE INDEX "master_profiles_userId_key" ON "master_profiles"("userId");
 CREATE INDEX "master_profiles_salaryTypeId_idx" ON "master_profiles"("salaryTypeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "jobs_name_key" ON "jobs"("name");
+CREATE UNIQUE INDEX "jobs_name_uz_key" ON "jobs"("name_uz");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "jobs_name_uz_cyrl_key" ON "jobs"("name_uz_cyrl");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "jobs_name_ru_key" ON "jobs"("name_ru");
 
 -- CreateIndex
 CREATE INDEX "master_jobs_masterIId_idx" ON "master_jobs"("masterIId");
@@ -186,7 +214,13 @@ CREATE INDEX "master_ratings_masterProfileId_idx" ON "master_ratings"("masterPro
 CREATE INDEX "master_ratings_userId_idx" ON "master_ratings"("userId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "apartment_types_name_key" ON "apartment_types"("name");
+CREATE UNIQUE INDEX "apartment_types_name_uz_key" ON "apartment_types"("name_uz");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "apartment_types_name_uz_cyrl_key" ON "apartment_types"("name_uz_cyrl");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "apartment_types_name_ru_key" ON "apartment_types"("name_ru");
 
 -- CreateIndex
 CREATE INDEX "apartments_sellerId_idx" ON "apartments"("sellerId");
@@ -201,28 +235,28 @@ CREATE INDEX "apartments_apartmentStatus_idx" ON "apartments"("apartmentStatus")
 CREATE INDEX "apartments_regionId_idx" ON "apartments"("regionId");
 
 -- AddForeignKey
-ALTER TABLE "users" ADD CONSTRAINT "users_regionId_fkey" FOREIGN KEY ("regionId") REFERENCES "regions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "users" ADD CONSTRAINT "users_regionId_fkey" FOREIGN KEY ("regionId") REFERENCES "regions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "master_profiles" ADD CONSTRAINT "master_profiles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "master_profiles" ADD CONSTRAINT "master_profiles_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "master_profiles" ADD CONSTRAINT "master_profiles_salaryTypeId_fkey" FOREIGN KEY ("salaryTypeId") REFERENCES "salary_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "master_profiles" ADD CONSTRAINT "master_profiles_salaryTypeId_fkey" FOREIGN KEY ("salaryTypeId") REFERENCES "salary_types"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "master_jobs" ADD CONSTRAINT "master_jobs_masterIId_fkey" FOREIGN KEY ("masterIId") REFERENCES "master_profiles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "master_jobs" ADD CONSTRAINT "master_jobs_masterIId_fkey" FOREIGN KEY ("masterIId") REFERENCES "master_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "master_jobs" ADD CONSTRAINT "master_jobs_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "jobs"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "master_jobs" ADD CONSTRAINT "master_jobs_jobId_fkey" FOREIGN KEY ("jobId") REFERENCES "jobs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "master_ratings" ADD CONSTRAINT "master_ratings_masterProfileId_fkey" FOREIGN KEY ("masterProfileId") REFERENCES "master_profiles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "master_ratings" ADD CONSTRAINT "master_ratings_masterProfileId_fkey" FOREIGN KEY ("masterProfileId") REFERENCES "master_profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "master_ratings" ADD CONSTRAINT "master_ratings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "master_ratings" ADD CONSTRAINT "master_ratings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "apartments" ADD CONSTRAINT "apartments_apartemtnTypeId_fkey" FOREIGN KEY ("apartemtnTypeId") REFERENCES "apartment_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "apartments" ADD CONSTRAINT "apartments_apartemtnTypeId_fkey" FOREIGN KEY ("apartemtnTypeId") REFERENCES "apartment_types"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "apartments" ADD CONSTRAINT "apartments_sellerId_fkey" FOREIGN KEY ("sellerId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "apartments" ADD CONSTRAINT "apartments_sellerId_fkey" FOREIGN KEY ("sellerId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
