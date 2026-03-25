@@ -80,7 +80,7 @@ export class UserService {
   async getOneUserArchived(id: number) {
     return this.prisma.user.findFirst({
       where: {
-        id: BigInt(id),
+        id: id,
         status: 'INACTIVE',
       },
       include: {
@@ -96,8 +96,8 @@ export class UserService {
     if (existsUser) throw new ConflictException('User already exists');
 
     if (payload.regionId) {
-      const existsRegion = await this.prisma.user.findUnique({
-        where: { id: BigInt(payload.regionId) },
+      const existsRegion = await this.prisma.region.findUnique({
+        where: { id: payload.regionId },
       });
       if (!existsRegion) throw new NotFoundException('Region not found');
     }
@@ -107,7 +107,7 @@ export class UserService {
         firstName: payload.firstName,
         lastName: payload.lastName,
         phone: payload.phone,
-        regionId: payload.regionId ? BigInt(payload.regionId) : null,
+        regionId: payload.regionId ? payload.regionId : null,
         age: payload.age,
         role: payload.role,
         status: payload.status,
@@ -120,7 +120,7 @@ export class UserService {
 
   async updateUser(id: number, payload: UpdateUserDto) {
     const user = await this.prisma.user.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: id },
     });
     if (!user) throw new NotFoundException('User not found');
 
@@ -128,7 +128,7 @@ export class UserService {
       const existsPhone = await this.prisma.user.findFirst({
         where: {
           phone: payload.phone,
-          NOT: { id: BigInt(id) },
+          NOT: { id: id },
         },
       });
       if (existsPhone && user.phone !== payload.phone)
@@ -137,13 +137,13 @@ export class UserService {
 
     if (payload.regionId) {
       const existsRegion = await this.prisma.region.findUnique({
-        where: { id: BigInt(payload.regionId) },
+        where: { id: payload.regionId },
       });
       if (!existsRegion) throw new NotFoundException('Region not found');
     }
 
     return this.prisma.user.update({
-      where: { id: BigInt(id) },
+      where: { id: id },
       data: {
         firstName: payload.firstName,
         lastName: payload.lastName,
@@ -153,7 +153,7 @@ export class UserService {
         status: payload.status,
         gender: payload.gender,
         email: payload.email,
-        regionId: payload.regionId ? BigInt(payload.regionId) : undefined,
+        regionId: payload.regionId ? payload.regionId : undefined,
       },
       include: { region: true },
     });
@@ -161,24 +161,24 @@ export class UserService {
 
   async updateStatusToogle(id: number) {
     const user = await this.prisma.user.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: id },
     });
     if (!user) throw new NotFoundException('User not found');
 
     return this.prisma.user.update({
-      where: { id: BigInt(id) },
+      where: { id: id },
       data: { status: user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' },
     });
   }
 
   async deleteUser (id: number) {
     const user = await this.prisma.user.findUnique({
-      where: { id: BigInt(id) },
+      where: { id: id },
     });
     if (!user) throw new NotFoundException('User not found');
 
     return this.prisma.user.delete({
-      where: { id: BigInt(id) },
+      where: { id: id },
     });
   }
 

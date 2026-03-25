@@ -49,7 +49,7 @@ enum LocationType {
 }
 
 model Region {
-    id                BigInt   @id @default(autoincrement())
+    id                Int   @id @default(autoincrement())
     nameUz            String   @map("name_uz")
     nameUzCyrl        String   @map("name_uz_cyrl")
     nameRu            String   @map("name_ru")
@@ -65,14 +65,14 @@ model Region {
 }
 
 model User {
-    id        BigInt      @id @default(autoincrement())
+    id        Int      @id @default(autoincrement())
     firstName String?
     lastName  String?
     age       Int?
     gender    Gender?
     phone     String      @unique
     email     String?
-    regionId  BigInt?
+    regionId  Int?
     role      UserRole
     status    UserStatus? @default(ACTIVE)
     createdAt DateTime    @default(now()) @map("created_at")
@@ -90,7 +90,7 @@ model User {
 }
 
 model SalaryType {
-    id         BigInt   @id @default(autoincrement())
+    id         Int   @id @default(autoincrement())
     nameUz     String   @unique @map("name_uz")
     nameUzCyrl String   @unique @map("name_uz_cyrl")
     nameRu     String   @unique @map("name_ru")
@@ -103,11 +103,11 @@ model SalaryType {
 }
 
 model MasterProfile {
-    id           BigInt   @id @default(autoincrement())
-    userId       BigInt   @unique
+    id           Int   @id @default(autoincrement())
+    userId       Int   @unique
     experience   Int
     salary       Int
-    salaryTypeId BigInt
+    salaryTypeId Int
     address      String?  @map("adress")
     createdAt    DateTime @default(now()) @map("created_at")
     updatedAt    DateTime @updatedAt @map("updated_at")
@@ -122,7 +122,7 @@ model MasterProfile {
 }
 
 model Job {
-    id         BigInt    @id @default(autoincrement())
+    id         Int    @id @default(autoincrement())
     nameUz     String    @unique @map("name_uz")
     nameUzCyrl String    @unique @map("name_uz_cyrl")
     nameRu     String    @unique @map("name_ru")
@@ -136,9 +136,9 @@ model Job {
 }
 
 model MasterJob {
-    id           BigInt   @id @default(autoincrement())
-    masterInfoId BigInt   @map("masterIId")
-    jobId        BigInt
+    id           Int   @id @default(autoincrement())
+    masterInfoId Int   @map("masterIId")
+    jobId        Int
     experience   Int
     desc         String
     createdAt    DateTime @default(now()) @map("created_at")
@@ -153,11 +153,11 @@ model MasterJob {
 }
 
 model MasterRating {
-    id              BigInt   @id @default(autoincrement())
+    id              Int   @id @default(autoincrement())
     rating          Int
     desc            String?
-    masterProfileId BigInt
-    userId          BigInt
+    masterProfileId Int
+    userId          Int
     createdAt       DateTime @default(now()) @map("created_at")
     updatedAt       DateTime @updatedAt @map("updated_at")
 
@@ -170,7 +170,7 @@ model MasterRating {
 }
 
 model Banner {
-    id        BigInt       @id @default(autoincrement())
+    id        Int       @id @default(autoincrement())
     img       String
     imgType   ImgType
     link      String?
@@ -182,7 +182,7 @@ model Banner {
 }
 
 model ApartmentType {
-    id         BigInt   @id @default(autoincrement())
+    id         Int   @id @default(autoincrement())
     nameUz     String   @unique @map("name_uz")
     nameUzCyrl String   @unique @map("name_uz_cyrl")
     nameRu     String   @unique @map("name_ru")
@@ -195,11 +195,11 @@ model ApartmentType {
 }
 
 model Apartment {
-    id              BigInt          @id @default(autoincrement())
+    id              Int          @id @default(autoincrement())
     addressUz       String          @map("adress_uz")
     addressUzCyrl   String          @map("adress_uz_cyrl")
     addressRu       String          @map("adress_ru")
-    regionId        BigInt
+    regionId        Int
     roomCount       Int?
     descUz          String?         @map("desc_uz")
     descUzCyrl      String?         @map("desc_uz_cyrl")
@@ -211,9 +211,9 @@ model Apartment {
     area            Float
     pricePerMetr    Float
     price           Float?
-    apartmentTypeId BigInt          @map("apartemtnTypeId")
+    apartmentTypeId Int          @map("apartemtnTypeId")
     apartmentStatus ApartmentStatus
-    sellerId        BigInt
+    sellerId        Int
     createdAt       DateTime        @default(now()) @map("created_at")
     updatedAt       DateTime        @updatedAt @map("updated_at")
 
