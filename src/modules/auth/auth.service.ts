@@ -22,7 +22,7 @@ export class AuthService {
         return await this.sms.sendSMS(message, phone);
     }
 
-    
+
     async sendBookingInfo(phone: string) {
         const message = `Assalomu alaykum! China City'dan tanlagan xonadoningiz bron qilindi. Bron 3 kun amal qiladi. Shu vaqt ichida shartnoma tuzib, aksiya va bonuslardan foydalaning.`;
 

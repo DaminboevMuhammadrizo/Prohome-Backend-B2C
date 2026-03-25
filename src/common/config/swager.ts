@@ -18,17 +18,7 @@ export class SwaggerRootConfig {
             explorer: true,
             swaggerOptions: {
                 filter: true,
-                persistAuthorization: true,
-                urls: [
-                    {
-                        name: 'Prohome',
-                        url: '/prohome/swagger-json',
-                    },
-                    {
-                        name: 'CRM',
-                        url: '/crm/swagger-json',
-                    },
-                ],
+                persistAuthorization: true
             },
         });
 
