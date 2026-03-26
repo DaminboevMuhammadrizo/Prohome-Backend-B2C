@@ -35,9 +35,9 @@ export class AuthService {
         await this.redis.set(`register-otp:${dto.phone}`, otp, 120);
 
         const messages = {
-            uz: `ProHome: Tasdiqlash kodi: ${otp}. Kodni hech kimga bermang!`,
-            ru: `ProHome: Код подтверждения: ${otp}. Никому не сообщайте код!`,
-            en: `ProHome: Verification code: ${otp}. Never share this code!`,
+            uz: `"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp} `,
+            // ru: `ProHome: Код подтверждения: ${otp}. Никому не сообщайте код!`,
+            // en: `ProHome: Verification code: ${otp}. Never share this code!`,
         };
 
         await this.sms.sendSMS(messages[dto.lang], dto.phone);
