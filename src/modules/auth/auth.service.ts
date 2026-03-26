@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { JwtServices } from 'src/common/config/jwt/jwt.service';
-import { Gender, UserRole, UserStatus } from '@prisma/client';
+import { UserStatus } from '@prisma/client';
 import { RegisterAuthDto, SendOtpDto } from './dto/register.dto';
 import { RedisService } from 'src/common/config/redis/redis.service';
 import { SmsService } from 'src/common/services/sms.service';
