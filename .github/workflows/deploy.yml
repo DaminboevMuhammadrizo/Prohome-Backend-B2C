@@ -1,0 +1,55 @@
+name: Deploy ProHome B2C Backend to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          timeout: 60s
+          command_timeout: 30m
+          script: |
+            set -e
+            echo "📁 Creating app folder..."
+            mkdir -p /var/www/prohome/b2c/backend
+            cd /var/www/prohome/b2c/backend
+
+            if [ ! -d ".git" ]; then
+              echo "📥 Cloning private repository..."
+              git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/DaminboevMuhammadrizo/Prohome-Backend-B2C .
+            else
+              echo "♻️ Pulling latest code..."
+              git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/DaminboevMuhammadrizo/Prohome-Backend-B2C
+              git reset --hard
+              git pull origin main
+            fi
+
+            echo "🛑 Managing containers..."
+            # Eski kesh qoldiqlarini va to'xtagan containerlarni tozalash
+            docker compose down --remove-orphans || true
+
+            echo "🛠️ Building and Starting..."
+            # --no-cache qo'shildi: "parent snapshot not found" xatosini yo'qotadi
+            docker compose build --no-cache
+            docker compose up -d
+
+            echo "🧹 Cleaning up..."
+            # Faqat ishlamayotgan build keshlarini tozalash
+            docker builder prune -f
+            docker image prune -f
+
+            echo "🎉 ProHome Deploy finished successfully!"
