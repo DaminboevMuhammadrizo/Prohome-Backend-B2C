@@ -5,7 +5,6 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm install -g prisma@7.2.0
 RUN npm ci
 
 COPY . .
@@ -26,7 +25,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-RUN npm install -g prisma@7.4.2
+RUN npm install -g prisma@7.2.0
 
 EXPOSE 4000
 
