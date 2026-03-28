@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:15
-    container_name: prohome_postgres
+    container_name: prohome_b2c_postgres
     restart: always
     environment:
       POSTGRES_USER: postgres
@@ -19,12 +19,12 @@ services:
 
   app:
     build: .
-    container_name: prohome_app
+    container_name: prohome_b2c_app
     restart: always
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "3001:3001"
     depends_on:
       db:
         condition: service_healthy
