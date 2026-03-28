@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 2008
-      POSTGRES_DB: prohome_db
+      POSTGRES_DB: prohome_b2c_db
     ports:
       - "5432:5432"
     volumes:
