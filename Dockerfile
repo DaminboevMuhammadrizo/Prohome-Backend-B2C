@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm install -g prisma@7.4.2
+RUN npm install -g prisma@7.2.0
 RUN npm ci
 
 COPY . .
