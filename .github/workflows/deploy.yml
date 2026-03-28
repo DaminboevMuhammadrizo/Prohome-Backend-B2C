@@ -22,6 +22,7 @@ jobs:
           port: 22
           timeout: 60s
           command_timeout: 30m
+          envs: GH_TOKEN
           script: |
             set -e
             echo "📁 Creating app folder..."
@@ -30,26 +31,26 @@ jobs:
 
             if [ ! -d ".git" ]; then
               echo "📥 Cloning private repository..."
-              git clone https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/DaminboevMuhammadrizo/Prohome-Backend-B2C .
+              # Bu yerda secrets.GH_TOKEN emas, shunchaki $GH_TOKEN (envs dan keladi)
+              git clone https://x-access-token:${GH_TOKEN}@github.com/DaminboevMuhammadrizo/Prohome-Backend-B2C .
             else
               echo "♻️ Pulling latest code..."
-              git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/DaminboevMuhammadrizo/Prohome-Backend-B2C
+              git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/DaminboevMuhammadrizo/Prohome-Backend-B2C
               git reset --hard
               git pull origin main
             fi
 
             echo "🛑 Managing containers..."
-            # Eski kesh qoldiqlarini va to'xtagan containerlarni tozalash
             docker compose down --remove-orphans || true
 
             echo "🛠️ Building and Starting..."
-            # --no-cache qo'shildi: "parent snapshot not found" xatosini yo'qotadi
             docker compose build --no-cache
             docker compose up -d
 
             echo "🧹 Cleaning up..."
-            # Faqat ishlamayotgan build keshlarini tozalash
             docker builder prune -f
             docker image prune -f
 
             echo "🎉 ProHome Deploy finished successfully!"
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
