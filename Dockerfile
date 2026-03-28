@@ -9,21 +9,24 @@ RUN npm ci
 COPY prisma ./prisma
 COPY . .
 
+RUN npx prisma generate
 
-RUN  npx prisma generate
 RUN npm run build
 
 FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package*.json package-lock.json ./
+COPY package*.json ./
+
 RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
-EXPOSE 3000
+EXPOSE 4000
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]
