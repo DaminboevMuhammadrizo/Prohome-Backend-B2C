@@ -6,9 +6,6 @@ COPY package*.json ./
 
 RUN npm ci
 
-RUN npm uninstall prisma @prisma/client || true
-RUN npm install prisma@6.1.0 @prisma/client@6.1.0
-
 COPY prisma ./prisma
 COPY . .
 
