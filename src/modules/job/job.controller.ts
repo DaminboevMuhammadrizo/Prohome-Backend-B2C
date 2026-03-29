@@ -2,23 +2,21 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGua
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { GuardService } from 'src/common/guard/guard.service';
 import { Role } from 'src/common/decorators/role.decorator';
-import { CreateRegionDto } from './dto/create-region.dto';
-import { UpdateRegionDto } from './dto/update-region.dto';
-import { RegionService } from './region.service';
+import { CreateJobDto } from './dto/create-job.dto';
+import { UpdateJobDto } from './dto/update-job.dto';
 import { ApiOperation } from '@nestjs/swagger';
+import { JobService } from './job.service';
 import { UserRole } from '@prisma/client';
 
-@Controller('region')
-export class RegionController {
-    constructor(private readonly service: RegionService) { }
+@Controller('job')
+export class JobController {
+    constructor(private readonly service: JobService) { }
 
-    @ApiOperation({ summary: `ALL` })
     @Get()
     getAll() {
         return this.service.getAll();
     }
 
-    @ApiOperation({ summary: `ALL` })
     @Get(':id')
     getOne(@Param('id', ParseIntPipe) id: number) {
         return this.service.getOne(id);
@@ -28,7 +26,7 @@ export class RegionController {
     @UseGuards(GuardService, RoleGuardService)
     @Role(UserRole.ADMIN)
     @Post()
-    create(@Body() payload: CreateRegionDto) {
+    create(@Body() payload: CreateJobDto) {
         return this.service.create(payload);
     }
 
@@ -38,7 +36,7 @@ export class RegionController {
     @Patch(':id')
     update(
         @Param('id', ParseIntPipe) id: number,
-        @Body() payload: UpdateRegionDto,
+        @Body() payload: UpdateJobDto,
     ) {
         return this.service.update(id, payload);
     }

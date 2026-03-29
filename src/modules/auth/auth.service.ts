@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { JwtServices } from 'src/common/config/jwt/jwt.service';
-import { Gender, UserRole, UserStatus } from '@prisma/client';
+import { UserStatus } from '@prisma/client';
 import { RegisterAuthDto, SendOtpDto } from './dto/register.dto';
 import { RedisService } from 'src/common/config/redis/redis.service';
 import { SmsService } from 'src/common/services/sms.service';
@@ -22,7 +22,7 @@ export class AuthService {
         return await this.sms.sendSMS(message, phone);
     }
 
-    
+
     async sendBookingInfo(phone: string) {
         const message = `Assalomu alaykum! China City'dan tanlagan xonadoningiz bron qilindi. Bron 3 kun amal qiladi. Shu vaqt ichida shartnoma tuzib, aksiya va bonuslardan foydalaning.`;
 
@@ -35,9 +35,9 @@ export class AuthService {
         await this.redis.set(`register-otp:${dto.phone}`, otp, 120);
 
         const messages = {
-            uz: `ProHome: Tasdiqlash kodi: ${otp}. Kodni hech kimga bermang!`,
-            ru: `ProHome: Код подтверждения: ${otp}. Никому не сообщайте код!`,
-            en: `ProHome: Verification code: ${otp}. Never share this code!`,
+            uz: `"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp} `,
+            // ru: `ProHome: Код подтверждения: ${otp}. Никому не сообщайте код!`,
+            // en: `ProHome: Verification code: ${otp}. Never share this code!`,
         };
 
         await this.sms.sendSMS(messages[dto.lang], dto.phone);

@@ -6,20 +6,27 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-   app.useGlobalPipes(
+  app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+      enableImplicitConversion: true,
+    },
     }),
   );
 
+  (BigInt.prototype as any).toJSON = function () {
+    return this.toString();
+  };
+
   app.enableCors({
-    origin:'*'
-  })
+    origin: '*',
+  });
   const config = new DocumentBuilder()
-    .setTitle('ProHome API')
-    .setDescription('ProHome backend API documentation')
+    .setTitle('ProHome B2C API')
+    .setDescription('ProHome B2C backend API documentation')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
@@ -27,6 +34,5 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
   await app.listen(process.env.PORT ?? 3000);
-  
 }
 bootstrap();
