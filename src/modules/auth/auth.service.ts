@@ -48,13 +48,9 @@ export class AuthService {
     async register(payload: RegisterAuthDto) {
         await this.verifyOtp(payload.phone, payload.otp);
 
-        const existsUser = await this.prisma.user.findUnique({
-            where: { phone: payload.phone },
-        });
+        const existsUser = await this.prisma.user.findUnique({ where: { phone: payload.phone } });
 
-        if (existsUser) {
-            return this.generateTokens(existsUser);
-        }
+        if (existsUser) return this.generateTokens(existsUser);
 
         const user = await this.prisma.user.create({
             data: {
