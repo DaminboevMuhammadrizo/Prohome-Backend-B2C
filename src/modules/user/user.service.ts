@@ -6,11 +6,9 @@ import {
 import { PrismaService } from 'src/common/database/prisma.service';
 import { PaginationDto } from './dto/pagination.dto';
 import { CreateUserDto } from './dto/create.user.dto';
-import { UpdateUserDto } from './dto/updater.user.dto';
+import { UpdateUserDto, UpdateUserMeDto } from './dto/updater.user.dto';
 import { JwtPayload } from 'src/common/config/jwt/jwt.service';
 
-
-export type UpdateUserWithoutRoleStatus = Omit<UpdateUserDto, 'role' | 'status'>;
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
@@ -176,7 +174,7 @@ export class UserService {
 
 
 
-  async updateUserMe(user: JwtPayload, payload: UpdateUserWithoutRoleStatus) {
+  async updateUserMe(user: JwtPayload, payload: UpdateUserMeDto) {
     const users = await this.prisma.user.findUnique({
       where: { id: user.id },
     });
