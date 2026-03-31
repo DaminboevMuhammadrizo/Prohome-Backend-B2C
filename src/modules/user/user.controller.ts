@@ -8,12 +8,16 @@ import {
   Delete,
   Query,
   ParseIntPipe,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
-import { UserService } from './user.service';
+import type { UpdateUserWithoutRoleStatus, UserService } from './user.service';
 import { CreateUserDto } from './dto/create.user.dto';
 import { UpdateUserDto } from './dto/updater.user.dto';
 import { PaginationDto } from './dto/pagination.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { GuardService } from 'src/common/guard/guard.service';
+import type  { JwtPayload } from 'src/common/config/jwt/jwt.service';
 
 @ApiTags('Users')
 @Controller('users')
@@ -57,6 +61,16 @@ export class UserController {
     @Body() updateUserDto: UpdateUserDto,
   ) {
     return this.userService.updateUser(id, updateUserDto);
+  }
+
+  @UseGuards(GuardService)
+  @Patch('me')
+  async updateMe(
+    @Req() user: JwtPayload, 
+    @Body() payload: UpdateUserWithoutRoleStatus
+  ) {
+    const data = user 
+    return this.userService.updateUserMe(user, payload);
   }
 
   @Patch('status-toggle/:id')

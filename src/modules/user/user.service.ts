@@ -7,7 +7,10 @@ import { PrismaService } from 'src/common/database/prisma.service';
 import { PaginationDto } from './dto/pagination.dto';
 import { CreateUserDto } from './dto/create.user.dto';
 import { UpdateUserDto } from './dto/updater.user.dto';
+import { JwtPayload } from 'src/common/config/jwt/jwt.service';
 
+
+export type UpdateUserWithoutRoleStatus = Omit<UpdateUserDto, 'role' | 'status'>;
 @Injectable()
 export class UserService {
   constructor(private prisma: PrismaService) {}
@@ -152,7 +155,7 @@ export class UserService {
         role: payload.role,
         status: payload.status,
         gender: payload.gender,
-        email: payload.email,
+        email: payload. email,
         regionId: payload.regionId ? payload.regionId : undefined,
       },
       include: { region: true },
@@ -168,6 +171,47 @@ export class UserService {
     return this.prisma.user.update({
       where: { id: id },
       data: { status: user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' },
+    });
+  }
+
+
+
+  async updateUserMe(user: JwtPayload, payload: UpdateUserWithoutRoleStatus) {
+    const users = await this.prisma.user.findUnique({
+      where: { id: user.id },
+    });
+    if (!users) throw new NotFoundException('User not found');
+
+    if (payload.phone && payload.phone !== users.phone) {
+      const existsPhone = await this.prisma.user.findFirst({
+        where: {
+          phone: payload.phone,
+          NOT: { id: users.id },
+        },
+      });
+      if (existsPhone && users.phone !== payload.phone)
+        throw new ConflictException('Phone  already exists');
+    }
+
+    if (payload.regionId) {
+      const existsRegion = await this.prisma.region.findUnique({
+        where: { id: payload.regionId },
+      });
+      if (!existsRegion) throw new NotFoundException('Region not found');
+    }
+
+    return this.prisma.user.update({
+      where: { id: users.id },
+      data: {
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        phone: payload.phone,
+        age: payload.age,
+        gender: payload.gender,
+        email: payload.email,
+        regionId: payload.regionId ? payload.regionId : undefined,
+      },
+      include: { region: true },
     });
   }
 
