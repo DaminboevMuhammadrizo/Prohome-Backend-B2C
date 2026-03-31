@@ -1,90 +1,62 @@
-// import { Injectable, OnModuleInit } from "@nestjs/common";
-// import { PrismaService } from "../database/prisma.service";
-// import { hashPassword } from "../config/bcrypt";
-// import { UserRole } from "@prisma/client";
+import { Injectable, OnModuleInit, Logger } from "@nestjs/common";
+import { PrismaService } from "../database/prisma.service";
+import { hashPassword } from "../config/bcrypt";
+import { UserRole, UserStatus, Gender } from "@prisma/client";
+import { ConfigService } from "@nestjs/config";
 
-// @Injectable()
-// export class SeederService implements OnModuleInit {
-//     constructor(private prisma: PrismaService) { }
+@Injectable()
+export class SeederService implements OnModuleInit {
+    private readonly logger = new Logger(SeederService.name);
 
-//     async onModuleInit() {
-//         await this.seedMinimal();
-//     }
+    constructor(private prisma: PrismaService, private configService: ConfigService) { }
 
-//     async seedMinimal() {
-//         const companyData = {
-//             name: "ProHome",
-//             phoneNumber: "+998901234567",
-//             managerName: "Super Admin",
-//             description: "Default company",
-//             status: true,
-//         };
+    async onModuleInit() {
+        await this.seedMinimal();
+    }
 
-//         const adminData = {
-//             email: "superAdmin@gmail.com",
-//             password: "superAdmin123",
-//             fullName: "Omadbek",
-//             role: UserRole.SUPERADMIN,
-//         };
+    async seedMinimal() {
+        await this.createAdmin();
+    }
 
-//         await this.prisma.$transaction(
-//             async (tx) => {
-//                 // 1) Permission (minimal kerak bo‘lsa)
-//                 let permission = await tx.permission.findFirst({
-//                     where: { CRM: true, PROHOME: true },
-//                 });
+    private async createAdmin() {
+        try {
+            const adminPhone = this.configService.get<string>('ADMIN_PHONE');
+            const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
 
-//                 if (!permission) {
-//                     permission = await tx.permission.create({
-//                         data: { CRM: true, PROHOME: true },
-//                     });
-//                 }
+            if (!adminPhone || !adminPassword) {
+                this.logger.warn('⚠️ ADMIN_PHONE or ADMIN_PASSWORD not found in .env, skipping admin creation');
+                return;
+            }
 
-//                 // 2) Company
-//                 const company = await tx.company.upsert({
-//                     where: { name: companyData.name },
-//                     update: {
-//                         phoneNumber: companyData.phoneNumber,
-//                         managerName: companyData.managerName,
-//                         description: companyData.description,
-//                         status: companyData.status,
-//                         permissionId: permission.id,
-//                     },
-//                     create: {
-//                         ...companyData,
-//                         permissionId: permission.id,
-//                     },
-//                 });
+            const existingAdmin = await this.prisma.user.findUnique({ where: { phone: adminPhone } });
 
+            if (existingAdmin) {
+                this.logger.log('✅ Admin already exists');
+                return;
+            }
 
-//                 // 5) SuperAdmin User
-//                 const passwordHash = await hashPassword(adminData.password);
+            const hashedPassword = await hashPassword(adminPassword);
 
-//                 await tx.user.upsert({
-//                     where: { email: adminData.email },
-//                     update: {
-//                         companyId: company.id,
-//                         permissionId: permission.id,
-//                         role: adminData.role,
-//                         fullName: adminData.fullName,
-//                         password: passwordHash,
-//                     },
-//                     create: {
-//                         companyId: company.id,
-//                         permissionId: permission.id,
-//                         email: adminData.email,
-//                         password: passwordHash,
-//                         role: adminData.role,
-//                         fullName: adminData.fullName,
-//                     },
-//                 });
+            const admin = await this.prisma.user.create({
+                data: {
+                    firstName: "Admin",
+                    lastName: null,
+                    age: null,
+                    gender: Gender.MALE,
+                    phone: adminPhone,
+                    email: null,
+                    regionId: null,
+                    role: UserRole.ADMIN,
+                    status: UserStatus.ACTIVE,
+                    password: hashedPassword
+                }
+            });
 
-//                 console.table({
-//                     company: company.name,
-//                     admin: adminData.email,
-//                 });
-//             },
-//             { timeout: 50000 }
-//         );
-//     }
-// }
+            this.logger.log(`✅ Admin created successfully: ${admin.firstName} (ID: ${admin.id})`);
+
+        } catch (error) {
+            this.logger.error('❌ Failed to create admin:', error);
+            throw error;
+        }
+    }
+}

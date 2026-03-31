@@ -6,6 +6,8 @@ import { RegisterAuthDto, SendOtpDto } from './dto/register.dto';
 import { RedisService } from 'src/common/config/redis/redis.service';
 import { SmsService } from 'src/common/services/sms.service';
 import { LoginAuthDto } from './dto/login.dto';
+import { Login2Dto } from './dto/login2.dto';
+import { compirePassword } from 'src/common/config/bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -96,5 +98,14 @@ export class AuthService {
         ]);
 
         return { safeUser: user, accessToken, refreshToken };
+    }
+
+    async login2(payload: Login2Dto) {
+        const user = await this.prisma.user.findUnique({ where: { phone: payload.phone } })
+        if (!user) throw new UnauthorizedException('Invalid creadentails')
+        if (!user.password) throw new UnauthorizedException('Invalid creadentails')
+        if (!await compirePassword(payload.password, user.password)) throw new UnauthorizedException('Invalid creadentails')
+        const { password, ...user1 } = user
+        return this.generateTokens(user1);
     }
 }
