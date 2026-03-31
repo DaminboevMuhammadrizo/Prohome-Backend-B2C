@@ -6,6 +6,7 @@ import { MasterModule } from './master/master.module';
 @Module({
     controllers: [UserController],
     providers: [UserService],
+    exports:[UserService],
     imports: [MasterModule],
 })
 export class UserModule { }
