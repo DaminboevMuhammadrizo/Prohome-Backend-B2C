@@ -1,51 +1,64 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards } from '@nestjs/common';
-import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
-import { GuardService } from 'src/common/guard/guard.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { Role } from 'src/common/decorators/role.decorator';
+import { GuardService } from 'src/common/guard/guard.service';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
-import { ApiOperation } from '@nestjs/swagger';
 import { JobService } from './job.service';
-import { UserRole } from '@prisma/client';
 
-@Controller('job')
+@ApiTags('Job Categories')
+@Controller('job-categories')
 export class JobController {
-    constructor(private readonly service: JobService) { }
+  constructor(private readonly jobService: JobService) {}
 
-    @Get()
-    getAll() {
-        return this.service.getAll();
-    }
+  @Get()
+  @ApiOperation({ summary: 'Kasb kategoriyalari ro‘yxati' })
+  getAll() {
+    return this.jobService.getAll();
+  }
 
-    @Get(':id')
-    getOne(@Param('id', ParseIntPipe) id: number) {
-        return this.service.getOne(id);
-    }
+  @Get(':id')
+  @ApiOperation({ summary: 'Bitta kasb kategoriyasi' })
+  getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.jobService.getOne(id);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}` })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN)
-    @Post()
-    create(@Body() payload: CreateJobDto) {
-        return this.service.create(payload);
-    }
+  @Post()
+  @ApiBearerAuth()
+  @UseGuards(GuardService, RoleGuardService)
+  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Kasb kategoriyasi yaratish' })
+  create(@Body() dto: CreateJobDto) {
+    return this.jobService.create(dto);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}` })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN)
-    @Patch(':id')
-    update(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() payload: UpdateJobDto,
-    ) {
-        return this.service.update(id, payload);
-    }
+  @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(GuardService, RoleGuardService)
+  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Kasb kategoriyasini yangilash' })
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateJobDto) {
+    return this.jobService.update(id, dto);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}` })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN)
-    @Delete(':id')
-    delete(@Param('id', ParseIntPipe) id: number) {
-        return this.service.delete(id);
-    }
+  @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(GuardService, RoleGuardService)
+  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Kasb kategoriyasini o‘chirish' })
+  delete(@Param('id', ParseIntPipe) id: number) {
+    return this.jobService.delete(id);
+  }
 }

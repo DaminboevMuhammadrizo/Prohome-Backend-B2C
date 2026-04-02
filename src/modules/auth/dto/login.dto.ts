@@ -1,14 +1,14 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsString, IsNotEmpty, Length } from "class-validator";
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, Length } from 'class-validator';
 
 export class LoginAuthDto {
-  @ApiProperty()
+  @ApiProperty({ example: '+998901234567' })
   @IsString()
   @IsNotEmpty()
-  @Length(9, 13)
+  @Length(9, 20)
   phone: string;
 
-  @ApiProperty()
+  @ApiProperty({ example: '123456' })
   @IsString()
   @IsNotEmpty()
   @Length(6, 6)

@@ -1,109 +1,29 @@
-import { ApiPropertyOptional } from "@nestjs/swagger";
-import { Gender, UserRole, UserStatus } from "@prisma/client";
-import { Transform } from "class-transformer";
-import { IsEmail, IsEnum, IsNumber, IsOptional, IsPhoneNumber, IsString } from "class-validator";
+import { PartialType } from '@nestjs/swagger';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Length,
+  Min,
+  MinLength,
+} from 'class-validator';
+import { UserRole } from '@prisma/client';
+import { CreateUserDto } from './create.user.dto';
 
-export class UpdateUserDto {
+export class UpdateUserMeDto extends PartialType(CreateUserDto) {}
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    firstName?: string
+export class UpdateUserDto extends PartialType(CreateUserDto) {
+  @ApiPropertyOptional({ enum: UserRole })
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    lastName?: string
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    @Transform(({ value }) => (value === "" || value === null ? undefined : Number(value)))
-    age?: number
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsEnum(Gender)
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    gender?: Gender
-
-    @ApiPropertyOptional() 
-    @IsPhoneNumber('UZ')
-    @IsOptional()
-    @IsString()
-    phone?: string
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    @IsEmail()
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    email?: string
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    @Transform(({ value }) => (value === "" || value === null ? undefined : Number(value))) 
-    regionId?: number
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsEnum(UserRole)
-    role?: UserRole
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsEnum(UserStatus)
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    status?: UserStatus
-}
-
-
-
-export class UpdateUserMeDto {
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    firstName?: string
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    lastName?: string
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    @Transform(({ value }) => (value === "" || value === null ? undefined : Number(value)))
-    age?: number
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsEnum(Gender)
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    gender?: Gender
-
-    @ApiPropertyOptional() 
-    @IsPhoneNumber('UZ')
-    @IsOptional()
-    @IsString()
-    phone?: string
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    @IsEmail()
-    @Transform(({ value }) => (value === "" ? undefined : value))
-    email?: string
-
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    @Transform(({ value }) => (value === "" || value === null ? undefined : Number(value))) 
-    regionId?: number
+  @ApiPropertyOptional({ example: 'secret123' })
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
 }

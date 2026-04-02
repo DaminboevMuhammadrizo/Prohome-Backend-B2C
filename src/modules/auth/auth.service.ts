@@ -1,111 +1,182 @@
-import { Injectable, NotFoundException, UnauthorizedException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from 'src/common/database/prisma.service';
-import { JwtServices } from 'src/common/config/jwt/jwt.service';
-import { UserStatus } from '@prisma/client';
-import { RegisterAuthDto, SendOtpDto } from './dto/register.dto';
+import {
+    BadRequestException,
+    ConflictException,
+    Injectable,
+    NotFoundException,
+    UnauthorizedException,
+} from '@nestjs/common';
+import { User } from '@prisma/client';
+import { hashPassword, compirePassword } from 'src/common/config/bcrypt';
+import { JwtPayload, JwtServices } from 'src/common/config/jwt/jwt.service';
 import { RedisService } from 'src/common/config/redis/redis.service';
+import { PrismaService } from 'src/common/database/prisma.service';
 import { SmsService } from 'src/common/services/sms.service';
 import { LoginAuthDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
-import { compirePassword } from 'src/common/config/bcrypt';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { OtpPurpose, RegisterAuthDto, SendOtpDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
     constructor(
-        private prisma: PrismaService,
-        private jwt: JwtServices,
-        private redis: RedisService,
-        private sms: SmsService
+        private readonly prisma: PrismaService,
+        private readonly jwt: JwtServices,
+        private readonly redis: RedisService,
+        private readonly sms: SmsService,
     ) { }
 
-    async sendPaymentReminder(phone: string, days: number) {
-        const message = `Assalomu alaykum! China City loyihasidan xarid qilgan xonadoningiz bo'yicha navbatdagi to'lov muddati yaqinlashmoqda To'lov sanasigacha ${days} kun qoldi Wenny Estate`;
+    private normalizePhone(phone: string): string {
+        const trimmed = phone.replace(/\s+/g, '');
 
-        return await this.sms.sendSMS(message, phone);
+        if (!trimmed.startsWith('+') && !/^\d+$/.test(trimmed)) {
+            throw new BadRequestException('Telefon raqami notogri formatda');
+        }
+
+        return trimmed.startsWith('+') ? trimmed : `+${trimmed}`;
     }
 
+    private getOtpKey(phone: string, purpose: OtpPurpose): string {
+        return `otp:${purpose}:${phone}`;
+    }
 
-    async sendBookingInfo(phone: string) {
-        const message = `Assalomu alaykum! China City'dan tanlagan xonadoningiz bron qilindi. Bron 3 kun amal qiladi. Shu vaqt ichida shartnoma tuzib, aksiya va bonuslardan foydalaning.`;
+    private buildPayload(user: Pick<User, 'id' | 'phone' | 'role'>): JwtPayload {
+        return {
+            id: user.id,
+            phone: user.phone,
+            role: user.role,
+        };
+    }
 
-        return await this.sms.sendSMS(message, phone);
+    private sanitizeUser(user: User) {
+        const { password, ...safeUser } = user;
+        return safeUser;
+    }
+
+    private async generateAuthResponse(user: User) {
+        const payload = this.buildPayload(user);
+        const [accessToken, refreshToken] = await Promise.all([
+            this.jwt.generateAccessToken(payload),
+            this.jwt.generateRefreshToken(payload),
+        ]);
+
+        return {
+            user: this.sanitizeUser(user),
+            accessToken,
+            refreshToken,
+        };
     }
 
     async sendOtp(dto: SendOtpDto) {
+        const phone = this.normalizePhone(dto.phone);
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-        await this.redis.set(`register-otp:${dto.phone}`, otp, 120);
-
-        const messages = {
-            uz: `"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp} `,
-            // ru: `ProHome: Код подтверждения: ${otp}. Никому не сообщайте код!`,
-            // en: `ProHome: Verification code: ${otp}. Never share this code!`,
-        };
-
-        await this.sms.sendSMS(messages[dto.lang], dto.phone);
+        await this.redis.set(this.getOtpKey(phone, dto.purpose), otp, 120);
+        await this.sms.sendSMS(`"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp}`, phone);
 
         return { message: 'OTP yuborildi' };
     }
 
-    async register(payload: RegisterAuthDto) {
-        await this.verifyOtp(payload.phone, payload.otp);
+    private async verifyOtp(phone: string, otp: string, purpose: OtpPurpose) {
+        const savedOtp = await this.redis.get(this.getOtpKey(phone, purpose));
 
-        const existsUser = await this.prisma.user.findUnique({ where: { phone: payload.phone } });
-
-        if (existsUser) return this.generateTokens(existsUser);
-
-        const user = await this.prisma.user.create({
-            data: {
-                phone: payload.phone,
-                role: payload.role,
-                status: UserStatus.ACTIVE,
-            },
-        });
-
-        return this.generateTokens(user);
-    }
-
-    async login(payload: LoginAuthDto) {
-        await this.verifyOtp(payload.phone, payload.otp);
-
-        const user = await this.prisma.user.findUnique({
-            where: { phone: payload.phone },
-        });
-
-        if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
-
-        return this.generateTokens(user);
-    }
-
-    private async verifyOtp(phone: string, otp: string) {
-        const savedOtp = await this.redis.get(`register-otp:${phone}`);
         if (!savedOtp) {
             throw new NotFoundException('OTP topilmadi yoki muddati tugagan');
         }
 
         if (savedOtp !== otp) {
-            throw new BadRequestException('OTP noto\'g\'ri');
+            throw new BadRequestException('OTP notogri');
         }
 
-        await this.redis.del(`register-otp:${phone}`);
-
+        await this.redis.del(this.getOtpKey(phone, purpose));
     }
 
-    private async generateTokens(user: any) {
-        const [accessToken, refreshToken] = await Promise.all([
-            this.jwt.generateAccessToken(user),
-            this.jwt.generateRefreshToken(user),
-        ]);
+    async register(dto: RegisterAuthDto) {
+        const phone = this.normalizePhone(dto.phone);
+        await this.verifyOtp(phone, dto.otp, OtpPurpose.REGISTER);
 
-        return { safeUser: user, accessToken, refreshToken };
+        const existingUser = await this.prisma.user.findUnique({
+            where: { phone },
+        });
+
+        if (existingUser) {
+            throw new ConflictException('Bu telefon raqam bilan foydalanuvchi mavjud');
+        }
+
+        if (dto.regionId) {
+            const region = await this.prisma.region.findUnique({
+                where: { id: dto.regionId },
+            });
+
+            if (!region) {
+                throw new NotFoundException('Region topilmadi');
+            }
+        }
+
+        const user = await this.prisma.user.create({
+            data: {
+                phone,
+                firstName: dto.firstName,
+                lastName: dto.lastName,
+                password: await hashPassword(dto.password),
+                regionId: dto.regionId,
+            },
+        });
+
+        return this.generateAuthResponse(user);
     }
 
-    async login2(payload: Login2Dto) {
-        const user = await this.prisma.user.findUnique({ where: { phone: payload.phone } })
-        if (!user) throw new UnauthorizedException('Invalid creadentails')
-        if (!user.password) throw new UnauthorizedException('Invalid creadentails')
-        if (!await compirePassword(payload.password, user.password)) throw new UnauthorizedException('Invalid creadentails')
-        const { password, ...user1 } = user
-        return this.generateTokens(user1);
+    async login(dto: LoginAuthDto) {
+        const phone = this.normalizePhone(dto.phone);
+        await this.verifyOtp(phone, dto.otp, OtpPurpose.LOGIN);
+
+        const user = await this.prisma.user.findUnique({
+            where: { phone },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Foydalanuvchi topilmadi');
+        }
+
+        return this.generateAuthResponse(user);
+    }
+
+    async login2(dto: Login2Dto) {
+        const phone = this.normalizePhone(dto.phone);
+        const user = await this.prisma.user.findUnique({
+            where: { phone },
+        });
+
+        if (!user?.password) {
+            throw new UnauthorizedException('Notogri login yoki parol');
+        }
+
+        const isValidPassword = await compirePassword(dto.password, user.password);
+
+        if (!isValidPassword) {
+            throw new UnauthorizedException('Notogri login yoki parol');
+        }
+
+        return this.generateAuthResponse(user);
+    }
+
+    async refresh(dto: RefreshTokenDto) {
+        try {
+            const payload = await this.jwt.verifyRefreshToken(dto.refreshToken);
+            const user = await this.prisma.user.findUnique({
+                where: { id: payload.id },
+            });
+
+            if (!user) {
+                throw new NotFoundException('Foydalanuvchi topilmadi');
+            }
+
+            return this.generateAuthResponse(user);
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+
+            throw new UnauthorizedException('Refresh token notogri yoki eskirgan');
+        }
     }
 }

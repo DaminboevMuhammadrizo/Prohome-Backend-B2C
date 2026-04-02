@@ -1,0 +1,1115 @@
+PROHOME BACKEND API TZ
+
+1. Umumiy ma'lumot
+
+Base URL:
+- Loyihada controller prefiksi yo'q.
+- Misol: /auth/login, /users/me, /apartments
+
+Auth:
+- Protected endpointlar uchun header:
+  Authorization: Bearer <accessToken>
+
+Token response formati:
+{
+  "user": {
+    "id": 1,
+    "phone": "+998901234567",
+    "firstName": "Ali",
+    "lastName": "Valiyev",
+    "role": "USER",
+    "regionId": 1,
+    "createdAt": "2026-04-02T10:00:00.000Z",
+    "updatedAt": "2026-04-02T10:00:00.000Z"
+  },
+  "accessToken": "jwt_access_token",
+  "refreshToken": "jwt_refresh_token"
+}
+
+Pagination query:
+- page: number, default 1
+- limit: number, default 10, max 100
+
+Paginated response formati:
+{
+  "data": [...],
+  "meta": {
+    "page": 1,
+    "limit": 10,
+    "total": 100,
+    "totalPages": 10
+  }
+}
+
+Enumlar:
+- UserRole: SUPERADMIN, ADMIN, USER
+- OtpPurpose: REGISTER, LOGIN
+- BannerLocation: HOME_TOP, HOME_MIDDLE, HOME_BOTTOM, OTHER
+- LayoutStatus: AVAILABLE, SOLD_OUT, COMING_SOON
+- ApartmentListingType: SOTISH, IJARA, SHERIK_KERAK, ALMASHISH
+- ApartmentDealStatus: ACTIVE, SOLD
+
+Validation va xatoliklar:
+- 400: noto'g'ri body/query/param yoki validation xatolari
+- 401: token yo'q, noto'g'ri yoki eskirgan
+- 403: rol yoki ownership yetarli emas
+- 404: obyekt topilmadi
+- 409: duplicate telefon, duplicate rating, duplicate profile kabi holatlar
+
+2. AUTH API
+
+2.1 POST /auth/send-otp
+Description:
+- Telefon raqamga OTP yuboradi.
+
+Access:
+- Public
+
+Body:
+{
+  "phone": "+998901234567",
+  "purpose": "REGISTER"
+}
+
+Response:
+{
+  "message": "OTP yuborildi"
+}
+
+2.2 POST /auth/register
+Description:
+- OTP va parol bilan yangi user ro'yxatdan o'tadi.
+
+Access:
+- Public
+
+Body:
+{
+  "phone": "+998901234567",
+  "firstName": "Ali",
+  "lastName": "Valiyev",
+  "password": "strong-password",
+  "otp": "123456",
+  "regionId": 1
+}
+
+Response:
+- Token response formati qaytadi.
+
+2.3 POST /auth/login
+Description:
+- OTP bilan login qiladi.
+
+Access:
+- Public
+
+Body:
+{
+  "phone": "+998901234567",
+  "otp": "123456"
+}
+
+Response:
+- Token response formati qaytadi.
+
+2.4 POST /auth/login2
+Description:
+- Parol bilan login qiladi.
+
+Access:
+- Public
+
+Body:
+{
+  "phone": "+998901234567",
+  "password": "strong-password"
+}
+
+Response:
+- Token response formati qaytadi.
+
+2.5 POST /auth/refresh
+Description:
+- Refresh token orqali yangi access va refresh token beradi.
+
+Access:
+- Public
+
+Body:
+{
+  "refreshToken": "jwt_refresh_token"
+}
+
+Response:
+- Token response formati qaytadi.
+
+3. PUBLIC API
+
+3.1 GET /regions
+Description:
+- Barcha regionlar ro'yxati.
+
+Access:
+- Public
+
+Query:
+- yo'q
+
+Response:
+- Region[] qaytadi
+- Har bir region ichida parent va children bo'ladi
+
+3.2 GET /regions/:id
+Description:
+- Bitta region
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- Region obyekt
+
+3.3 GET /banners
+Description:
+- Faqat active bannerlar ro'yxati.
+
+Access:
+- Public
+
+Response:
+- Banner[]
+
+3.4 GET /banners/:id
+Description:
+- Bitta banner
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- Banner
+
+3.5 GET /job-categories
+Description:
+- Kasb kategoriyalari ro'yxati.
+
+Access:
+- Public
+
+Response:
+- JobCategory[]
+
+3.6 GET /job-categories/:id
+Description:
+- Bitta kasb kategoriyasi
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- JobCategory
+- profiles relation ham qaytadi
+
+3.7 GET /master-profiles
+Description:
+- Master profillar ro'yxati
+
+Access:
+- Public
+
+Query:
+{
+  "page": 1,
+  "limit": 10
+}
+
+Response:
+- Paginated response
+- data ichida user, category, ratings bor
+
+3.8 GET /master-profiles/:id
+Description:
+- Bitta master profil
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- MasterProfile
+- user, category, ratings, ratings.user qaytadi
+
+3.9 GET /ratings
+Description:
+- Barcha ratinglar
+
+Access:
+- Public
+
+Query:
+{
+  "page": 1,
+  "limit": 10
+}
+
+Response:
+- Paginated response
+
+3.10 GET /ratings/:id
+Description:
+- Bitta rating
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- Rating
+
+3.11 GET /ratings/master/:masterProfileId
+Description:
+- Ma'lum master bo'yicha ratinglar
+
+Access:
+- Public
+
+Param:
+- masterProfileId: number
+
+Query:
+{
+  "page": 1,
+  "limit": 10
+}
+
+Response:
+- Paginated response
+
+3.12 GET /companies
+Description:
+- Barcha companylar
+
+Access:
+- Public
+
+Response:
+- Company[]
+- owner qisqa ma'lumoti bilan
+
+3.13 GET /companies/:id
+Description:
+- Bitta company
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- Company
+- owner va complexes bilan
+
+3.14 GET /complexes
+Description:
+- Barcha complexlar
+
+Access:
+- Public
+
+Response:
+- Complex[]
+- company, region, layouts bilan
+
+3.15 GET /complexes/:id
+Description:
+- Bitta complex
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- Complex
+- company, region, layouts, apartments bilan
+
+3.16 GET /apartment-layouts
+Description:
+- Barcha apartment layoutlar
+
+Access:
+- Public
+
+Response:
+- ApartmentLayout[]
+- complex.company bilan
+
+3.17 GET /apartment-layouts/:id
+Description:
+- Bitta apartment layout
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- ApartmentLayout
+- complex.company va apartments bilan
+
+3.18 GET /apartment-categories
+Description:
+- Apartment kategoriyalari ro'yxati.
+- Misollar: ofis, kotej, novostroyka.
+
+Access:
+- Public
+
+Response:
+- ApartmentCategory[]
+- _count.apartments bilan
+
+3.19 GET /apartment-categories/:id
+Description:
+- Bitta apartment kategoriya
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- ApartmentCategory
+- apartments bilan
+
+3.20 GET /apartments
+Description:
+- Barcha apartmentlar
+
+Access:
+- Public
+
+Response:
+- Apartment[]
+- region, category, seller, complex, layout bilan
+
+3.21 GET /apartments/:id
+Description:
+- Bitta apartment
+
+Access:
+- Public
+
+Param:
+- id: number
+
+Response:
+- Apartment
+- region, category, seller, complex, layout bilan
+
+4. USER API
+
+4.1 GET /users/me
+Description:
+- Login qilgan userning profili
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Headers:
+- Authorization: Bearer <token>
+
+Response:
+- User
+- region va masterProfile.category bilan
+
+4.2 PATCH /users/me
+Description:
+- Login qilgan user o'z profilini update qiladi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Body:
+{
+  "firstName": "Ali",
+  "lastName": "Valiyev",
+  "phone": "+998901234567",
+  "regionId": 1,
+  "password": "new-secret"
+}
+
+Response:
+- Updated user
+
+4.3 GET /master-profiles/me
+Description:
+- O'z master profilini ko'radi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Response:
+- MasterProfile
+- category va ratings bilan
+
+4.4 POST /master-profiles
+Description:
+- User usta bo'lish uchun master profile yaratadi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Body:
+{
+  "categoryId": 1,
+  "bio": "Usta haqida qisqa ma'lumot",
+  "experience": 5,
+  "skills": ["elektr", "santexnik"],
+  "portfolios": ["https://site.uz/1.jpg", "https://site.uz/2.jpg"],
+  "isAvailable": true,
+  "salary": 150
+}
+
+Response:
+- Created masterProfile
+
+4.5 PATCH /master-profiles
+Description:
+- O'z master profilini update qiladi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Body:
+- Yuqoridagi fieldlarning istalgani
+
+Response:
+- Updated masterProfile
+
+4.6 DELETE /master-profiles
+Description:
+- O'z master profilini o'chiradi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Response:
+- Deleted masterProfile
+
+4.7 GET /ratings/me
+Description:
+- Login qilgan userning o'z ratinglari
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Query:
+{
+  "page": 1,
+  "limit": 10
+}
+
+Response:
+- Paginated response
+
+4.8 POST /ratings
+Description:
+- User masterga rating beradi
+- Bir user bir masterga faqat bitta rating bera oladi
+- O'ziga o'zi rating bera olmaydi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Body:
+{
+  "score": 5,
+  "comment": "Juda yaxshi usta",
+  "masterProfileId": 1
+}
+
+Response:
+- Created rating
+
+4.9 PATCH /ratings/:id
+Description:
+- User faqat o'z ratingini update qiladi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Param:
+- id: number
+
+Body:
+{
+  "score": 4,
+  "comment": "Yaxshi ishladi"
+}
+
+Response:
+- Updated rating
+
+4.10 DELETE /ratings/:id
+Description:
+- User faqat o'z ratingini o'chiradi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Param:
+- id: number
+
+Response:
+- Deleted rating
+
+4.11 POST /apartments
+Description:
+- Login qilgan user apartment yaratadi
+- sellerId avtomatik current user bo'ladi
+
+Access:
+- USER, ADMIN, SUPERADMIN
+
+Body:
+{
+  "titleUz": "Yangi kvartira",
+  "titleUzCyrl": "Янги квартира",
+  "titleRu": "Новая квартира",
+  "descriptionUz": "Toza va qulay",
+  "descriptionUzCyrl": "Тоза ва қулай",
+  "descriptionRu": "Чистая и удобная",
+  "price": 75000,
+  "area": 85,
+  "roomCount": 3,
+  "floor": 5,
+  "totalFloors": 9,
+  "landArea": 0,
+  "isCottage": false,
+  "images": ["https://site.uz/1.jpg", "https://site.uz/2.jpg"],
+  "listingType": "SOTISH",
+  "regionId": 1,
+  "categoryId": 1,
+  "address": "Toshkent shahar, Chilonzor",
+  "complexId": 1,
+  "layoutId": 1
+}
+
+Response:
+- Created apartment
+
+4.12 PATCH /apartments/:id
+Description:
+- Apartment egasi yoki admin update qiladi
+
+Access:
+- USER egasi, ADMIN, SUPERADMIN
+
+Param:
+- id: number
+
+Body:
+- Apartment fieldlaridan istalgani
+
+Response:
+- Updated apartment
+
+4.13 PATCH /apartments/:id/status
+Description:
+- Uy sotildi tugmasi uchun ishlatiladi
+- Egasi `dealStatus: SOLD` yuboradi
+
+Access:
+- USER egasi, ADMIN, SUPERADMIN
+
+Param:
+- id: number
+
+Body:
+{
+  "dealStatus": "SOLD"
+}
+
+Response:
+- Updated apartment
+
+4.14 DELETE /apartments/:id
+Description:
+- Apartment egasi yoki admin delete qiladi
+
+Access:
+- USER egasi, ADMIN, SUPERADMIN
+
+Param:
+- id: number
+
+Response:
+- Deleted apartment
+
+5. ADMIN VA SUPERADMIN API
+
+5.1 GET /users
+Description:
+- Foydalanuvchilar ro'yxati
+
+Access:
+- ADMIN, SUPERADMIN
+
+Query:
+{
+  "page": 1,
+  "limit": 10
+}
+
+Response:
+- Paginated response
+
+5.2 GET /users/:id
+Description:
+- Bitta foydalanuvchi
+
+Access:
+- ADMIN, SUPERADMIN
+
+Param:
+- id: number
+
+Response:
+- User
+
+5.3 PATCH /users/:id
+Description:
+- Foydalanuvchi profilini admin update qiladi
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+{
+  "firstName": "Ali",
+  "lastName": "Valiyev",
+  "phone": "+998901234567",
+  "regionId": 1,
+  "role": "ADMIN",
+  "password": "new-secret"
+}
+
+Response:
+- Updated user
+
+5.4 DELETE /users/:id
+Description:
+- Foydalanuvchini delete qiladi
+
+Access:
+- ADMIN, SUPERADMIN
+
+Response:
+- Deleted user
+
+5.5 POST /regions
+Description:
+- Region yaratish
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+{
+  "nameUz": "Toshkent",
+  "nameUzCyrl": "Тошкент",
+  "nameRu": "Ташкент",
+  "countryNameUz": "O'zbekiston",
+  "countryNameUzCyrl": "Ўзбекистон",
+  "countryNameRu": "Узбекистан",
+  "parentId": 1
+}
+
+Response:
+- Created region
+
+5.6 PATCH /regions/:id
+Description:
+- Region update
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+- Region fieldlaridan istalgani
+
+Response:
+- Updated region
+
+5.7 DELETE /regions/:id
+Description:
+- Region delete
+
+Access:
+- ADMIN, SUPERADMIN
+
+Response:
+- Deleted region
+
+5.8 GET /banners/admin/all
+Description:
+- Active va inactive hamma bannerlar
+
+Access:
+- ADMIN, SUPERADMIN
+
+Response:
+- Banner[]
+
+5.9 POST /banners
+Description:
+- Banner yaratish
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+{
+  "image": "https://site.uz/banner.jpg",
+  "link": "https://prohome.uz",
+  "location": "HOME_TOP",
+  "isActive": true
+}
+
+Response:
+- Created banner
+
+5.10 PATCH /banners/:id
+Description:
+- Banner update
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+- Banner fieldlaridan istalgani
+
+Response:
+- Updated banner
+
+5.11 PATCH /banners/:id/status
+Description:
+- Banner active/inactive o'zgartiradi
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+{
+  "isActive": false
+}
+
+Response:
+- Updated banner
+
+5.12 DELETE /banners/:id
+Description:
+- Banner delete
+
+Access:
+- ADMIN, SUPERADMIN
+
+Response:
+- Deleted banner
+
+5.13 POST /job-categories
+Description:
+- Job category yaratish
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+{
+  "nameUz": "Elektrik",
+  "nameUzCyrl": "Электрик",
+  "nameRu": "Электрик"
+}
+
+Response:
+- Created jobCategory
+
+5.14 PATCH /job-categories/:id
+Description:
+- Job category update
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+- Job category fieldlaridan istalgani
+
+Response:
+- Updated jobCategory
+
+5.15 DELETE /job-categories/:id
+Description:
+- Job category delete
+
+Access:
+- ADMIN, SUPERADMIN
+
+Response:
+- Deleted jobCategory
+
+5.16 POST /apartment-categories
+Description:
+- Apartment category yaratish
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+{
+  "nameUz": "Novostroyka",
+  "nameUzCyrl": "Новостройка",
+  "nameRu": "Новостройка"
+}
+
+Response:
+- Created apartmentCategory
+
+5.17 PATCH /apartment-categories/:id
+Description:
+- Apartment category update
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+- Apartment category fieldlaridan istalgani
+
+Response:
+- Updated apartmentCategory
+
+5.18 DELETE /apartment-categories/:id
+Description:
+- Apartment category delete
+
+Access:
+- ADMIN, SUPERADMIN
+
+Response:
+- Deleted apartmentCategory
+
+5.19 POST /companies
+Description:
+- Company yaratadi
+
+Access:
+- ADMIN, SUPERADMIN
+
+Body:
+{
+  "name": "Dream House",
+  "phone": "+998901111111",
+  "password": "secret123",
+  "logo": "https://site.uz/logo.png",
+  "description": "Qurilish kompaniyasi",
+  "website": "https://dreamhouse.uz",
+  "ownerId": 5,
+  "isVerified": true
+}
+
+Response:
+- Created company
+
+5.20 DELETE /companies/:id
+Description:
+- Company delete
+
+Access:
+- ADMIN, SUPERADMIN
+
+Response:
+- Deleted company
+
+6. COMPANY OWNER API
+
+Izoh:
+- Alohida company auth yo'q.
+- Company owner degani user login bo'lib, o'ziga tegishli company bilan ishlaydi.
+- Admin va superadmin ham bu endpointlardan foydalana oladi.
+
+6.1 PATCH /companies/:id
+Description:
+- Company owner o'z companysini update qiladi
+
+Access:
+- Company owner user, ADMIN, SUPERADMIN
+
+Param:
+- id: number
+
+Body:
+{
+  "name": "New Company Name",
+  "phone": "+998902222222",
+  "password": "new-pass",
+  "logo": "https://site.uz/new-logo.png",
+  "description": "Updated description",
+  "website": "https://newsite.uz",
+  "ownerId": 6,
+  "isVerified": true
+}
+
+Response:
+- Updated company
+
+6.2 POST /complexes
+Description:
+- Companyga complex yaratadi
+
+Access:
+- Company owner user, ADMIN, SUPERADMIN
+
+Body:
+{
+  "nameUz": "Yangi Complex",
+  "nameUzCyrl": "Янги Комплекс",
+  "nameRu": "Новый комплекс",
+  "descriptionUz": "Qisqa tavsif",
+  "descriptionUzCyrl": "Қисқа тавсиф",
+  "descriptionRu": "Краткое описание",
+  "address": "Toshkent, Yunusobod",
+  "images": ["https://site.uz/c1.jpg", "https://site.uz/c2.jpg"],
+  "companyId": 1,
+  "regionId": 1,
+  "latitude": 41.31,
+  "longitude": 69.24
+}
+
+Response:
+- Created complex
+
+6.3 PATCH /complexes/:id
+Description:
+- O'z company complexini update qiladi
+
+Access:
+- Company owner user, ADMIN, SUPERADMIN
+
+Body:
+- Complex fieldlaridan istalgani
+
+Response:
+- Updated complex
+
+6.4 DELETE /complexes/:id
+Description:
+- O'z company complexini delete qiladi
+
+Access:
+- Company owner user, ADMIN, SUPERADMIN
+
+Response:
+- Deleted complex
+
+6.5 POST /apartment-layouts
+Description:
+- Complex uchun apartment layout yaratadi
+
+Access:
+- Company owner user, ADMIN, SUPERADMIN
+
+Body:
+{
+  "complexId": 1,
+  "roomCount": 3,
+  "area": 87.5,
+  "priceMin": 65000,
+  "priceMax": 92000,
+  "images": ["https://site.uz/l1.jpg"],
+  "status": "AVAILABLE",
+  "totalUnits": 20
+}
+
+Response:
+- Created apartmentLayout
+
+6.6 PATCH /apartment-layouts/:id
+Description:
+- Layout update
+
+Access:
+- Company owner user, ADMIN, SUPERADMIN
+
+Body:
+- Layout fieldlaridan istalgani
+
+Response:
+- Updated apartmentLayout
+
+6.7 DELETE /apartment-layouts/:id
+Description:
+- Layout delete
+
+Access:
+- Company owner user, ADMIN, SUPERADMIN
+
+Response:
+- Deleted apartmentLayout
+
+7. Qisqa ownership qoidalari
+
+User:
+- /ratings/:id update/delete faqat o'ziniki
+- /master-profiles PATCH/DELETE faqat o'ziniki
+- /apartments/:id PATCH/DELETE/STATUS faqat o'ziniki
+
+Admin va Superadmin:
+- users, regions, banners, job-categories, apartment-categories, companies create/delete boshqaradi
+- ko'p joyda ownership cheklovini bypass qiladi
+
+Company owner:
+- o'z companysini update qiladi
+- o'z companysiga tegishli complex va layoutlarni boshqaradi
+
+8. Tavsiya etiladigan front ishlatish tartibi
+
+Oddiy user flow:
+1. /auth/send-otp
+2. /auth/register yoki /auth/login
+3. accessToken ni saqlash
+4. /users/me orqali profil olish
+5. /master-profiles yoki /apartments yoki /ratings bilan ishlash
+
+Master bo'lish flow:
+1. /job-categories dan category list olish
+2. User formni to'ldiradi
+3. /master-profiles POST qilish
+
+Apartment yaratish flow:
+1. /regions dan region list olish
+2. /apartment-categories dan category list olish
+3. Kerak bo'lsa /complexes va /apartment-layouts dan list olish
+4. /apartments POST qilish
+5. Sotilganda /apartments/:id/status ga {"dealStatus":"SOLD"} yuborish
+
+Company flow:
+1. Admin /companies POST bilan company yaratadi
+2. Company owner login bo'ladi
+3. /complexes va /apartment-layouts endpointlari bilan o'z obyektlarini boshqaradi

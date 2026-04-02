@@ -1,42 +1,43 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterAuthDto, SendOtpDto, TestSmsDto } from './dto/register.dto';
 import { LoginAuthDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterAuthDto, SendOtpDto } from './dto/register.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-    constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
-    @Post('send-otp')
-    @ApiOperation({ summary: 'SMS OTP yuborish' })
-    sendOtp(@Body() dto: SendOtpDto) {
-        return this.authService.sendOtp(dto);
-    }
+  @Post('send-otp')
+  @ApiOperation({ summary: 'Telefon raqamga OTP yuborish' })
+  sendOtp(@Body() dto: SendOtpDto) {
+    return this.authService.sendOtp(dto);
+  }
 
-    @Post('register')
-    @ApiOperation({ summary: 'Ro\'yxatdan o\'tish' })
-    register(@Body() dto: RegisterAuthDto) {
-        return this.authService.register(dto);
-    }
+  @Post('register')
+  @ApiOperation({ summary: 'OTP va parol bilan ro‘yxatdan o‘tish' })
+  register(@Body() dto: RegisterAuthDto) {
+    return this.authService.register(dto);
+  }
 
-    @Post('login')
-    @ApiOperation({ summary: 'Kirish' })
-    login(@Body() dto: LoginAuthDto) {
-        return this.authService.login(dto);
-    }
+  @Post('login')
+  @ApiOperation({ summary: 'OTP bilan kirish' })
+  login(@Body() dto: LoginAuthDto) {
+    return this.authService.login(dto);
+  }
 
+  @Post('login2')
+  @ApiOperation({ summary: 'Parol bilan kirish' })
+  login2(@Body() dto: Login2Dto) {
+    return this.authService.login2(dto);
+  }
 
-    @Post('test-sms-booking')
-    async testSms(@Body() dto: TestSmsDto) {
-        return await this.authService.sendBookingInfo(dto.phone);
-    }
-
-    @Post('login2')
-    @ApiOperation({ summary: 'Kirish' })
-    login2(@Body() payload: Login2Dto) {
-        return this.authService.login2(payload);
-    }
+  @Post('refresh')
+  @ApiOperation({ summary: 'Refresh token orqali yangi token olish' })
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto);
+  }
 }

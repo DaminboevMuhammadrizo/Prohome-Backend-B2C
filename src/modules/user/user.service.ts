@@ -4,224 +4,162 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
-import { PaginationDto } from './dto/pagination.dto';
-import { CreateUserDto } from './dto/create.user.dto';
+import { hashPassword } from 'src/common/config/bcrypt';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { AuthUser } from 'src/common/types/auth-user.type';
 import { UpdateUserDto, UpdateUserMeDto } from './dto/updater.user.dto';
-import { JwtPayload } from 'src/common/config/jwt/jwt.service';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async getAllActive(pagination: PaginationDto) {
-    const page = pagination.page;
-    const limit = pagination.limit;
+  private normalizePhone(phone: string): string {
+    return phone.startsWith('+') ? phone : `+${phone}`;
+  }
 
-    if (page && limit) {
-      return this.prisma.user.findMany({
-        where: {
-          status: 'ACTIVE',
-        },
-        include: {
-          region: true,
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-      });
+  private async ensureRegion(regionId?: number): Promise<void> {
+    if (!regionId) {
+      return;
     }
 
-    return this.prisma.user.findMany({
+    const region = await this.prisma.region.findUnique({ where: { id: regionId } });
+
+    if (!region) {
+      throw new NotFoundException('Region topilmadi');
+    }
+  }
+
+  private async ensureUniquePhone(phone?: string, userId?: number): Promise<string | undefined> {
+    if (!phone) {
+      return undefined;
+    }
+
+    const normalizedPhone = this.normalizePhone(phone);
+    const existingUser = await this.prisma.user.findFirst({
       where: {
-        status: 'ACTIVE',
-      },
-      include: {
-        region: true,
+        phone: normalizedPhone,
+        NOT: userId ? { id: userId } : undefined,
       },
     });
-  }
 
-  async getOneUserActive(id: number) {
-    return this.prisma.user.findUnique({
-      where: {
-        id,
-        status: 'ACTIVE',
-      },
-      include: {
-        region: true,
-      },
-    });
-  }
-
-  async getAllArchived(pagination: PaginationDto) {
-    const page = pagination.page;
-    const limit = pagination.limit;
-    if (page && limit) {
-      return this.prisma.user.findMany({
-        where: {
-          status: 'INACTIVE',
-        },
-        include: {
-          region: true,
-        },
-        skip: (page - 1) * limit,
-        take: limit,
-      });
+    if (existingUser) {
+      throw new ConflictException('Bu telefon raqam avval ro‘yxatdan o‘tgan');
     }
 
-    return this.prisma.user.findMany({
-      where: {
-        status: 'INACTIVE',
-      },
-      include: {
-        region: true,
-      },
-    });
+    return normalizedPhone;
   }
 
-  async getOneUserArchived(id: number) {
-    return this.prisma.user.findFirst({
-      where: {
-        id: id,
-        status: 'INACTIVE',
-      },
-      include: {
-        region: true,
-      },
-    });
-  }
-
-  async createUser(payload: CreateUserDto) {
-    const existsUser = await this.prisma.user.findUnique({
-      where: { phone: payload.phone },
-    });
-    if (existsUser) throw new ConflictException('User already exists');
-
-    if (payload.regionId) {
-      const existsRegion = await this.prisma.region.findUnique({
-        where: { id: payload.regionId },
-      });
-      if (!existsRegion) throw new NotFoundException('Region not found');
-    }
-
-    return this.prisma.user.create({
-      data: {
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        phone: payload.phone,
-        regionId: payload.regionId ? payload.regionId : null,
-        age: payload.age,
-        role: payload.role,
-        status: payload.status,
-        gender: payload.gender,
-        email: payload.email,
-      },
-      include: { region: true },
-    });
-  }
-
-  async updateUser(id: number, payload: UpdateUserDto) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: id },
-    });
-    if (!user) throw new NotFoundException('User not found');
-
-    if (payload.phone) {
-      const existsPhone = await this.prisma.user.findFirst({
-        where: {
-          phone: payload.phone,
-          NOT: { id: id },
-        },
-      });
-      if (existsPhone && user.phone !== payload.phone)
-        throw new ConflictException('Phone  already exists');
-    }
-
-    if (payload.regionId) {
-      const existsRegion = await this.prisma.region.findUnique({
-        where: { id: payload.regionId },
-      });
-      if (!existsRegion) throw new NotFoundException('Region not found');
-    }
-
-    return this.prisma.user.update({
-      where: { id: id },
-      data: {
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        phone: payload.phone,
-        age: payload.age,
-        role: payload.role,
-        status: payload.status,
-        gender: payload.gender,
-        email: payload. email,
-        regionId: payload.regionId ? payload.regionId : undefined,
-      },
-      include: { region: true },
-    });
-  }
-
-  async updateStatusToogle(id: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: id },
-    });
-    if (!user) throw new NotFoundException('User not found');
-
-    return this.prisma.user.update({
-      where: { id: id },
-      data: { status: user.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' },
-    });
-  }
-
-
-
-  async updateUserMe(user: JwtPayload, payload: UpdateUserMeDto) {
-    const users = await this.prisma.user.findUnique({
+  async getMe(user: AuthUser) {
+    const foundUser = await this.prisma.user.findUnique({
       where: { id: user.id },
-    });
-    if (!users) throw new NotFoundException('User not found');
-
-    if (payload.phone && payload.phone !== users.phone) {
-      const existsPhone = await this.prisma.user.findFirst({
-        where: {
-          phone: payload.phone,
-          NOT: { id: users.id },
+      include: {
+        region: true,
+        masterProfile: {
+          include: {
+            category: true,
+          },
         },
-      });
-      if (existsPhone && users.phone !== payload.phone)
-        throw new ConflictException('Phone  already exists');
+      },
+    });
+
+    if (!foundUser) {
+      throw new NotFoundException('Foydalanuvchi topilmadi');
     }
 
-    if (payload.regionId) {
-      const existsRegion = await this.prisma.region.findUnique({
-        where: { id: payload.regionId },
-      });
-      if (!existsRegion) throw new NotFoundException('Region not found');
+    const { password, ...safeUser } = foundUser;
+    return safeUser;
+  }
+
+  async getAll(pagination: PaginationDto) {
+    const page = pagination.page ?? 1;
+    const limit = pagination.limit ?? 10;
+    const skip = (page - 1) * limit;
+
+    const [data, total] = await Promise.all([
+      this.prisma.user.findMany({
+        include: {
+          region: true,
+          masterProfile: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.user.count(),
+    ]);
+
+    return {
+      data: data.map(({ password, ...safeUser }) => safeUser),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async getOne(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        region: true,
+        masterProfile: {
+          include: {
+            category: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Foydalanuvchi topilmadi');
     }
 
-    return this.prisma.user.update({
-      where: { id: users.id },
+    const { password, ...safeUser } = user;
+    return safeUser;
+  }
+
+  async updateMe(user: AuthUser, dto: UpdateUserMeDto) {
+    await this.getOne(user.id);
+    await this.ensureRegion(dto.regionId);
+    const phone = await this.ensureUniquePhone(dto.phone, user.id);
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: user.id },
       data: {
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        phone: payload.phone,
-        age: payload.age,
-        gender: payload.gender,
-        email: payload.email,
-        regionId: payload.regionId ? payload.regionId : undefined,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone,
+        regionId: dto.regionId,
+        password: dto.password ? await hashPassword(dto.password) : undefined,
       },
       include: { region: true },
     });
+
+    const { password, ...safeUser } = updatedUser;
+    return safeUser;
   }
 
-  async deleteUser (id: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: id },
-    });
-    if (!user) throw new NotFoundException('User not found');
+  async update(id: number, dto: UpdateUserDto) {
+    await this.getOne(id);
+    await this.ensureRegion(dto.regionId);
+    const phone = await this.ensureUniquePhone(dto.phone, id);
 
-    return this.prisma.user.delete({
-      where: { id: id },
+    const updatedUser = await this.prisma.user.update({
+      where: { id },
+      data: {
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone,
+        regionId: dto.regionId,
+        role: dto.role,
+        password: dto.password ? await hashPassword(dto.password) : undefined,
+      },
+      include: { region: true },
     });
+
+    const { password, ...safeUser } = updatedUser;
+    return safeUser;
   }
 
+  async delete(id: number) {
+    await this.getOne(id);
+    return this.prisma.user.delete({ where: { id } });
+  }
 }

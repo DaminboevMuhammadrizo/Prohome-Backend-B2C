@@ -1,47 +1,64 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { UserRole } from "@prisma/client";
-import { IsString, IsNotEmpty, Length, IsEmpty, IsEnum } from "class-validator";
-import { Language, RegisterRole } from "src/common/utils/helper";
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  Min,
+  MinLength,
+} from 'class-validator';
+
+export enum OtpPurpose {
+  REGISTER = 'REGISTER',
+  LOGIN = 'LOGIN',
+}
 
 export class SendOtpDto {
-    @ApiProperty({ example: '+998901234567' })
-    @IsString()
-    @IsNotEmpty()
-    @Length(9, 13)
-    phone: string;
+  @ApiProperty({ example: '+998901234567' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(9, 20)
+  phone: string;
 
-    @ApiProperty({ enum: Language, example: Language.uz })
-    @IsEnum(Language)
-    @IsNotEmpty()
-    lang: Language;
+  @ApiProperty({ enum: OtpPurpose, example: OtpPurpose.LOGIN })
+  @IsEnum(OtpPurpose)
+  purpose: OtpPurpose;
 }
-
-
-
 
 export class RegisterAuthDto {
-    @ApiProperty({ example: '+998901234567' })
-    @IsString()
-    @IsNotEmpty()
-    @Length(9, 13)
-    phone: string;
+  @ApiProperty({ example: '+998901234567' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(9, 20)
+  phone: string;
 
-    @ApiProperty({ enum: RegisterRole, example: RegisterRole.CLIENT })
-    @IsEnum(RegisterRole)
-    @IsNotEmpty()
-    role: RegisterRole;
+  @ApiProperty({ example: 'Ali' })
+  @IsString()
+  @IsNotEmpty()
+  firstName: string;
 
-    @ApiProperty({ example: '123456' })
-    @IsString()
-    @IsNotEmpty()
-    @Length(6, 6)
-    otp: string;
-}
+  @ApiPropertyOptional({ example: 'Valiyev' })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
 
-export class TestSmsDto {
+  @ApiProperty({ example: 'strong-password' })
+  @IsString()
+  @MinLength(6)
+  password: string;
 
-    @ApiProperty()
-    @IsString()
-    @IsNotEmpty()
-    phone: string;
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @Length(6, 6)
+  otp: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  regionId?: number;
 }

@@ -1,62 +1,60 @@
-import { Injectable, OnModuleInit, Logger } from "@nestjs/common";
-import { PrismaService } from "../database/prisma.service";
-import { hashPassword } from "../config/bcrypt";
-import { UserRole, UserStatus, Gender } from "@prisma/client";
-import { ConfigService } from "@nestjs/config";
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { UserRole } from '@prisma/client';
+import { hashPassword } from '../config/bcrypt';
+import { PrismaService } from '../database/prisma.service';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
-    private readonly logger = new Logger(SeederService.name);
+  private readonly logger = new Logger(SeederService.name);
 
-    constructor(private prisma: PrismaService, private configService: ConfigService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
+  ) {}
 
-    async onModuleInit() {
-        await this.seedMinimal();
+  async onModuleInit() {
+    await this.seedMinimal();
+  }
+
+  private async seedMinimal() {
+    await this.createAdmin();
+  }
+
+  private async createAdmin() {
+    try {
+      const adminPhone = this.configService.get<string>('ADMIN_PHONE');
+      const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
+
+      if (!adminPhone || !adminPassword) {
+        this.logger.warn(
+          'ADMIN_PHONE yoki ADMIN_PASSWORD topilmadi, admin seed o‘tkazib yuborildi',
+        );
+        return;
+      }
+
+      const existingAdmin = await this.prisma.user.findUnique({
+        where: { phone: adminPhone },
+      });
+
+      if (existingAdmin) {
+        this.logger.log('Admin allaqachon mavjud');
+        return;
+      }
+
+      const admin = await this.prisma.user.create({
+        data: {
+          firstName: 'Admin',
+          phone: adminPhone,
+          role: UserRole.ADMIN,
+          password: await hashPassword(adminPassword),
+        },
+      });
+
+      this.logger.log(`Admin yaratildi: ${admin.id}`);
+    } catch (error) {
+      this.logger.error('Admin seed xatoligi', error);
+      throw error;
     }
-
-    async seedMinimal() {
-        await this.createAdmin();
-    }
-
-    private async createAdmin() {
-        try {
-            const adminPhone = this.configService.get<string>('ADMIN_PHONE');
-            const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
-
-            if (!adminPhone || !adminPassword) {
-                this.logger.warn('⚠️ ADMIN_PHONE or ADMIN_PASSWORD not found in .env, skipping admin creation');
-                return;
-            }
-
-            const existingAdmin = await this.prisma.user.findUnique({ where: { phone: adminPhone } });
-
-            if (existingAdmin) {
-                this.logger.log('✅ Admin already exists');
-                return;
-            }
-
-            const hashedPassword = await hashPassword(adminPassword);
-
-            const admin = await this.prisma.user.create({
-                data: {
-                    firstName: "Admin",
-                    lastName: null,
-                    age: null,
-                    gender: Gender.MALE,
-                    phone: adminPhone,
-                    email: null,
-                    regionId: null,
-                    role: UserRole.ADMIN,
-                    status: UserStatus.ACTIVE,
-                    password: hashedPassword
-                }
-            });
-
-            this.logger.log(`✅ Admin created successfully: ${admin.firstName} (ID: ${admin.id})`);
-
-        } catch (error) {
-            this.logger.error('❌ Failed to create admin:', error);
-            throw error;
-        }
-    }
+  }
 }

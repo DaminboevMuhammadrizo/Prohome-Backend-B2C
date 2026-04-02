@@ -43,14 +43,14 @@ export class SessionManager {
         }
     }
 
-    emitToUser(userId: string, event: string, payload: any) {
+    emitToUser(userId: string, event: string, payload: unknown) {
         const devices = this.sessions[userId] || {};
         Object.values(devices).forEach(socketIds => {
             socketIds.forEach(id => this.server.to(id).emit(event, payload));
         });
     }
 
-    emitToDevice(userId: string, deviceId: string, event: string, payload: any) {
+    emitToDevice(userId: string, deviceId: string, event: string, payload: unknown) {
         const sockets = this.sessions[userId]?.[deviceId] || [];
         sockets.forEach(id => this.server.to(id).emit(event, payload));
     }
@@ -70,7 +70,7 @@ export class SessionManager {
     }
 
 
-    emitToRoom(roomId: string, event: string, payload: any) {
+    emitToRoom(roomId: string, event: string, payload: unknown) {
         this.server.to(roomId).emit(event, payload);
         this.logger.debug(`📢 Event "${event}" sent to room ${roomId}`);
     }

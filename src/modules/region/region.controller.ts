@@ -1,53 +1,67 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards } from '@nestjs/common';
-import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
-import { GuardService } from 'src/common/guard/guard.service';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import { Role } from 'src/common/decorators/role.decorator';
+import { GuardService } from 'src/common/guard/guard.service';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateRegionDto } from './dto/create-region.dto';
 import { UpdateRegionDto } from './dto/update-region.dto';
 import { RegionService } from './region.service';
-import { ApiOperation } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
 
-@Controller('region')
+@ApiTags('Regions')
+@Controller('regions')
 export class RegionController {
-    constructor(private readonly service: RegionService) { }
+  constructor(private readonly regionService: RegionService) {}
 
-    @ApiOperation({ summary: `ALL` })
-    @Get()
-    getAll() {
-        return this.service.getAll();
-    }
+  @Get()
+  @ApiOperation({ summary: 'Regionlar ro‘yxati' })
+  getAll() {
+    return this.regionService.getAll();
+  }
 
-    @ApiOperation({ summary: `ALL` })
-    @Get(':id')
-    getOne(@Param('id', ParseIntPipe) id: number) {
-        return this.service.getOne(id);
-    }
+  @Get(':id')
+  @ApiOperation({ summary: 'Bitta region' })
+  getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.regionService.getOne(id);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}` })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN)
-    @Post()
-    create(@Body() payload: CreateRegionDto) {
-        return this.service.create(payload);
-    }
+  @ApiBearerAuth()
+  @UseGuards(GuardService, RoleGuardService)
+  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Post()
+  @ApiOperation({ summary: 'Region yaratish' })
+  create(@Body() dto: CreateRegionDto) {
+    return this.regionService.create(dto);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}` })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN)
-    @Patch(':id')
-    update(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() payload: UpdateRegionDto,
-    ) {
-        return this.service.update(id, payload);
-    }
+  @ApiBearerAuth()
+  @UseGuards(GuardService, RoleGuardService)
+  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Patch(':id')
+  @ApiOperation({ summary: 'Regionni yangilash' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateRegionDto,
+  ) {
+    return this.regionService.update(id, dto);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}` })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN)
-    @Delete(':id')
-    delete(@Param('id', ParseIntPipe) id: number) {
-        return this.service.delete(id);
-    }
+  @ApiBearerAuth()
+  @UseGuards(GuardService, RoleGuardService)
+  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Delete(':id')
+  @ApiOperation({ summary: 'Regionni o‘chirish' })
+  delete(@Param('id', ParseIntPipe) id: number) {
+    return this.regionService.delete(id);
+  }
 }

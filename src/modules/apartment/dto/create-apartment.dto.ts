@@ -1,74 +1,114 @@
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
-import { ApartmentStatus } from '@prisma/client';
+import { ApartmentListingType } from '@prisma/client';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  Min,
+} from 'class-validator';
 
 export class CreateApartmentDto {
-    @ApiProperty()
-    @IsString()
-    addressUz: string;
+  @IsString()
+  titleUz: string;
 
-    @ApiProperty()
-    @IsString()
-    addressUzCyrl: string;
+  @IsString()
+  titleUzCyrl: string;
 
-    @ApiProperty()
-    @IsString()
-    addressRu: string;
+  @IsString()
+  titleRu: string;
 
-    @Type(() => Number)
-    @IsInt()
-    regionId: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  descriptionUz?: string;
 
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    roomCount?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  descriptionUzCyrl?: string;
 
-    @IsOptional()
-    @ApiProperty()
-    @IsString()
-    descUz?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  descriptionRu?: string;
 
-    @IsOptional()
-    @ApiProperty()
-    @IsString()
-    descUzCyrl?: string;
+  @Type(() => Number)
+  @IsNumber()
+  price: number;
 
-    @IsOptional()
-    @ApiProperty()
-    @IsString()
-    descRu?: string;
+  @Type(() => Number)
+  @IsNumber()
+  area: number;
 
-    @ApiProperty()
-    @IsString()
-    titleUz: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  roomCount: number;
 
-    @ApiProperty()
-    @IsString()
-    titleUzCyrl: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  floor?: number;
 
-    @ApiProperty()
-    @IsString()
-    titleRu: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  totalFloors?: number;
 
-    @Type(() => Number)
-    @IsNumber()
-    area: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  landArea?: number;
 
-    @Type(() => Number)
-    @IsNumber()
-    pricePerMetr: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isCottage?: boolean;
 
-    @IsOptional()
-    @Type(() => Number)
-    @IsNumber()
-    price?: number;
+  @IsArray()
+  @IsUrl({ require_tld: false }, { each: true })
+  images: string[];
 
-    @Type(() => Number)
-    @IsInt()
-    apartmentTypeId: number;
+  @ApiPropertyOptional({ enum: ApartmentListingType })
+  @IsOptional()
+  @IsEnum(ApartmentListingType)
+  listingType?: ApartmentListingType;
 
-    @IsEnum(ApartmentStatus)
-    apartmentStatus: ApartmentStatus;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  regionId: number;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  categoryId: number;
+
+  @IsString()
+  address: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  complexId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  layoutId?: number;
 }

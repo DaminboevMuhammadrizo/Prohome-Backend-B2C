@@ -5,29 +5,56 @@ import { UpdateRegionDto } from './dto/update-region.dto';
 
 @Injectable()
 export class RegionService {
-    constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-    async getAll() {
-        return this.prisma.region.findMany({ orderBy: { createdAt: 'desc' } });
+  private async ensureParent(parentId?: number) {
+    if (!parentId) {
+      return;
     }
 
-    async getOne(id: number) {
-        const region = await this.prisma.region.findUnique({ where: { id } });
-        if (!region) throw new NotFoundException(`Region #${id} topilmadi`);
-        return region;
+    const parent = await this.prisma.region.findUnique({ where: { id: parentId } });
+
+    if (!parent) {
+      throw new NotFoundException('Parent region topilmadi');
+    }
+  }
+
+  async getAll() {
+    return this.prisma.region.findMany({
+      include: { children: true, parent: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getOne(id: number) {
+    const region = await this.prisma.region.findUnique({
+      where: { id },
+      include: { children: true, parent: true },
+    });
+
+    if (!region) {
+      throw new NotFoundException('Region topilmadi');
     }
 
-    async create(payload: CreateRegionDto) {
-        return this.prisma.region.create({ data: payload });
-    }
+    return region;
+  }
 
-    async update(id: number, payload: UpdateRegionDto) {
-        await this.getOne(id);
-        return this.prisma.region.update({ where: { id }, data: payload });
-    }
+  async create(dto: CreateRegionDto) {
+    await this.ensureParent(dto.parentId);
+    return this.prisma.region.create({ data: dto });
+  }
 
-    async delete(id: number) {
-        await this.getOne(id);
-        return this.prisma.region.delete({ where: { id } });
-    }
+  async update(id: number, dto: UpdateRegionDto) {
+    await this.getOne(id);
+    await this.ensureParent(dto.parentId);
+    return this.prisma.region.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async delete(id: number) {
+    await this.getOne(id);
+    return this.prisma.region.delete({ where: { id } });
+  }
 }

@@ -1,60 +1,58 @@
-import { getPathInFileType } from 'src/common/types/generator.types';
-import { PrismaService } from 'src/common/database/prisma.service';
-import { urlGenerator } from 'src/common/types/generator.types';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from 'src/common/database/prisma.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
+import { UpdateBannerStatusDto } from './dto/update-banner-status.dto';
 import { UpdateBannerDto } from './dto/update-banner.dto';
-import { ConfigService } from '@nestjs/config';
-import { unlink } from 'fs/promises';
-import { join } from 'path';
 
 @Injectable()
 export class BannerService {
-    constructor(private readonly prisma: PrismaService, private readonly config: ConfigService,) { }
+  constructor(private readonly prisma: PrismaService) {}
 
+  async getAll() {
+    return this.prisma.banner.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 
-    private async deleteOldImage(img: string): Promise<void> {
-        try {
-            const filename = img.split('/').pop();
-            if (!filename) return
-            const folder = getPathInFileType(filename);
-            const filePath = join(folder, filename);
-            await unlink(filePath);
-        } catch { }
+  async getAdminList() {
+    return this.prisma.banner.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getOne(id: number) {
+    const banner = await this.prisma.banner.findUnique({ where: { id } });
+
+    if (!banner) {
+      throw new NotFoundException('Banner topilmadi');
     }
 
-    async getAll() {
-        return this.prisma.banner.findMany({ orderBy: { createdAt: 'desc' } });
-    }
+    return banner;
+  }
 
+  async create(dto: CreateBannerDto) {
+    return this.prisma.banner.create({ data: dto });
+  }
 
-    async getOne(id: number) {
-        const banner = await this.prisma.banner.findUnique({ where: { id } });
-        if (!banner) throw new NotFoundException(`Banner #${id} topilmadi`);
-        return banner;
-    }
+  async update(id: number, dto: UpdateBannerDto) {
+    await this.getOne(id);
+    return this.prisma.banner.update({
+      where: { id },
+      data: dto,
+    });
+  }
 
+  async updateStatus(id: number, dto: UpdateBannerStatusDto) {
+    await this.getOne(id);
+    return this.prisma.banner.update({
+      where: { id },
+      data: { isActive: dto.isActive },
+    });
+  }
 
-    async create(payload: CreateBannerDto, filename: string) {
-        const img = urlGenerator(this.config, filename);
-        return this.prisma.banner.create({ data: { ...payload, img } });
-    }
-
-
-    async update(id: number, payload: UpdateBannerDto, filename?: string) {
-        const banner = await this.getOne(id);
-
-        if (filename && banner.img) await this.deleteOldImage(banner.img);
-        const img = filename ? urlGenerator(this.config, filename) : undefined;
-
-        return this.prisma.banner.update({
-            where: { id }, data: { ...payload, ...(img && { img }) }
-        });
-    }
-
-
-    async delete(id: number) {
-        await this.getOne(id);
-        return this.prisma.banner.delete({ where: { id } });
-    }
+  async delete(id: number) {
+    await this.getOne(id);
+    return this.prisma.banner.delete({ where: { id } });
+  }
 }

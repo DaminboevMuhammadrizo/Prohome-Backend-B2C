@@ -1,28 +1,36 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateRegionDto {
-    @ApiProperty()
-    @IsString()
-    nameUz: string;
+  @IsString()
+  nameUz: string;
 
-    @ApiProperty()
-    @IsString()
-    nameUzCyrl: string;
+  @IsString()
+  nameUzCyrl: string;
 
-    @ApiProperty()
-    @IsString()
-    nameRu: string;
+  @IsString()
+  nameRu: string;
 
-    @ApiProperty()
-    @IsString()
-    countryNameUz: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  countryNameUz?: string;
 
-    @ApiProperty()
-    @IsString()
-    countryNameUzCyrl: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  countryNameUzCyrl?: string;
 
-    @ApiProperty()
-    @IsString()
-    countryNameRu: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  countryNameRu?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  parentId?: number;
 }

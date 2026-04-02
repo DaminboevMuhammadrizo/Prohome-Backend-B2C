@@ -5,33 +5,43 @@ import { UpdateJobDto } from './dto/update-job.dto';
 
 @Injectable()
 export class JobService {
-    constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-    async getAll() {
-        return this.prisma.job.findMany({ orderBy: { createdAt: 'desc' } });
+  async getAll() {
+    return this.prisma.jobCategory.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getOne(id: number) {
+    const jobCategory = await this.prisma.jobCategory.findUnique({
+      where: { id },
+      include: {
+        profiles: true,
+      },
+    });
+
+    if (!jobCategory) {
+      throw new NotFoundException('Job category topilmadi');
     }
 
+    return jobCategory;
+  }
 
-    async getOne(id: number) {
-        const job = await this.prisma.job.findUnique({ where: { id } });
-        if (!job) throw new NotFoundException(`Job #${id} topilmadi`);
-        return job;
-    }
+  async create(dto: CreateJobDto) {
+    return this.prisma.jobCategory.create({ data: dto });
+  }
 
+  async update(id: number, dto: UpdateJobDto) {
+    await this.getOne(id);
+    return this.prisma.jobCategory.update({
+      where: { id },
+      data: dto,
+    });
+  }
 
-    async create(payload: CreateJobDto) {
-        return this.prisma.job.create({ data: payload });
-    }
-
-
-    async update(id: number, payload: UpdateJobDto) {
-        await this.getOne(id);
-        return this.prisma.job.update({ where: { id }, data: payload });
-    }
-
-
-    async delete(id: number) {
-        await this.getOne(id);
-        return this.prisma.job.delete({ where: { id } });
-    }
+  async delete(id: number) {
+    await this.getOne(id);
+    return this.prisma.jobCategory.delete({ where: { id } });
+  }
 }

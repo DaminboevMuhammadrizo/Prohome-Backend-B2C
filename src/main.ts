@@ -17,7 +17,10 @@ async function bootstrap() {
     }),
   );
 
-  (BigInt.prototype as any).toJSON = function () {
+  const bigIntPrototype = BigInt.prototype as BigInt & {
+    toJSON?: () => string;
+  };
+  bigIntPrototype.toJSON = function () {
     return this.toString();
   };
 

@@ -1,115 +1,80 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards, UseInterceptors, UploadedFiles } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
-import { ApiBody, ApiConsumes, ApiOperation } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
-import { ApartmentService } from './apartment.service';
-import { CreateApartmentDto } from './dto/create-apartment.dto';
-import { UpdateApartmentDto } from './dto/update-apartment.dto';
-import { GuardService } from 'src/common/guard/guard.service';
-import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
-import { Role } from 'src/common/decorators/role.decorator';
-import { fileStorages } from 'src/common/types/upload_types';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
+import { GuardService } from 'src/common/guard/guard.service';
+import { ApartmentService } from './apartment.service';
+import { CreateApartmentDto } from './dto/create-apartment.dto';
+import { UpdateApartmentStatusDto } from './dto/update-apartment-status.dto';
+import { UpdateApartmentDto } from './dto/update-apartment.dto';
 
-@Controller('apartment')
+@ApiTags('Apartments')
+@Controller('apartments')
 export class ApartmentController {
-    constructor(private readonly service: ApartmentService) { }
+  constructor(private readonly apartmentService: ApartmentService) {}
 
-    @ApiOperation({ summary: `ALL` })
-    @Get()
-    getAll() {
-        return this.service.getAll();
-    }
+  @Get()
+  @ApiOperation({ summary: 'Apartmentlar ro‘yxati' })
+  getAll() {
+    return this.apartmentService.getAll();
+  }
 
-    @ApiOperation({ summary: `ALL` })
-    @Get(':id')
-    getOne(@Param('id', ParseIntPipe) id: number) {
-        return this.service.getOne(id);
-    }
+  @Get(':id')
+  @ApiOperation({ summary: 'Bitta apartment' })
+  getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.apartmentService.getOne(id);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}, ${UserRole.SELLER}` })
-    @ApiConsumes('multipart/form-data')
-    @ApiBody({
-        schema: {
-            type: 'object',
-            required: ['img', 'addressUz', 'addressUzCyrl', 'addressRu', 'regionId', 'titleUz', 'titleUzCyrl', 'titleRu', 'area', 'pricePerMetr', 'apartmentTypeId', 'apartmentStatus'],
-            properties: {
-                img: { type: 'array', items: { type: 'string', format: 'binary' } },
-                addressUz: { type: 'string' },
-                addressUzCyrl: { type: 'string' },
-                addressRu: { type: 'string' },
-                regionId: { type: 'number' },
-                roomCount: { type: 'number' },
-                descUz: { type: 'string' },
-                descUzCyrl: { type: 'string' },
-                descRu: { type: 'string' },
-                titleUz: { type: 'string' },
-                titleUzCyrl: { type: 'string' },
-                titleRu: { type: 'string' },
-                area: { type: 'number' },
-                pricePerMetr: { type: 'number' },
-                price: { type: 'number' },
-                apartmentTypeId: { type: 'number' },
-                apartmentStatus: { type: 'string', enum: ['IJARA', 'SOTISH'] },
-            },
-        },
-    })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN, UserRole.SELLER)
-    @Post()
-    @UseInterceptors(FilesInterceptor('img', 10, fileStorages(['image'])))
-    create(
-        @Body() payload: CreateApartmentDto,
-        @UserData() user: JwtPayload,
-        @UploadedFiles() files: Express.Multer.File[],
-    ) {
-        return this.service.create(payload, user.id, files.map((f) => f.filename));
-    }
+  @Post()
+  @ApiBearerAuth()
+  @UseGuards(GuardService)
+  @ApiOperation({ summary: 'Apartment yaratish' })
+  create(@UserData() user: JwtPayload, @Body() dto: CreateApartmentDto) {
+    return this.apartmentService.create(user, dto);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}, ${UserRole.SELLER}` })
-    @ApiConsumes('multipart/form-data')
-    @ApiBody({
-        schema: {
-            type: 'object',
-            properties: {
-                img: { type: 'array', items: { type: 'string', format: 'binary' } },
-                addressUz: { type: 'string' },
-                addressUzCyrl: { type: 'string' },
-                addressRu: { type: 'string' },
-                regionId: { type: 'number' },
-                roomCount: { type: 'number' },
-                descUz: { type: 'string' },
-                descUzCyrl: { type: 'string' },
-                descRu: { type: 'string' },
-                titleUz: { type: 'string' },
-                titleUzCyrl: { type: 'string' },
-                titleRu: { type: 'string' },
-                area: { type: 'number' },
-                pricePerMetr: { type: 'number' },
-                price: { type: 'number' },
-                apartmentTypeId: { type: 'number' },
-                apartmentStatus: { type: 'string', enum: ['IJARA', 'SOTISH'] },
-            },
-        },
-    })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN, UserRole.SELLER)
-    @Patch(':id')
-    @UseInterceptors(FilesInterceptor('img', 10, fileStorages(['image'])))
-    update(
-        @Param('id', ParseIntPipe) id: number,
-        @Body() payload: UpdateApartmentDto,
-        @UploadedFiles() files?: Express.Multer.File[],
-    ) {
-        return this.service.update(id, payload, files?.map((f) => f.filename));
-    }
+  @Patch(':id')
+  @ApiBearerAuth()
+  @UseGuards(GuardService)
+  @ApiOperation({ summary: 'Apartment yangilash' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @UserData() user: JwtPayload,
+    @Body() dto: UpdateApartmentDto,
+  ) {
+    return this.apartmentService.update(id, user, dto);
+  }
 
-    @ApiOperation({ summary: `${UserRole.ADMIN}, ${UserRole.SELLER}` })
-    @UseGuards(GuardService, RoleGuardService)
-    @Role(UserRole.ADMIN, UserRole.SELLER)
-    @Delete(':id')
-    delete(@Param('id', ParseIntPipe) id: number) {
-        return this.service.delete(id);
-    }
+  @Patch(':id/status')
+  @ApiBearerAuth()
+  @UseGuards(GuardService)
+  @ApiOperation({ summary: 'Apartment statusini o‘zgartirish' })
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @UserData() user: JwtPayload,
+    @Body() dto: UpdateApartmentStatusDto,
+  ) {
+    return this.apartmentService.updateStatus(id, user, dto);
+  }
+
+  @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(GuardService)
+  @ApiOperation({ summary: 'Apartment o‘chirish' })
+  delete(
+    @Param('id', ParseIntPipe) id: number,
+    @UserData() user: JwtPayload,
+  ) {
+    return this.apartmentService.delete(id, user);
+  }
 }
