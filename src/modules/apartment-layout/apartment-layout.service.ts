@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
-import { assertOwnership, isPrivilegedRole } from 'src/common/utils/access.util';
+import { assertCompanyAccess, isPrivilegedRole } from 'src/common/utils/access.util';
 import { CreateApartmentLayoutDto } from './dto/create-apartment-layout.dto';
 import { UpdateApartmentLayoutDto } from './dto/update-apartment-layout.dto';
 
@@ -20,8 +20,9 @@ export class ApartmentLayoutService {
     }
 
     if (!isPrivilegedRole(user.role)) {
-      assertOwnership(
+      assertCompanyAccess(
         complex.company.ownerId,
+        complex.company.id,
         user,
         'Siz bu complex layoutlarini boshqara olmaysiz',
       );

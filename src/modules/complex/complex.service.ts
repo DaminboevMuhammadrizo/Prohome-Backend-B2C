@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
-import { assertOwnership, isPrivilegedRole } from 'src/common/utils/access.util';
+import { assertCompanyAccess, isPrivilegedRole } from 'src/common/utils/access.util';
 import { CreateComplexDto } from './dto/create-complex.dto';
 import { UpdateComplexDto } from './dto/update-complex.dto';
 
@@ -36,7 +36,12 @@ export class ComplexService {
       throw new NotFoundException('Company topilmadi');
     }
 
-    assertOwnership(company.ownerId, user, 'Siz bu company complexlarini boshqara olmaysiz');
+    assertCompanyAccess(
+      company.ownerId,
+      company.id,
+      user,
+      'Siz bu company complexlarini boshqara olmaysiz',
+    );
   }
 
   async getAll() {

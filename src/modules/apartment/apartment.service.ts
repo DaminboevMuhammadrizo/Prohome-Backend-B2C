@@ -3,7 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ApartmentDealStatus } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { InteractionBufferService } from 'src/common/interactions/interaction-buffer.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
 import { assertOwnership, isPrivilegedRole } from 'src/common/utils/access.util';
 import { CreateApartmentDto } from './dto/create-apartment.dto';
@@ -12,7 +14,21 @@ import { UpdateApartmentDto } from './dto/update-apartment.dto';
 
 @Injectable()
 export class ApartmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly interactionBuffer: InteractionBufferService,
+  ) {}
+
+  private decorateApartment<
+    T extends { id: number; likeCount: number }
+  >(apartment: T) {
+    return {
+      ...apartment,
+      likeCount:
+        apartment.likeCount +
+        this.interactionBuffer.getPendingApartmentLikeCount(apartment.id),
+    };
+  }
 
   private async ensureRelations(dto: {
     regionId?: number;
@@ -58,7 +74,7 @@ export class ApartmentService {
   }
 
   async getAll() {
-    return this.prisma.apartment.findMany({
+    const apartments = await this.prisma.apartment.findMany({
       include: {
         region: true,
         category: true,
@@ -70,6 +86,28 @@ export class ApartmentService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return apartments.map((apartment) => this.decorateApartment(apartment));
+  }
+
+  async getSoldApartments() {
+    const apartments = await this.prisma.apartment.findMany({
+      where: {
+        dealStatus: ApartmentDealStatus.SOLD,
+      },
+      include: {
+        region: true,
+        category: true,
+        seller: {
+          select: { id: true, firstName: true, lastName: true, phone: true },
+        },
+        complex: true,
+        layout: true,
+      },
+      orderBy: { soldAt: 'desc' },
+    });
+
+    return apartments.map((apartment) => this.decorateApartment(apartment));
   }
 
   async getOne(id: number) {
@@ -79,7 +117,14 @@ export class ApartmentService {
         region: true,
         category: true,
         seller: {
-          select: { id: true, firstName: true, lastName: true, phone: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            isBlocked: true,
+            isArchived: true,
+          },
         },
         complex: true,
         layout: true,
@@ -90,7 +135,47 @@ export class ApartmentService {
       throw new NotFoundException('Apartment topilmadi');
     }
 
-    return apartment;
+    return this.decorateApartment(apartment);
+  }
+
+  async getInteractionState(id: number, user: AuthUser) {
+    await this.getOne(id);
+    const existingLike = await this.prisma.apartmentLike.findUnique({
+      where: {
+        userId_apartmentId: {
+          userId: user.id,
+          apartmentId: id,
+        },
+      },
+    });
+
+    return {
+      likedByMe:
+        Boolean(existingLike) ||
+        this.interactionBuffer.hasPendingApartmentLike(user.id, id),
+    };
+  }
+
+  async addView(id: number, user?: AuthUser) {
+    await this.getOne(id);
+    await this.prisma.$transaction([
+      this.prisma.apartmentView.create({
+        data: {
+          apartmentId: id,
+          userId: user?.id,
+        },
+      }),
+      this.prisma.apartment.update({
+        where: { id },
+        data: {
+          viewCount: {
+            increment: 1,
+          },
+        },
+      }),
+    ]);
+
+    return { message: 'Apartment view saqlandi' };
   }
 
   async create(user: AuthUser, dto: CreateApartmentDto) {
@@ -137,6 +222,11 @@ export class ApartmentService {
     });
   }
 
+  async toggleLike(id: number, user: AuthUser) {
+    await this.getOne(id);
+    return this.interactionBuffer.toggleApartmentLike(user.id, id);
+  }
+
   async updateStatus(id: number, user: AuthUser, dto: UpdateApartmentStatusDto) {
     const apartment = await this.prisma.apartment.findUnique({
       where: { id },
@@ -156,7 +246,11 @@ export class ApartmentService {
 
     return this.prisma.apartment.update({
       where: { id },
-      data: { dealStatus: dto.dealStatus },
+      data: {
+        dealStatus: dto.dealStatus,
+        soldAt:
+          dto.dealStatus === ApartmentDealStatus.SOLD ? new Date() : null,
+      },
     });
   }
 

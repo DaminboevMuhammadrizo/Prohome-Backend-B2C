@@ -18,6 +18,7 @@ import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CompanyService } from './company.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
+import { UpdateCompanyStatusDto } from './dto/update-company-status.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @ApiTags('Companies')
@@ -32,9 +33,15 @@ export class CompanyController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Bitta company' })
+  @ApiOperation({ summary: 'Bitta company va analytics' })
   getOne(@Param('id', ParseIntPipe) id: number) {
     return this.companyService.getOne(id);
+  }
+
+  @Post(':id/view')
+  @ApiOperation({ summary: 'Company view yozuvi qo‘shish' })
+  addView(@Param('id', ParseIntPipe) id: number) {
+    return this.companyService.addView(id);
   }
 
   @Post()
@@ -56,6 +63,18 @@ export class CompanyController {
     @Body() dto: UpdateCompanyDto,
   ) {
     return this.companyService.update(id, user, dto);
+  }
+
+  @Patch(':id/status')
+  @ApiBearerAuth()
+  @UseGuards(GuardService, RoleGuardService)
+  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @ApiOperation({ summary: 'Company faol/nofoal qilish' })
+  setActiveStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCompanyStatusDto,
+  ) {
+    return this.companyService.setActiveStatus(id, dto.isActive);
   }
 
   @Delete(':id')

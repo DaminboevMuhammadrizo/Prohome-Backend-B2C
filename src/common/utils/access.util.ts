@@ -25,6 +25,28 @@ export function assertOwnership(
   }
 }
 
+export function assertCompanyAccess(
+  ownerId: number,
+  companyId: number,
+  user: AuthUser,
+  message = 'Siz bu companyni boshqara olmaysiz',
+): void {
+  if (isPrivilegedRole(user.role)) {
+    return;
+  }
+
+  if (user.entityType === 'COMPANY') {
+    if (user.companyId !== companyId) {
+      throw new ForbiddenException(message);
+    }
+    return;
+  }
+
+  if (ownerId !== user.id) {
+    throw new ForbiddenException(message);
+  }
+}
+
 export function ensureFound<T>(
   value: T | null,
   message: string,

@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { CreateJobDto } from './dto/create-job.dto';
+import { UpdateJobStatusDto } from './dto/update-job-status.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 
 @Injectable()
@@ -9,6 +10,13 @@ export class JobService {
 
   async getAll() {
     return this.prisma.jobCategory.findMany({
+      include: {
+        _count: {
+          select: {
+            masterProfileCategories: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -17,7 +25,27 @@ export class JobService {
     const jobCategory = await this.prisma.jobCategory.findUnique({
       where: { id },
       include: {
-        profiles: true,
+        masterProfileCategories: {
+          include: {
+            masterProfile: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    phone: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            masterProfileCategories: true,
+          },
+        },
       },
     });
 
@@ -37,6 +65,48 @@ export class JobService {
     return this.prisma.jobCategory.update({
       where: { id },
       data: dto,
+    });
+  }
+
+  async archive(id: number) {
+    await this.getOne(id);
+    return this.prisma.jobCategory.update({
+      where: { id },
+      data: {
+        isArchived: true,
+        archivedAt: new Date(),
+      },
+    });
+  }
+
+  async unarchive(id: number) {
+    await this.getOne(id);
+    return this.prisma.jobCategory.update({
+      where: { id },
+      data: {
+        isArchived: false,
+        archivedAt: null,
+      },
+    });
+  }
+
+  async updateStatus(id: number, dto: UpdateJobStatusDto) {
+    await this.getOne(id);
+    return this.prisma.jobCategory.update({
+      where: { id },
+      data: {
+        isActive: dto.isActive,
+      },
+    });
+  }
+
+  async toggleStatus(id: number) {
+    const category = await this.getOne(id);
+    return this.prisma.jobCategory.update({
+      where: { id },
+      data: {
+        isActive: !category.isActive,
+      },
     });
   }
 

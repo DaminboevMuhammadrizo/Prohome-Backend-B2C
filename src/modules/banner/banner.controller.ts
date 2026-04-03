@@ -7,13 +7,23 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UserRole } from '@prisma/client';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import { fileStorages } from 'src/common/types/upload_types';
 import { BannerService } from './banner.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
 import { UpdateBannerStatusDto } from './dto/update-banner-status.dto';
@@ -49,18 +59,52 @@ export class BannerController {
   @ApiBearerAuth()
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @UseInterceptors(FileInterceptor('image', fileStorages(['image'])))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['image'],
+      properties: {
+        image: { type: 'string', format: 'binary' },
+        link: { type: 'string' },
+        location: { type: 'string' },
+        isActive: { type: 'boolean' },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Banner yaratish' })
-  create(@Body() dto: CreateBannerDto) {
-    return this.bannerService.create(dto);
+  create(
+    @Body() dto: CreateBannerDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.bannerService.create(dto, file.filename);
   }
 
   @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @UseInterceptors(FileInterceptor('image', fileStorages(['image'])))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        image: { type: 'string', format: 'binary' },
+        link: { type: 'string' },
+        location: { type: 'string' },
+        isActive: { type: 'boolean' },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Banner yangilash' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateBannerDto) {
-    return this.bannerService.update(id, dto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBannerDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.bannerService.update(id, dto, file?.filename);
   }
 
   @Patch(':id/status')

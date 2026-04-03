@@ -29,10 +29,33 @@ export class ApartmentController {
     return this.apartmentService.getAll();
   }
 
+  @Get('sold/all')
+  @ApiOperation({ summary: 'Sotilgan uylar ro‘yxati' })
+  getSoldApartments() {
+    return this.apartmentService.getSoldApartments();
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Bitta apartment' })
   getOne(@Param('id', ParseIntPipe) id: number) {
     return this.apartmentService.getOne(id);
+  }
+
+  @Post(':id/view')
+  @ApiOperation({ summary: 'Apartment view yozuvi qo‘shish' })
+  addView(@Param('id', ParseIntPipe) id: number) {
+    return this.apartmentService.addView(id);
+  }
+
+  @Get(':id/interaction')
+  @ApiBearerAuth()
+  @UseGuards(GuardService)
+  @ApiOperation({ summary: 'Current user uchun apartment interaction statusi' })
+  getInteractionState(
+    @Param('id', ParseIntPipe) id: number,
+    @UserData() user: JwtPayload,
+  ) {
+    return this.apartmentService.getInteractionState(id, user);
   }
 
   @Post()
@@ -41,6 +64,14 @@ export class ApartmentController {
   @ApiOperation({ summary: 'Apartment yaratish' })
   create(@UserData() user: JwtPayload, @Body() dto: CreateApartmentDto) {
     return this.apartmentService.create(user, dto);
+  }
+
+  @Post(':id/like')
+  @ApiBearerAuth()
+  @UseGuards(GuardService)
+  @ApiOperation({ summary: 'Apartment like toggle' })
+  toggleLike(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload) {
+    return this.apartmentService.toggleLike(id, user);
   }
 
   @Patch(':id')
@@ -71,10 +102,7 @@ export class ApartmentController {
   @ApiBearerAuth()
   @UseGuards(GuardService)
   @ApiOperation({ summary: 'Apartment o‘chirish' })
-  delete(
-    @Param('id', ParseIntPipe) id: number,
-    @UserData() user: JwtPayload,
-  ) {
+  delete(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload) {
     return this.apartmentService.delete(id, user);
   }
 }

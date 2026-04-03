@@ -7,6 +7,8 @@ export type JwtPayload = {
   id: number;
   phone: string;
   role: UserRole;
+  entityType: 'USER' | 'COMPANY';
+  companyId?: number | null;
 };
 
 @Injectable()

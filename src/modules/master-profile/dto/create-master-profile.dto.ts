@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayNotEmpty,
   IsArray,
   IsBoolean,
   IsInt,
@@ -14,18 +15,20 @@ import {
 export class CreateMasterProfileDto {
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  categoryId: number;
+  @Min(0)
+  experience: number;
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @Type(() => Number)
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  categoryIds: number[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   bio?: string;
-
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  experience: number;
 
   @IsArray()
   @IsString({ each: true })

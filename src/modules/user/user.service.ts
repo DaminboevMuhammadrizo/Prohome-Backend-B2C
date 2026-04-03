@@ -1,73 +1,63 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { PrismaService } from 'src/common/database/prisma.service';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { ApartmentDealStatus } from '@prisma/client';
 import { hashPassword } from 'src/common/config/bcrypt';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { InteractionBufferService } from 'src/common/interactions/interaction-buffer.service';
+import { PrismaService } from 'src/common/database/prisma.service';
+import { PhoneIdentityService } from 'src/common/services/phone-identity.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
 import { UpdateUserDto, UpdateUserMeDto } from './dto/updater.user.dto';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly prisma: PrismaService) {}
-
-  private normalizePhone(phone: string): string {
-    return phone.startsWith('+') ? phone : `+${phone}`;
-  }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly interactionBuffer: InteractionBufferService,
+    private readonly phoneIdentityService: PhoneIdentityService,
+  ) {}
 
   private async ensureRegion(regionId?: number): Promise<void> {
     if (!regionId) {
       return;
     }
 
-    const region = await this.prisma.region.findUnique({ where: { id: regionId } });
+    const region = await this.prisma.region.findUnique({
+      where: { id: regionId },
+    });
 
     if (!region) {
       throw new NotFoundException('Region topilmadi');
     }
   }
 
-  private async ensureUniquePhone(phone?: string, userId?: number): Promise<string | undefined> {
+  private async ensureUniquePhone(
+    phone?: string,
+    userId?: number,
+  ): Promise<string | undefined> {
     if (!phone) {
       return undefined;
     }
 
-    const normalizedPhone = this.normalizePhone(phone);
-    const existingUser = await this.prisma.user.findFirst({
-      where: {
-        phone: normalizedPhone,
-        NOT: userId ? { id: userId } : undefined,
-      },
+    return this.phoneIdentityService.ensurePhoneAvailable({
+      phone,
+      excludeUserId: userId,
     });
-
-    if (existingUser) {
-      throw new ConflictException('Bu telefon raqam avval ro‘yxatdan o‘tgan');
-    }
-
-    return normalizedPhone;
   }
 
-  async getMe(user: AuthUser) {
-    const foundUser = await this.prisma.user.findUnique({
-      where: { id: user.id },
-      include: {
-        region: true,
-        masterProfile: {
-          include: {
-            category: true,
-          },
-        },
-      },
+  private async findUserOrThrow(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
     });
 
-    if (!foundUser) {
+    if (!user) {
       throw new NotFoundException('Foydalanuvchi topilmadi');
     }
 
-    const { password, ...safeUser } = foundUser;
-    return safeUser;
+    return user;
+  }
+
+  async getMe(user: AuthUser) {
+    return this.getOne(user.id);
   }
 
   async getAll(pagination: PaginationDto) {
@@ -79,7 +69,23 @@ export class UserService {
       this.prisma.user.findMany({
         include: {
           region: true,
-          masterProfile: true,
+          masterProfile: {
+            include: {
+              categories: {
+                include: {
+                  jobCategory: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              apartments: true,
+              ratings: true,
+              apartmentLikes: true,
+              savedMasterProfiles: true,
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -101,9 +107,50 @@ export class UserService {
         region: true,
         masterProfile: {
           include: {
-            category: true,
+            categories: {
+              include: {
+                jobCategory: true,
+              },
+            },
+            _count: {
+              select: {
+                ratings: true,
+                savedBy: true,
+                views: true,
+                contacts: true,
+              },
+            },
           },
         },
+        apartments: {
+          include: {
+            category: true,
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+        apartmentLikes: {
+          include: {
+            apartment: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+        savedMasterProfiles: {
+          include: {
+            masterProfile: {
+              include: {
+                categories: {
+                  include: {
+                    jobCategory: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        ratings: true,
       },
     });
 
@@ -111,12 +158,26 @@ export class UserService {
       throw new NotFoundException('Foydalanuvchi topilmadi');
     }
 
+    const soldApartmentCount = user.apartments.filter(
+      (apartment) => apartment.dealStatus === ApartmentDealStatus.SOLD,
+    ).length;
+
     const { password, ...safeUser } = user;
-    return safeUser;
+
+    return {
+      ...safeUser,
+      stats: {
+        apartmentCount: user.apartments.length,
+        soldApartmentCount,
+        ratingCount: user.ratings.length,
+        likedApartmentCount: user.apartmentLikes.length,
+        savedMasterCount: user.savedMasterProfiles.length,
+      },
+    };
   }
 
   async updateMe(user: AuthUser, dto: UpdateUserMeDto) {
-    await this.getOne(user.id);
+    await this.findUserOrThrow(user.id);
     await this.ensureRegion(dto.regionId);
     const phone = await this.ensureUniquePhone(dto.phone, user.id);
 
@@ -137,7 +198,7 @@ export class UserService {
   }
 
   async update(id: number, dto: UpdateUserDto) {
-    await this.getOne(id);
+    await this.findUserOrThrow(id);
     await this.ensureRegion(dto.regionId);
     const phone = await this.ensureUniquePhone(dto.phone, id);
 
@@ -158,8 +219,142 @@ export class UserService {
     return safeUser;
   }
 
+  async setBlockStatus(id: number, isBlocked: boolean) {
+    await this.findUserOrThrow(id);
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        isBlocked,
+        blockedAt: isBlocked ? new Date() : null,
+      },
+    });
+  }
+
+  async setArchiveStatus(id: number, isArchived: boolean) {
+    await this.findUserOrThrow(id);
+    return this.prisma.user.update({
+      where: { id },
+      data: {
+        isArchived,
+        archivedAt: isArchived ? new Date() : null,
+      },
+    });
+  }
+
+  async getFavoriteApartments(user: AuthUser) {
+    const pendingApartmentIds = this.interactionBuffer.getPendingApartmentLikeIdsForUser(
+      user.id,
+    );
+
+    const apartmentLikes = await this.prisma.apartmentLike.findMany({
+      where: { userId: user.id },
+      include: {
+        apartment: {
+          include: {
+            category: true,
+            region: true,
+            seller: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const pendingApartments =
+      pendingApartmentIds.length > 0
+        ? await this.prisma.apartment.findMany({
+            where: { id: { in: pendingApartmentIds } },
+            include: {
+              category: true,
+              region: true,
+              seller: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
+            },
+          })
+        : [];
+
+    return {
+      data: [
+        ...apartmentLikes.map((item) => item.apartment),
+        ...pendingApartments,
+      ],
+    };
+  }
+
+  async getSavedMasters(user: AuthUser) {
+    const pendingMasterIds = this.interactionBuffer.getPendingMasterSaveIdsForUser(
+      user.id,
+    );
+
+    const savedMasters = await this.prisma.masterProfileSave.findMany({
+      where: { userId: user.id },
+      include: {
+        masterProfile: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+              },
+            },
+            categories: {
+              include: {
+                jobCategory: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const pendingMasters =
+      pendingMasterIds.length > 0
+        ? await this.prisma.masterProfile.findMany({
+            where: { id: { in: pendingMasterIds } },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  phone: true,
+                },
+              },
+              categories: {
+                include: {
+                  jobCategory: true,
+                },
+              },
+            },
+          })
+        : [];
+
+    return {
+      data: [
+        ...savedMasters.map((item) => item.masterProfile),
+        ...pendingMasters,
+      ],
+    };
+  }
+
   async delete(id: number) {
-    await this.getOne(id);
+    await this.findUserOrThrow(id);
     return this.prisma.user.delete({ where: { id } });
   }
 }

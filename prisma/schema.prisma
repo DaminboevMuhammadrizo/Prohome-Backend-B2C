@@ -39,20 +39,30 @@ enum BannerLocation {
 }
 
 model User {
-  id            Int             @id @default(autoincrement())
-  phone         String          @unique
-  password      String?
-  firstName     String?
-  lastName      String?
-  role          UserRole        @default(USER)
-  regionId      Int?
-  region        Region?         @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  ownedCompanies Company[]
-  masterProfile MasterProfile?
-  apartments    Apartment[]
-  ratings       Rating[]
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
+  id                   Int                  @id @default(autoincrement())
+  phone                String               @unique
+  password             String?
+  firstName            String?
+  lastName             String?
+  role                 UserRole             @default(USER)
+  regionId             Int?
+  region               Region?              @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  isBlocked            Boolean              @default(false) @map("is_blocked")
+  blockedAt            DateTime?            @map("blocked_at")
+  isArchived           Boolean              @default(false) @map("is_archived")
+  archivedAt           DateTime?            @map("archived_at")
+  ownedCompanies       Company[]
+  masterProfile        MasterProfile?
+  apartments           Apartment[]
+  ratings              Rating[]
+  apartmentLikes       ApartmentLike[]
+  apartmentViews       ApartmentView[]
+  savedMasterProfiles  MasterProfileSave[]
+  masterProfileViews   MasterProfileView[]
+  masterProfileContacts MasterProfileContact[]
+  companyViews         CompanyView[]
+  createdAt            DateTime             @default(now()) @map("created_at")
+  updatedAt            DateTime             @updatedAt @map("updated_at")
 
   @@map("users")
 }
@@ -66,9 +76,12 @@ model Company {
   description String?
   website     String?
   isVerified  Boolean   @default(false)
+  isActive    Boolean   @default(true) @map("is_active")
   ownerId     Int
   owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   complexes   Complex[]
+  views       CompanyView[]
+  viewCount   Int       @default(0) @map("view_count")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
@@ -135,6 +148,7 @@ model Apartment {
   images            String[]
   listingType       ApartmentListingType @default(SOTISH)
   dealStatus        ApartmentDealStatus  @default(ACTIVE)
+  soldAt            DateTime?            @map("sold_at")
   regionId          Int
   region            Region               @relation(fields: [regionId], references: [id], onDelete: Cascade)
   categoryId        Int
@@ -146,10 +160,48 @@ model Apartment {
   complex           Complex?             @relation(fields: [complexId], references: [id], onDelete: Cascade)
   layoutId          Int?
   layout            ApartmentLayout?     @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  likes             ApartmentLike[]
+  views             ApartmentView[]
+  likeCount         Int                  @default(0) @map("like_count")
+  viewCount         Int                  @default(0) @map("view_count")
   createdAt         DateTime             @default(now()) @map("created_at")
   updatedAt         DateTime             @updatedAt @map("updated_at")
 
   @@map("apartments")
+}
+
+model ApartmentLike {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apartmentId Int
+  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@unique([userId, apartmentId])
+  @@map("apartment_likes")
+}
+
+model ApartmentView {
+  id          Int       @id @default(autoincrement())
+  userId      Int?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apartmentId Int
+  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("apartment_views")
+}
+
+model CompanyView {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId Int
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("company_views")
 }
 
 model ApartmentCategory {
@@ -165,35 +217,90 @@ model ApartmentCategory {
 }
 
 model JobCategory {
-  id         Int             @id @default(autoincrement())
-  nameUz     String          @unique @map("name_uz")
-  nameUzCyrl String          @unique @map("name_uz_cyrl")
-  nameRu     String          @unique @map("name_ru")
-  profiles   MasterProfile[]
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  id                    Int                         @id @default(autoincrement())
+  nameUz                String                      @unique @map("name_uz")
+  nameUzCyrl            String                      @unique @map("name_uz_cyrl")
+  nameRu                String                      @unique @map("name_ru")
+  isActive              Boolean                     @default(true) @map("is_active")
+  isArchived            Boolean                     @default(false) @map("is_archived")
+  archivedAt            DateTime?                   @map("archived_at")
+  masterProfileCategories MasterProfileJobCategory[]
+  createdAt             DateTime                    @default(now()) @map("created_at")
+  updatedAt             DateTime                    @updatedAt @map("updated_at")
 
   @@map("job_categories")
 }
 
 model MasterProfile {
-  id          Int         @id @default(autoincrement())
-  userId      Int         @unique
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  categoryId  Int
-  category    JobCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  id          Int                        @id @default(autoincrement())
+  userId      Int                        @unique
+  user        User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
   bio         String?
   experience  Int
   skills      String[]
   portfolios  String[]
-  isAvailable Boolean     @default(true)
+  isAvailable Boolean                    @default(true)
   salary      Float?
-  rating      Float       @default(0)
+  rating      Float                      @default(0)
   ratings     Rating[]
-  createdAt   DateTime    @default(now()) @map("created_at")
-  updatedAt   DateTime    @updatedAt @map("updated_at")
+  categories  MasterProfileJobCategory[]
+  savedBy     MasterProfileSave[]
+  views       MasterProfileView[]
+  contacts    MasterProfileContact[]
+  savedCount  Int                        @default(0) @map("saved_count")
+  viewCount   Int                        @default(0) @map("view_count")
+  contactCount Int                       @default(0) @map("contact_count")
+  createdAt   DateTime                   @default(now()) @map("created_at")
+  updatedAt   DateTime                   @updatedAt @map("updated_at")
 
   @@map("master_profiles")
+}
+
+model MasterProfileJobCategory {
+  id              Int           @id @default(autoincrement())
+  masterProfileId Int           @map("master_profile_id")
+  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+  jobCategoryId   Int           @map("job_category_id")
+  jobCategory     JobCategory   @relation(fields: [jobCategoryId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@unique([masterProfileId, jobCategoryId])
+  @@map("master_profile_job_categories")
+}
+
+model MasterProfileSave {
+  id              Int           @id @default(autoincrement())
+  userId          Int
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  masterProfileId Int           @map("master_profile_id")
+  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@unique([userId, masterProfileId])
+  @@map("master_profile_saves")
+}
+
+model MasterProfileView {
+  id              Int           @id @default(autoincrement())
+  userId          Int?
+  user            User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  masterProfileId Int           @map("master_profile_id")
+  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@map("master_profile_views")
+}
+
+model MasterProfileContact {
+  id              Int           @id @default(autoincrement())
+  userId          Int
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  masterProfileId Int           @map("master_profile_id")
+  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@unique([userId, masterProfileId])
+  @@map("master_profile_contacts")
 }
 
 model Region {
