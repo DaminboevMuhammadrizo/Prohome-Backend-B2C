@@ -23,14 +23,35 @@ export class SeederService implements OnModuleInit {
 
   private async createAdmin() {
     try {
-      const adminPhone = this.configService.get<string>('ADMIN_PHONE');
-      const adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
+      let adminPhone = this.configService.get<string>('ADMIN_PHONE');
+      let adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
 
       if (!adminPhone || !adminPassword) {
-        this.logger.warn(
-          'ADMIN_PHONE yoki ADMIN_PASSWORD topilmadi, admin seed o‘tkazib yuborildi',
+        adminPhone = '+998901234567';
+        adminPassword = 'Admin123';
+        this.logger.log(
+          `ADMIN_PHONE yoki ADMIN_PASSWORD topilmadi, admin seed uzgaritirildi shunga ${adminPhone}, ${adminPassword} `,
         );
-        return;
+        const existingAdmin = await this.prisma.user.findUnique({
+          where: { phone: adminPhone },
+        });
+
+        if (existingAdmin) {
+          this.logger.log('Admin allaqachon mavjud');
+          return;
+        }
+
+        const admin = await this.prisma.user.create({
+          data: {
+            firstName: 'Admin',
+            phone: adminPhone,
+            role: UserRole.SUPERADMIN,
+            password: await hashPassword(adminPassword),
+          },
+        });
+
+        this.logger.log(`Admin yaratildi: ${admin.id}`);
+        return
       }
 
       const existingAdmin = await this.prisma.user.findUnique({

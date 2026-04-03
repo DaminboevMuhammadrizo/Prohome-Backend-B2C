@@ -157,8 +157,17 @@ Access:
 Body:
 {
   "phone": "+998901234567",
-  "purpose": "LOGIN"
+  "purpose": "LOGIN" // AGAR LOGIN BULSA Post /auth/login SHUNGA YUBORISH KERAK BULADI  BU QACHON YUBORILADI AGAR USER BAZADA BULSA YANI OLDIN RUYXATTAN UTGAN BUSLA 
+  AGAR YANGI BULSA purpose:"REGISTER" bulad shunaqa yuborishi kerak va POST /auth/register bunga yuborishi kerak 
 }
+
+
+POST /auth/login 
+{
+  "phone": "+998908330183",
+  "otp": "953541"
+}
+
 
 Response:
 {
