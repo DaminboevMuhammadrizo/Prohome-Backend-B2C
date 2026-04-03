@@ -33,7 +33,7 @@ export class JwtServices {
     );
     const expiresIn = this.config.get<string>(
       'JWT_ACCESS_TOKEN_EXPIRES_IN',
-      '15m',
+      '12d',
     ) as JwtSignOptions['expiresIn'];
 
     return this.signToken(payload, secret, expiresIn);
@@ -46,7 +46,7 @@ export class JwtServices {
     );
     const expiresIn = this.config.get<string>(
       'JWT_REFRESH_TOKEN_EXPIRES_IN',
-      '7d',
+      '32d',
     ) as JwtSignOptions['expiresIn'];
 
     return this.signToken(payload, secret, expiresIn);
