@@ -6,13 +6,14 @@ import { CoreModule } from "./core/core.module";
 import { ConfigModule } from "./config/config.module";
 import { InteractionBufferModule } from "./interactions/interaction-buffer.module";
 import { PhoneIdentityService } from "./services/phone-identity.service";
+import { SchemaCompatibilityService } from "./services/schema-compatibility.service";
 import { SeaderModule } from "./seeders/seader.module";
 
 @Global()
 @Module({
     imports: [PrismaModule,GuardModule,RoleGuardModule,CoreModule,ConfigModule,InteractionBufferModule,SeaderModule],
-    providers: [PhoneIdentityService],
+    providers: [PhoneIdentityService, SchemaCompatibilityService],
     controllers: [],
-    exports: [PhoneIdentityService]
+    exports: [PhoneIdentityService, SchemaCompatibilityService]
 })
 export class CommonModule { }

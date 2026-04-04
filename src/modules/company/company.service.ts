@@ -1,203 +1,215 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { hashPassword } from 'src/common/config/bcrypt';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
+import { unlinkFile } from 'src/common/types/file.cotroller.typpes';
+import { urlGenerator } from 'src/common/types/generator.types';
 import { assertCompanyAccess } from 'src/common/utils/access.util';
 import { PhoneIdentityService } from 'src/common/services/phone-identity.service';
+import { buildDateRange, normalizeSearch } from 'src/common/utils/query.util';
+import { CompanyQueryDto } from './dto/company-query.dto';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
 @Injectable()
 export class CompanyService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly phoneIdentityService: PhoneIdentityService,
-  ) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly phoneIdentityService: PhoneIdentityService,
+        private readonly config: ConfigService,
+    ) { }
 
-  private async ensureOwner(ownerId: number) {
-    const owner = await this.prisma.user.findUnique({
-      where: { id: ownerId },
-    });
+    private buildWhere(query: CompanyQueryDto): Prisma.CompanyWhereInput {
+        const search = normalizeSearch(query.search);
 
-    if (!owner) {
-      throw new NotFoundException('Company owner topilmadi');
+        return {
+            isActive: query.isActive,
+            isVerified: query.isVerified,
+            createdAt: buildDateRange(query.createdFrom, query.createdTo),
+            OR: search
+                ? [
+                    { name: { contains: search, mode: 'insensitive' } },
+                    { phone: { contains: search, mode: 'insensitive' } },
+                    { description: { contains: search, mode: 'insensitive' } },
+                    { website: { contains: search, mode: 'insensitive' } },
+                ]
+                : undefined,
+        };
     }
 
-    return owner;
-  }
+    async getAll(query: CompanyQueryDto) {
+        const page = query.page ?? 1;
+        const limit = query.limit ?? 10;
+        const skip = (page - 1) * limit;
+        const where = this.buildWhere(query);
 
-  async getAll() {
-    return this.prisma.company.findMany({
-      include: {
-        owner: {
-          select: { id: true, firstName: true, lastName: true, phone: true },
-        },
-        _count: {
-          select: {
-            complexes: true,
-            views: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-  }
-
-  async getOne(id: number) {
-    const company = await this.prisma.company.findUnique({
-      where: { id },
-      include: {
-        owner: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-          },
-        },
-        complexes: {
-          include: {
-            apartments: {
-              include: {
-                category: true,
-                seller: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    phone: true,
-                  },
+        const [data, total] = await Promise.all([
+            this.prisma.company.findMany({
+                where,
+                include: {
+                    _count: {
+                        select: {
+                            complexes: true,
+                            views: true,
+                        },
+                    },
                 },
-              },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            this.prisma.company.count({ where }),
+        ]);
+
+        return {
+            data,
+            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        };
+    }
+
+    async getOne(id: number) {
+        const company = await this.prisma.company.findUnique({
+            where: { id },
+            include: {
+                complexes: {
+                    include: {
+                        apartments: {
+                            include: {
+                                category: true,
+                                seller: {
+                                    select: {
+                                        id: true,
+                                        firstName: true,
+                                        lastName: true,
+                                        phone: true,
+                                    },
+                                },
+                            },
+                        },
+                        layouts: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                },
+                _count: {
+                    select: {
+                        complexes: true,
+                        views: true,
+                    },
+                },
             },
-            layouts: true,
-          },
-          orderBy: { createdAt: 'desc' },
-        },
-        _count: {
-          select: {
-            complexes: true,
-            views: true,
-          },
-        },
-      },
-    });
+        });
 
-    if (!company) {
-      throw new NotFoundException('Company topilmadi');
+        if (!company) {
+            throw new NotFoundException('Company topilmadi');
+        }
+
+        const apartments = company.complexes.flatMap((complex) => complex.apartments);
+        const analytics = {
+            complexCount: company.complexes.length,
+            apartmentCount: apartments.length,
+            soldApartmentCount: apartments.filter(
+                (apartment) => apartment.dealStatus === 'SOLD',
+            ).length,
+            totalApartmentLikeCount: apartments.reduce(
+                (sum, apartment) => sum + apartment.likeCount,
+                0,
+            ),
+            totalApartmentViewCount: apartments.reduce(
+                (sum, apartment) => sum + apartment.viewCount,
+                0,
+            ),
+            companyViewCount: company.viewCount,
+        };
+
+        return {
+            ...company,
+            analytics,
+        };
     }
 
-    const apartments = company.complexes.flatMap((complex) => complex.apartments);
-    const analytics = {
-      complexCount: company.complexes.length,
-      apartmentCount: apartments.length,
-      soldApartmentCount: apartments.filter(
-        (apartment) => apartment.dealStatus === 'SOLD',
-      ).length,
-      totalApartmentLikeCount: apartments.reduce(
-        (sum, apartment) => sum + apartment.likeCount,
-        0,
-      ),
-      totalApartmentViewCount: apartments.reduce(
-        (sum, apartment) => sum + apartment.viewCount,
-        0,
-      ),
-      companyViewCount: company.viewCount,
-    };
+    async create(dto: CreateCompanyDto, logoFile?: Express.Multer.File) {
+        if (!logoFile) {
+            throw new BadRequestException('Company logo rasmi majburiy');
+        }
 
-    return {
-      ...company,
-      analytics,
-    };
-  }
+        const phone = await this.phoneIdentityService.ensurePhoneAvailable({ phone: dto.phone });
 
-  async create(dto: CreateCompanyDto) {
-    await this.ensureOwner(dto.ownerId);
-    const phone = await this.phoneIdentityService.ensurePhoneAvailable({
-      phone: dto.phone,
-    });
-
-    return this.prisma.company.create({
-      data: {
-        ...dto,
-        phone,
-        password: dto.password ? await hashPassword(dto.password) : undefined,
-      },
-    });
-  }
-
-  async update(id: number, user: AuthUser, dto: UpdateCompanyDto) {
-    const company = await this.prisma.company.findUnique({
-      where: { id },
-    });
-
-    if (!company) {
-      throw new NotFoundException('Company topilmadi');
+        return this.prisma.company.create({
+            data: {
+                ...dto, phone,
+                logo: urlGenerator(this.config, logoFile.filename),
+                password: await hashPassword(dto.password),
+            },
+        });
     }
 
-    assertCompanyAccess(
-      company.ownerId,
-      company.id,
-      user,
-      'Siz faqat o‘zingizning companyingizni yangilay olasiz',
-    );
+    async update(
+        id: number,
+        user: AuthUser,
+        dto: UpdateCompanyDto,
+        logoFile?: Express.Multer.File,
+    ) {
+        const company = await this.prisma.company.findUnique({ where: { id } });
+        if (!company) throw new NotFoundException('Company topilmadi');
 
-    if (dto.ownerId) {
-      await this.ensureOwner(dto.ownerId);
+        assertCompanyAccess(company.id, user, 'Siz faqat ozingizning companyingizni yangilay olasiz');
+
+        const phone = dto.phone
+            ? await this.phoneIdentityService.ensurePhoneAvailable({
+                phone: dto.phone, excludeCompanyId: id,
+            }) : undefined;
+
+        if (logoFile && company.logo) {
+            unlinkFile(company.logo);
+        }
+
+        return this.prisma.company.update({
+            where: { id },
+            data: {
+                ...dto,
+                phone,
+                logo: logoFile ? urlGenerator(this.config, logoFile.filename) : undefined,
+                password: dto.password ? await hashPassword(dto.password) : undefined,
+            },
+        });
     }
 
-    const phone = dto.phone
-      ? await this.phoneIdentityService.ensurePhoneAvailable({
-          phone: dto.phone,
-          excludeCompanyId: id,
-        })
-      : undefined;
+    async setActiveStatus(id: number, isActive: boolean) {
+        await this.getOne(id);
+        return this.prisma.company.update({
+            where: { id },
+            data: { isActive },
+        });
+    }
 
-    return this.prisma.company.update({
-      where: { id },
-      data: {
-        ...dto,
-        phone,
-        password: dto.password ? await hashPassword(dto.password) : undefined,
-      },
-    });
-  }
+    async addView(id: number, user?: AuthUser) {
+        await this.prisma.$transaction([
+            this.prisma.companyView.create({
+                data: {
+                    companyId: id,
+                    userId: user?.id,
+                },
+            }),
+            this.prisma.company.update({
+                where: { id },
+                data: {
+                    viewCount: {
+                        increment: 1,
+                    },
+                },
+            }),
+        ]);
 
-  async setActiveStatus(id: number, isActive: boolean) {
-    await this.getOne(id);
-    return this.prisma.company.update({
-      where: { id },
-      data: { isActive },
-    });
-  }
+        return { message: 'Company view saqlandi' };
+    }
 
-  async addView(id: number, user?: AuthUser) {
-    await this.prisma.$transaction([
-      this.prisma.companyView.create({
-        data: {
-          companyId: id,
-          userId: user?.id,
-        },
-      }),
-      this.prisma.company.update({
-        where: { id },
-        data: {
-          viewCount: {
-            increment: 1,
-          },
-        },
-      }),
-    ]);
-
-    return { message: 'Company view saqlandi' };
-  }
-
-  async delete(id: number) {
-    await this.getOne(id);
-    return this.prisma.company.delete({ where: { id } });
-  }
+    async delete(id: number) {
+        const company = await this.getOne(id);
+        if (company.logo) {
+            unlinkFile(company.logo);
+        }
+        return this.prisma.company.delete({ where: { id } });
+    }
 }

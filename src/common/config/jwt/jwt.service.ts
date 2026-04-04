@@ -3,10 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 
+export type AuthRole = UserRole | 'COMPANY';
+
 export type JwtPayload = {
   id: number;
   phone: string;
-  role: UserRole;
+  role: AuthRole;
   entityType: 'USER' | 'COMPANY';
   companyId?: number | null;
 };

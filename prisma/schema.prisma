@@ -1,351 +1,356 @@
 generator client {
-  provider = "prisma-client-js"
+    provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
 }
 
 enum UserRole {
-  SUPERADMIN
-  ADMIN
-  USER
+    SUPERADMIN
+    ADMIN
+    USER
 }
 
 enum ApartmentListingType {
-  SOTISH
-  IJARA
-  SHERIK_KERAK
-  ALMASHISH
+    SOTISH
+    IJARA
+    SHERIK_KERAK
+    ALMASHISH
 }
 
 enum ApartmentDealStatus {
-  ACTIVE
-  SOLD
+    ACTIVE
+    SOLD
 }
 
 enum LayoutStatus {
-  AVAILABLE
-  SOLD_OUT
-  COMING_SOON
+    AVAILABLE
+    SOLD_OUT
+    COMING_SOON
 }
 
 enum BannerLocation {
-  HOME_TOP
-  HOME_MIDDLE
-  HOME_BOTTOM
-  OTHER
+    HOME_TOP
+    HOME_MIDDLE
+    HOME_BOTTOM
+    OTHER
+}
+
+enum SalaryType {
+    HOURLY
+    DAILY
+    MONTHLY
+    PROJECT
 }
 
 model User {
-  id                   Int                  @id @default(autoincrement())
-  phone                String               @unique
-  password             String?
-  firstName            String?
-  lastName             String?
-  role                 UserRole             @default(USER)
-  regionId             Int?
-  region               Region?              @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  isBlocked            Boolean              @default(false) @map("is_blocked")
-  blockedAt            DateTime?            @map("blocked_at")
-  isArchived           Boolean              @default(false) @map("is_archived")
-  archivedAt           DateTime?            @map("archived_at")
-  ownedCompanies       Company[]
-  masterProfile        MasterProfile?
-  apartments           Apartment[]
-  ratings              Rating[]
-  apartmentLikes       ApartmentLike[]
-  apartmentViews       ApartmentView[]
-  savedMasterProfiles  MasterProfileSave[]
-  masterProfileViews   MasterProfileView[]
-  masterProfileContacts MasterProfileContact[]
-  companyViews         CompanyView[]
-  createdAt            DateTime             @default(now()) @map("created_at")
-  updatedAt            DateTime             @updatedAt @map("updated_at")
+    id                    Int                    @id @default(autoincrement())
+    phone                 String                 @unique
+    password              String?
+    firstName             String?
+    lastName              String?
+    role                  UserRole               @default(USER)
+    regionId              Int?
+    region                Region?                @relation(fields: [regionId], references: [id], onDelete: Cascade)
+    isBlocked             Boolean                @default(false) @map("is_blocked")
+    blockedAt             DateTime?              @map("blocked_at")
+    isArchived            Boolean                @default(false) @map("is_archived")
+    archivedAt            DateTime?              @map("archived_at")
+    masterProfile         MasterProfile?
+    apartments            Apartment[]
+    ratings               Rating[]
+    apartmentLikes        ApartmentLike[]
+    apartmentViews        ApartmentView[]
+    savedMasterProfiles   MasterProfileSave[]
+    masterProfileViews    MasterProfileView[]
+    masterProfileContacts MasterProfileContact[]
+    companyViews          CompanyView[]
+    createdAt             DateTime               @default(now()) @map("created_at")
+    updatedAt             DateTime               @updatedAt @map("updated_at")
 
-  @@map("users")
+    @@map("users")
 }
 
 model Company {
-  id          Int       @id @default(autoincrement())
-  name        String
-  phone       String    @unique
-  password    String?
-  logo        String?
-  description String?
-  website     String?
-  isVerified  Boolean   @default(false)
-  isActive    Boolean   @default(true) @map("is_active")
-  ownerId     Int
-  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  complexes   Complex[]
-  views       CompanyView[]
-  viewCount   Int       @default(0) @map("view_count")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+    id          Int           @id @default(autoincrement())
+    name        String
+    phone       String        @unique
+    password    String?
+    logo        String?
+    description String?
+    website     String?
+    isVerified  Boolean       @default(false)
+    isActive    Boolean       @default(true) @map("is_active")
+    complexes   Complex[]
+    views       CompanyView[]
+    viewCount   Int           @default(0) @map("view_count")
+    createdAt   DateTime      @default(now()) @map("created_at")
+    updatedAt   DateTime      @updatedAt @map("updated_at")
 
-  @@map("companies")
+    @@map("companies")
 }
 
 model Complex {
-  id                Int               @id @default(autoincrement())
-  nameUz            String            @map("name_uz")
-  nameUzCyrl        String            @map("name_uz_cyrl")
-  nameRu            String            @map("name_ru")
-  descriptionUz     String?           @map("description_uz")
-  descriptionUzCyrl String?           @map("description_uz_cyrl")
-  descriptionRu     String?           @map("description_ru")
-  address           String
-  images            String[]
-  companyId         Int
-  company           Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  regionId          Int
-  region            Region            @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  layouts           ApartmentLayout[]
-  apartments        Apartment[]
-  latitude          Float?
-  longitude         Float?
-  createdAt         DateTime          @default(now()) @map("created_at")
-  updatedAt         DateTime          @updatedAt @map("updated_at")
+    id                Int               @id @default(autoincrement())
+    nameUz            String            @map("name_uz")
+    nameUzCyrl        String            @map("name_uz_cyrl")
+    nameRu            String            @map("name_ru")
+    descriptionUz     String?           @map("description_uz")
+    descriptionUzCyrl String?           @map("description_uz_cyrl")
+    descriptionRu     String?           @map("description_ru")
+    address           String
+    images            String[]
+    companyId         Int
+    company           Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    regionId          Int
+    region            Region            @relation(fields: [regionId], references: [id], onDelete: Cascade)
+    layouts           ApartmentLayout[]
+    apartments        Apartment[]
+    latitude          Float?
+    longitude         Float?
+    createdAt         DateTime          @default(now()) @map("created_at")
+    updatedAt         DateTime          @updatedAt @map("updated_at")
 
-  @@map("complexes")
+    @@map("complexes")
 }
 
 model ApartmentLayout {
-  id         Int              @id @default(autoincrement())
-  complexId  Int
-  complex    Complex          @relation(fields: [complexId], references: [id], onDelete: Cascade)
-  roomCount  Int
-  area       Float
-  priceMin   Float?
-  priceMax   Float?
-  images     String[]
-  status     LayoutStatus     @default(AVAILABLE)
-  totalUnits Int              @default(1)
-  apartments Apartment[]
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt @map("updated_at")
+    id         Int          @id @default(autoincrement())
+    complexId  Int
+    complex    Complex      @relation(fields: [complexId], references: [id], onDelete: Cascade)
+    roomCount  Int
+    area       Float
+    priceMin   Float?
+    priceMax   Float?
+    images     String[]
+    status     LayoutStatus @default(AVAILABLE)
+    totalUnits Int          @default(1)
+    apartments Apartment[]
+    createdAt  DateTime     @default(now()) @map("created_at")
+    updatedAt  DateTime     @updatedAt @map("updated_at")
 
-  @@map("apartment_layouts")
+    @@map("apartment_layouts")
 }
 
 model Apartment {
-  id                Int                  @id @default(autoincrement())
-  titleUz           String               @map("title_uz")
-  titleUzCyrl       String               @map("title_uz_cyrl")
-  titleRu           String               @map("title_ru")
-  descriptionUz     String?              @map("description_uz")
-  descriptionUzCyrl String?              @map("description_uz_cyrl")
-  descriptionRu     String?              @map("description_ru")
-  price             Float
-  area              Float
-  roomCount         Int
-  floor             Int?
-  totalFloors       Int?
-  landArea          Float?
-  isCottage         Boolean              @default(false)
-  images            String[]
-  listingType       ApartmentListingType @default(SOTISH)
-  dealStatus        ApartmentDealStatus  @default(ACTIVE)
-  soldAt            DateTime?            @map("sold_at")
-  regionId          Int
-  region            Region               @relation(fields: [regionId], references: [id], onDelete: Cascade)
-  categoryId        Int
-  category          ApartmentCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  address           String
-  sellerId          Int?
-  seller            User?                @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  complexId         Int?
-  complex           Complex?             @relation(fields: [complexId], references: [id], onDelete: Cascade)
-  layoutId          Int?
-  layout            ApartmentLayout?     @relation(fields: [layoutId], references: [id], onDelete: Cascade)
-  likes             ApartmentLike[]
-  views             ApartmentView[]
-  likeCount         Int                  @default(0) @map("like_count")
-  viewCount         Int                  @default(0) @map("view_count")
-  createdAt         DateTime             @default(now()) @map("created_at")
-  updatedAt         DateTime             @updatedAt @map("updated_at")
+    id                Int                  @id @default(autoincrement())
+    titleUz           String               @map("title_uz")
+    titleUzCyrl       String               @map("title_uz_cyrl")
+    titleRu           String               @map("title_ru")
+    descriptionUz     String?              @map("description_uz")
+    descriptionUzCyrl String?              @map("description_uz_cyrl")
+    descriptionRu     String?              @map("description_ru")
+    price             Float
+    area              Float
+    roomCount         Int
+    floor             Int?
+    totalFloors       Int?
+    landArea          Float?
+    isCottage         Boolean              @default(false)
+    images            String[]
+    listingType       ApartmentListingType @default(SOTISH)
+    dealStatus        ApartmentDealStatus  @default(ACTIVE)
+    soldAt            DateTime?            @map("sold_at")
+    regionId          Int
+    region            Region               @relation(fields: [regionId], references: [id], onDelete: Cascade)
+    categoryId        Int
+    category          ApartmentCategory    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+    address           String
+    sellerId          Int?
+    seller            User?                @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+    complexId         Int?
+    complex           Complex?             @relation(fields: [complexId], references: [id], onDelete: Cascade)
+    layoutId          Int?
+    layout            ApartmentLayout?     @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+    likes             ApartmentLike[]
+    views             ApartmentView[]
+    likeCount         Int                  @default(0) @map("like_count")
+    viewCount         Int                  @default(0) @map("view_count")
+    createdAt         DateTime             @default(now()) @map("created_at")
+    updatedAt         DateTime             @updatedAt @map("updated_at")
 
-  @@map("apartments")
+    @@map("apartments")
 }
 
 model ApartmentLike {
-  id          Int       @id @default(autoincrement())
-  userId      Int
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apartmentId Int
-  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now()) @map("created_at")
+    id          Int       @id @default(autoincrement())
+    userId      Int
+    user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    apartmentId Int
+    apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+    createdAt   DateTime  @default(now()) @map("created_at")
 
-  @@unique([userId, apartmentId])
-  @@map("apartment_likes")
+    @@unique([userId, apartmentId])
+    @@map("apartment_likes")
 }
 
 model ApartmentView {
-  id          Int       @id @default(autoincrement())
-  userId      Int?
-  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apartmentId Int
-  apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now()) @map("created_at")
+    id          Int       @id @default(autoincrement())
+    userId      Int?
+    user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    apartmentId Int
+    apartment   Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+    createdAt   DateTime  @default(now()) @map("created_at")
 
-  @@map("apartment_views")
+    @@map("apartment_views")
 }
 
 model CompanyView {
-  id        Int      @id @default(autoincrement())
-  userId    Int?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyId Int
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now()) @map("created_at")
+    id        Int      @id @default(autoincrement())
+    userId    Int?
+    user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    companyId Int
+    company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("company_views")
+    @@map("company_views")
 }
 
 model ApartmentCategory {
-  id         Int         @id @default(autoincrement())
-  nameUz     String      @unique @map("name_uz")
-  nameUzCyrl String      @unique @map("name_uz_cyrl")
-  nameRu     String      @unique @map("name_ru")
-  apartments Apartment[]
-  createdAt  DateTime    @default(now()) @map("created_at")
-  updatedAt  DateTime    @updatedAt @map("updated_at")
+    id         Int         @id @default(autoincrement())
+    nameUz     String      @unique @map("name_uz")
+    nameUzCyrl String      @unique @map("name_uz_cyrl")
+    nameRu     String      @unique @map("name_ru")
+    apartments Apartment[]
+    createdAt  DateTime    @default(now()) @map("created_at")
+    updatedAt  DateTime    @updatedAt @map("updated_at")
 
-  @@map("apartment_categories")
+    @@map("apartment_categories")
 }
 
 model JobCategory {
-  id                    Int                         @id @default(autoincrement())
-  nameUz                String                      @unique @map("name_uz")
-  nameUzCyrl            String                      @unique @map("name_uz_cyrl")
-  nameRu                String                      @unique @map("name_ru")
-  isActive              Boolean                     @default(true) @map("is_active")
-  isArchived            Boolean                     @default(false) @map("is_archived")
-  archivedAt            DateTime?                   @map("archived_at")
-  masterProfileCategories MasterProfileJobCategory[]
-  createdAt             DateTime                    @default(now()) @map("created_at")
-  updatedAt             DateTime                    @updatedAt @map("updated_at")
+    id                      Int                        @id @default(autoincrement())
+    nameUz                  String                     @unique @map("name_uz")
+    nameUzCyrl              String                     @unique @map("name_uz_cyrl")
+    nameRu                  String                     @unique @map("name_ru")
+    isActive                Boolean                    @default(true) @map("is_active")
+    isArchived              Boolean                    @default(false) @map("is_archived")
+    archivedAt              DateTime?                  @map("archived_at")
+    masterProfileCategories MasterProfileJobCategory[]
+    createdAt               DateTime                   @default(now()) @map("created_at")
+    updatedAt               DateTime                   @updatedAt @map("updated_at")
 
-  @@map("job_categories")
+    @@map("job_categories")
 }
 
 model MasterProfile {
-  id          Int                        @id @default(autoincrement())
-  userId      Int                        @unique
-  user        User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bio         String?
-  experience  Int
-  skills      String[]
-  portfolios  String[]
-  isAvailable Boolean                    @default(true)
-  salary      Float?
-  rating      Float                      @default(0)
-  ratings     Rating[]
-  categories  MasterProfileJobCategory[]
-  savedBy     MasterProfileSave[]
-  views       MasterProfileView[]
-  contacts    MasterProfileContact[]
-  savedCount  Int                        @default(0) @map("saved_count")
-  viewCount   Int                        @default(0) @map("view_count")
-  contactCount Int                       @default(0) @map("contact_count")
-  createdAt   DateTime                   @default(now()) @map("created_at")
-  updatedAt   DateTime                   @updatedAt @map("updated_at")
+    id           Int                        @id @default(autoincrement())
+    userId       Int                        @unique
+    user         User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+    bio          String?
+    experience   Int
+    skills       String[]
+    portfolios   String[]
+    isAvailable  Boolean                    @default(true)
+    salary       Float?
+    salaryType   SalaryType?                @map("salary_type")
+    rating       Float                      @default(0)
+    ratings      Rating[]
+    categories   MasterProfileJobCategory[]
+    savedBy      MasterProfileSave[]
+    views        MasterProfileView[]
+    contacts     MasterProfileContact[]
+    savedCount   Int                        @default(0) @map("saved_count")
+    viewCount    Int                        @default(0) @map("view_count")
+    contactCount Int                        @default(0) @map("contact_count")
+    createdAt    DateTime                   @default(now()) @map("created_at")
+    updatedAt    DateTime                   @updatedAt @map("updated_at")
 
-  @@map("master_profiles")
+    @@map("master_profiles")
 }
 
 model MasterProfileJobCategory {
-  id              Int           @id @default(autoincrement())
-  masterProfileId Int           @map("master_profile_id")
-  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-  jobCategoryId   Int           @map("job_category_id")
-  jobCategory     JobCategory   @relation(fields: [jobCategoryId], references: [id], onDelete: Cascade)
-  createdAt       DateTime      @default(now()) @map("created_at")
+    id              Int           @id @default(autoincrement())
+    masterProfileId Int           @map("master_profile_id")
+    masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+    jobCategoryId   Int           @map("job_category_id")
+    jobCategory     JobCategory   @relation(fields: [jobCategoryId], references: [id], onDelete: Cascade)
+    createdAt       DateTime      @default(now()) @map("created_at")
 
-  @@unique([masterProfileId, jobCategoryId])
-  @@map("master_profile_job_categories")
+    @@unique([masterProfileId, jobCategoryId])
+    @@map("master_profile_job_categories")
 }
 
 model MasterProfileSave {
-  id              Int           @id @default(autoincrement())
-  userId          Int
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  masterProfileId Int           @map("master_profile_id")
-  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-  createdAt       DateTime      @default(now()) @map("created_at")
+    id              Int           @id @default(autoincrement())
+    userId          Int
+    user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    masterProfileId Int           @map("master_profile_id")
+    masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+    createdAt       DateTime      @default(now()) @map("created_at")
 
-  @@unique([userId, masterProfileId])
-  @@map("master_profile_saves")
+    @@unique([userId, masterProfileId])
+    @@map("master_profile_saves")
 }
 
 model MasterProfileView {
-  id              Int           @id @default(autoincrement())
-  userId          Int?
-  user            User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  masterProfileId Int           @map("master_profile_id")
-  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-  createdAt       DateTime      @default(now()) @map("created_at")
+    id              Int           @id @default(autoincrement())
+    userId          Int?
+    user            User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+    masterProfileId Int           @map("master_profile_id")
+    masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+    createdAt       DateTime      @default(now()) @map("created_at")
 
-  @@map("master_profile_views")
+    @@map("master_profile_views")
 }
 
 model MasterProfileContact {
-  id              Int           @id @default(autoincrement())
-  userId          Int
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  masterProfileId Int           @map("master_profile_id")
-  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-  createdAt       DateTime      @default(now()) @map("created_at")
+    id              Int           @id @default(autoincrement())
+    userId          Int
+    user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    masterProfileId Int           @map("master_profile_id")
+    masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+    createdAt       DateTime      @default(now()) @map("created_at")
 
-  @@unique([userId, masterProfileId])
-  @@map("master_profile_contacts")
+    @@unique([userId, masterProfileId])
+    @@map("master_profile_contacts")
 }
 
 model Region {
-  id                Int        @id @default(autoincrement())
-  nameUz            String     @map("name_uz")
-  nameUzCyrl        String     @map("name_uz_cyrl")
-  nameRu            String     @map("name_ru")
-  countryNameUz     String?    @default("O'zbekiston") @map("country_name_uz")
-  countryNameUzCyrl String?    @default("Ўзбекистон") @map("country_name_uz_cyrl")
-  countryNameRu     String?    @default("Узбекистан") @map("country_name_ru")
-  parentId          Int?       @map("parent_id")
-  parent            Region?    @relation("RegionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children          Region[]   @relation("RegionHierarchy")
-  users             User[]
-  complexes         Complex[]
-  apartments        Apartment[]
-  createdAt         DateTime   @default(now()) @map("created_at")
-  updatedAt         DateTime   @updatedAt @map("updated_at")
+    id                Int         @id @default(autoincrement())
+    nameUz            String      @map("name_uz")
+    nameUzCyrl        String      @map("name_uz_cyrl")
+    nameRu            String      @map("name_ru")
+    countryNameUz     String?     @default("O'zbekiston") @map("country_name_uz")
+    countryNameUzCyrl String?     @default("Ўзбекистон") @map("country_name_uz_cyrl")
+    countryNameRu     String?     @default("Узбекистан") @map("country_name_ru")
+    parentId          Int?        @map("parent_id")
+    parent            Region?     @relation("RegionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+    children          Region[]    @relation("RegionHierarchy")
+    users             User[]
+    complexes         Complex[]
+    apartments        Apartment[]
+    createdAt         DateTime    @default(now()) @map("created_at")
+    updatedAt         DateTime    @updatedAt @map("updated_at")
 
-  @@map("regions")
+    @@map("regions")
 }
 
 model Rating {
-  id              Int           @id @default(autoincrement())
-  score           Int
-  comment         String?
-  userId          Int
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  masterProfileId Int
-  masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+    id              Int           @id @default(autoincrement())
+    score           Int
+    comment         String?
+    userId          Int
+    user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    masterProfileId Int
+    masterProfile   MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+    createdAt       DateTime      @default(now()) @map("created_at")
+    updatedAt       DateTime      @updatedAt @map("updated_at")
 
-  @@unique([userId, masterProfileId])
-  @@map("ratings")
+    @@unique([userId, masterProfileId])
+    @@map("ratings")
 }
 
 model Banner {
-  id        Int            @id @default(autoincrement())
-  image     String
-  link      String?
-  location  BannerLocation @default(OTHER)
-  isActive  Boolean        @default(true)
-  createdAt DateTime       @default(now()) @map("created_at")
-  updatedAt DateTime       @updatedAt @map("updated_at")
+    id        Int            @id @default(autoincrement())
+    image     String
+    link      String?
+    location  BannerLocation @default(OTHER)
+    isActive  Boolean        @default(true)
+    createdAt DateTime       @default(now()) @map("created_at")
+    updatedAt DateTime       @updatedAt @map("updated_at")
 
-  @@map("banners")
+    @@map("banners")
 }

@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  ParseIntPipe,
-  Patch,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { Role } from 'src/common/decorators/role.decorator';
@@ -21,49 +11,49 @@ import { UpdateApartmentCategoryDto } from './dto/update-apartment-category.dto'
 @ApiTags('Apartment Categories')
 @Controller('apartment-categories')
 export class ApartmentCategoryController {
-  constructor(
-    private readonly apartmentCategoryService: ApartmentCategoryService,
-  ) {}
+    constructor(
+        private readonly apartmentCategoryService: ApartmentCategoryService,
+    ) { }
 
-  @Get()
-  @ApiOperation({ summary: 'Apartment kategoriyalar ro‘yxati' })
-  getAll() {
-    return this.apartmentCategoryService.getAll();
-  }
+    @Get()
+    @ApiOperation({ summary: 'Apartment kategoriyalar ro‘yxati' })
+    getAll() {
+        return this.apartmentCategoryService.getAll();
+    }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Bitta apartment kategoriya' })
-  getOne(@Param('id', ParseIntPipe) id: number) {
-    return this.apartmentCategoryService.getOne(id);
-  }
+    @Get(':id')
+    @ApiOperation({ summary: 'Bitta apartment kategoriya' })
+    getOne(@Param('id', ParseIntPipe) id: number) {
+        return this.apartmentCategoryService.getOne(id);
+    }
 
-  @Post()
-  @ApiBearerAuth()
-  @UseGuards(GuardService, RoleGuardService)
-  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiOperation({ summary: 'Apartment kategoriya yaratish' })
-  create(@Body() dto: CreateApartmentCategoryDto) {
-    return this.apartmentCategoryService.create(dto);
-  }
+    @Post()
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Apartment kategoriya yaratish' })
+    create(@Body() dto: CreateApartmentCategoryDto) {
+        return this.apartmentCategoryService.create(dto);
+    }
 
-  @Patch(':id')
-  @ApiBearerAuth()
-  @UseGuards(GuardService, RoleGuardService)
-  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiOperation({ summary: 'Apartment kategoriya yangilash' })
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateApartmentCategoryDto,
-  ) {
-    return this.apartmentCategoryService.update(id, dto);
-  }
+    @Patch(':id')
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Apartment kategoriya yangilash' })
+    update(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: UpdateApartmentCategoryDto,
+    ) {
+        return this.apartmentCategoryService.update(id, dto);
+    }
 
-  @Delete(':id')
-  @ApiBearerAuth()
-  @UseGuards(GuardService, RoleGuardService)
-  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiOperation({ summary: 'Apartment kategoriya o‘chirish' })
-  delete(@Param('id', ParseIntPipe) id: number) {
-    return this.apartmentCategoryService.delete(id);
-  }
+    @Delete(':id')
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Apartment kategoriya o‘chirish' })
+    delete(@Param('id', ParseIntPipe) id: number) {
+        return this.apartmentCategoryService.delete(id);
+    }
 }

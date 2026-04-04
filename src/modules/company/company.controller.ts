@@ -1,12 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UserRole } from '@prisma/client';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import { fileStorages } from 'src/common/types/upload_types';
 import { CompanyService } from './company.service';
+import { CompanyQueryDto } from './dto/company-query.dto';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyStatusDto } from './dto/update-company-status.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
@@ -18,8 +21,8 @@ export class CompanyController {
 
     @Get()
     @ApiOperation({ summary: 'Companylar ro‘yxati' })
-    getAll() {
-        return this.companyService.getAll();
+    getAll(@Query() query: CompanyQueryDto) {
+        return this.companyService.getAll(query);
     }
 
     @Get(':id')
@@ -38,21 +41,57 @@ export class CompanyController {
     @ApiBearerAuth()
     @UseGuards(GuardService, RoleGuardService)
     @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
-    @ApiOperation({ summary: 'Company qo‘shish' })
-    create(@Body() dto: CreateCompanyDto) {
-        return this.companyService.create(dto);
+    @UseInterceptors(FileInterceptor('logo', fileStorages(['image'])))
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        schema: {
+            type: 'object',
+            required: ['name', 'phone', 'password', 'logo'],
+            properties: {
+                name: { type: 'string' },
+                phone: { type: 'string' },
+                password: { type: 'string' },
+                logo: { type: 'string', format: 'binary' },
+                description: { type: 'string' },
+                website: { type: 'string' },
+                isVerified: { type: 'boolean' },
+                isActive: { type: 'boolean' },
+            },
+        },
+    })
+    @ApiOperation({ summary: 'Company qoshish' })
+    create(@Body() dto: CreateCompanyDto, @UploadedFile() logo?: Express.Multer.File) {
+        return this.companyService.create(dto, logo);
     }
 
     @Patch(':id')
     @ApiBearerAuth()
     @UseGuards(GuardService)
+    @UseInterceptors(FileInterceptor('logo', fileStorages(['image'])))
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                name: { type: 'string' },
+                phone: { type: 'string' },
+                password: { type: 'string' },
+                logo: { type: 'string', format: 'binary' },
+                description: { type: 'string' },
+                website: { type: 'string' },
+                isVerified: { type: 'boolean' },
+                isActive: { type: 'boolean' },
+            },
+        },
+    })
     @ApiOperation({ summary: 'Company yangilash' })
     update(
         @Param('id', ParseIntPipe) id: number,
         @UserData() user: JwtPayload,
         @Body() dto: UpdateCompanyDto,
+        @UploadedFile() logo?: Express.Multer.File,
     ) {
-        return this.companyService.update(id, user, dto);
+        return this.companyService.update(id, user, dto, logo);
     }
 
     @Patch(':id/status')

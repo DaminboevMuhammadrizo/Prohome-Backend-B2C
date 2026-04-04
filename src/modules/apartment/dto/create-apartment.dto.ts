@@ -2,14 +2,12 @@ import { ApartmentListingType } from '@prisma/client';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsArray,
   IsBoolean,
   IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
   IsString,
-  IsUrl,
   Min,
 } from 'class-validator';
 
@@ -75,10 +73,6 @@ export class CreateApartmentDto {
   @IsOptional()
   @IsBoolean()
   isCottage?: boolean;
-
-  @IsArray()
-  @IsUrl({ require_tld: false }, { each: true })
-  images: string[];
 
   @ApiPropertyOptional({ enum: ApartmentListingType })
   @IsOptional()

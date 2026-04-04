@@ -7,14 +7,20 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { GuardService } from 'src/common/guard/guard.service';
+import { fileStorages } from 'src/common/types/upload_types';
 import { ApartmentService } from './apartment.service';
 import { CreateApartmentDto } from './dto/create-apartment.dto';
+import { ApartmentQueryDto } from './dto/apartment-query.dto';
 import { UpdateApartmentStatusDto } from './dto/update-apartment-status.dto';
 import { UpdateApartmentDto } from './dto/update-apartment.dto';
 
@@ -25,14 +31,14 @@ export class ApartmentController {
 
   @Get()
   @ApiOperation({ summary: 'Apartmentlar ro‘yxati' })
-  getAll() {
-    return this.apartmentService.getAll();
+  getAll(@Query() query: ApartmentQueryDto) {
+    return this.apartmentService.getAll(query);
   }
 
   @Get('sold/all')
   @ApiOperation({ summary: 'Sotilgan uylar ro‘yxati' })
-  getSoldApartments() {
-    return this.apartmentService.getSoldApartments();
+  getSoldApartments(@Query() query: ApartmentQueryDto) {
+    return this.apartmentService.getSoldApartments(query);
   }
 
   @Get(':id')
@@ -61,9 +67,57 @@ export class ApartmentController {
   @Post()
   @ApiBearerAuth()
   @UseGuards(GuardService)
+  @UseInterceptors(FilesInterceptor('images', 20, fileStorages(['image'])))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: [
+        'titleUz',
+        'titleUzCyrl',
+        'titleRu',
+        'price',
+        'area',
+        'roomCount',
+        'regionId',
+        'categoryId',
+        'address',
+        'images',
+      ],
+      properties: {
+        titleUz: { type: 'string' },
+        titleUzCyrl: { type: 'string' },
+        titleRu: { type: 'string' },
+        descriptionUz: { type: 'string' },
+        descriptionUzCyrl: { type: 'string' },
+        descriptionRu: { type: 'string' },
+        price: { type: 'number' },
+        area: { type: 'number' },
+        roomCount: { type: 'number' },
+        floor: { type: 'number' },
+        totalFloors: { type: 'number' },
+        landArea: { type: 'number' },
+        isCottage: { type: 'boolean' },
+        listingType: { type: 'string' },
+        regionId: { type: 'number' },
+        categoryId: { type: 'number' },
+        address: { type: 'string' },
+        complexId: { type: 'number' },
+        layoutId: { type: 'number' },
+        images: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Apartment yaratish' })
-  create(@UserData() user: JwtPayload, @Body() dto: CreateApartmentDto) {
-    return this.apartmentService.create(user, dto);
+  create(
+    @UserData() user: JwtPayload,
+    @Body() dto: CreateApartmentDto,
+    @UploadedFiles() images?: Express.Multer.File[],
+  ) {
+    return this.apartmentService.create(user, dto, images);
   }
 
   @Post(':id/like')
@@ -77,19 +131,52 @@ export class ApartmentController {
   @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(GuardService)
+  @UseInterceptors(FilesInterceptor('images', 20, fileStorages(['image'])))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        titleUz: { type: 'string' },
+        titleUzCyrl: { type: 'string' },
+        titleRu: { type: 'string' },
+        descriptionUz: { type: 'string' },
+        descriptionUzCyrl: { type: 'string' },
+        descriptionRu: { type: 'string' },
+        price: { type: 'number' },
+        area: { type: 'number' },
+        roomCount: { type: 'number' },
+        floor: { type: 'number' },
+        totalFloors: { type: 'number' },
+        landArea: { type: 'number' },
+        isCottage: { type: 'boolean' },
+        listingType: { type: 'string' },
+        regionId: { type: 'number' },
+        categoryId: { type: 'number' },
+        address: { type: 'string' },
+        complexId: { type: 'number' },
+        layoutId: { type: 'number' },
+        images: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+        },
+      },
+    },
+  })
   @ApiOperation({ summary: 'Apartment yangilash' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @UserData() user: JwtPayload,
     @Body() dto: UpdateApartmentDto,
+    @UploadedFiles() images?: Express.Multer.File[],
   ) {
-    return this.apartmentService.update(id, user, dto);
+    return this.apartmentService.update(id, user, dto, images);
   }
 
   @Patch(':id/status')
   @ApiBearerAuth()
   @UseGuards(GuardService)
-  @ApiOperation({ summary: 'Apartment statusini o‘zgartirish' })
+  @ApiOperation({ summary: 'Apartment statusini ozgartirish' })
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @UserData() user: JwtPayload,
