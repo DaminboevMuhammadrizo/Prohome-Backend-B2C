@@ -8,6 +8,7 @@ import { ComplexModule } from './complex/complex.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { JobModule } from './job/job.module';
 import { MasterProfileModule } from './master-profile/master-profile.module';
+import { NotificationModule } from './notification/notification.module';
 import { RatingModule } from './rating/rating.module';
 import { RegionModule } from './region/region.module';
 import { UserModule } from './user/user.module';
@@ -18,6 +19,7 @@ import { UserModule } from './user/user.module';
     UserModule,
     RegionModule,
     BannerModule,
+    NotificationModule,
     JobModule,
     MasterProfileModule,
     RatingModule,

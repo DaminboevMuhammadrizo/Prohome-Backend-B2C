@@ -10,6 +10,7 @@ import { JwtPayload, JwtServices } from 'src/common/config/jwt/jwt.service';
 import { RedisService } from 'src/common/config/redis/redis.service';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { PhoneIdentityService } from 'src/common/services/phone-identity.service';
+import { NotificationService } from '../notification/notification.service';
 import { SmsService } from 'src/common/services/sms.service';
 import { LoginAuthDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
@@ -28,6 +29,7 @@ export class AuthService {
     private readonly redis: RedisService,
     private readonly sms: SmsService,
     private readonly phoneIdentityService: PhoneIdentityService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private getOtpKey(phone: string, purpose: OtpPurpose): string {
@@ -189,6 +191,8 @@ export class AuthService {
       },
     });
 
+    await this.notificationService.registerDeviceForUser(user.id, dto);
+
     return this.generateUserAuthResponse(user);
   }
 
@@ -199,6 +203,7 @@ export class AuthService {
     const company = await this.findCompanyForLogin(phone);
     if (company) {
       this.ensureCompanyCanLogin(company);
+      await this.notificationService.registerDeviceForUser(company.owner.id, dto);
       return this.generateCompanyAuthResponse(company);
     }
 
@@ -211,6 +216,7 @@ export class AuthService {
     }
 
     this.ensureUserCanLogin(user);
+    await this.notificationService.registerDeviceForUser(user.id, dto);
     return this.generateUserAuthResponse(user);
   }
 
@@ -226,6 +232,7 @@ export class AuthService {
       );
 
       if (validCompanyPassword) {
+        await this.notificationService.registerDeviceForUser(company.owner.id, dto);
         return this.generateCompanyAuthResponse(company);
       }
     }
@@ -243,6 +250,7 @@ export class AuthService {
       throw new UnauthorizedException('Notogri login yoki parol');
     }
 
+    await this.notificationService.registerDeviceForUser(user.id, dto);
     return this.generateUserAuthResponse(user);
   }
 

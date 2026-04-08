@@ -5,14 +5,15 @@ import { RoleGuardModule } from "./role_guard/role_guard.module";
 import { CoreModule } from "./core/core.module";
 import { ConfigModule } from "./config/config.module";
 import { InteractionBufferModule } from "./interactions/interaction-buffer.module";
+import { FirebaseService } from "./services/firebase.service";
 import { PhoneIdentityService } from "./services/phone-identity.service";
 import { SeaderModule } from "./seeders/seader.module";
 
 @Global()
 @Module({
     imports: [PrismaModule,GuardModule,RoleGuardModule,CoreModule,ConfigModule,InteractionBufferModule,SeaderModule],
-    providers: [PhoneIdentityService],
+    providers: [PhoneIdentityService, FirebaseService],
     controllers: [],
-    exports: [PhoneIdentityService]
+    exports: [PhoneIdentityService, FirebaseService]
 })
 export class CommonModule { }

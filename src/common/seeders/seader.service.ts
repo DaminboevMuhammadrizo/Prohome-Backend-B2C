@@ -23,43 +23,21 @@ export class SeederService implements OnModuleInit {
 
   private async createAdmin() {
     try {
-      let adminPhone = this.configService.get<string>('ADMIN_PHONE');
-      let adminPassword = this.configService.get<string>('ADMIN_PASSWORD');
-
-      if (!adminPhone || !adminPassword) {
-        adminPhone = '+998901234567';
-        adminPassword = 'Admin123';
-        this.logger.log(
-          `ADMIN_PHONE yoki ADMIN_PASSWORD topilmadi, admin seed uzgaritirildi shunga ${adminPhone}, ${adminPassword} `,
-        );
-        const existingAdmin = await this.prisma.user.findUnique({
-          where: { phone: adminPhone },
-        });
-
-        if (existingAdmin) {
-          this.logger.log('Admin allaqachon mavjud');
-          return;
-        }
-
-        const admin = await this.prisma.user.create({
-          data: {
-            firstName: 'Admin',
-            phone: adminPhone,
-            role: UserRole.SUPERADMIN,
-            password: await hashPassword(adminPassword),
-          },
-        });
-
-        this.logger.log(`Admin yaratildi: ${admin.id}`);
-        return
-      }
+      const adminPhone =
+        this.configService.get<string>('ADMIN_PHONE') ?? '+998901234567';
+      const adminPassword =
+        this.configService.get<string>('ADMIN_PASSWORD') ?? 'Admin123';
+      const adminRoleValue =
+        this.configService.get<string>('ADMIN_ROLE') ?? UserRole.SUPERADMIN;
+      const adminRole =
+        adminRoleValue === UserRole.ADMIN ? UserRole.ADMIN : UserRole.SUPERADMIN;
 
       const existingAdmin = await this.prisma.user.findUnique({
         where: { phone: adminPhone },
       });
 
       if (existingAdmin) {
-        this.logger.log('Admin allaqachon mavjud');
+        this.logger.log(`Admin allaqachon mavjud: ${adminPhone}`);
         return;
       }
 
@@ -67,12 +45,14 @@ export class SeederService implements OnModuleInit {
         data: {
           firstName: 'Admin',
           phone: adminPhone,
-          role: UserRole.ADMIN,
+          role: adminRole,
           password: await hashPassword(adminPassword),
         },
       });
 
-      this.logger.log(`Admin yaratildi: ${admin.id}`);
+      this.logger.log(
+        `Seed admin yaratildi: phone=${adminPhone}, password=${adminPassword}, role=${adminRole}, id=${admin.id}`,
+      );
     } catch (error) {
       this.logger.error('Admin seed xatoligi', error);
       throw error;

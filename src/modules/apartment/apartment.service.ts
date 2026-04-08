@@ -4,10 +4,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ApartmentDealStatus } from '@prisma/client';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { InteractionBufferService } from 'src/common/interactions/interaction-buffer.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
 import { assertOwnership, isPrivilegedRole } from 'src/common/utils/access.util';
+import { replaceImages, generateUrlsFromFiles } from 'src/common/utils/helper';
+import { unlinkFile } from 'src/common/types/file.cotroller.typpes';
 import { CreateApartmentDto } from './dto/create-apartment.dto';
 import { UpdateApartmentStatusDto } from './dto/update-apartment-status.dto';
 import { UpdateApartmentDto } from './dto/update-apartment.dto';
@@ -17,6 +20,7 @@ export class ApartmentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly interactionBuffer: InteractionBufferService,
+    private readonly configService: ConfigService,
   ) {}
 
   private decorateApartment<
@@ -178,11 +182,16 @@ export class ApartmentService {
     return { message: 'Apartment view saqlandi' };
   }
 
-  async create(user: AuthUser, dto: CreateApartmentDto) {
+  async create(
+    user: AuthUser,
+    dto: CreateApartmentDto,
+    files: Express.Multer.File[],
+  ) {
     await this.ensureRelations(dto);
     return this.prisma.apartment.create({
       data: {
         ...dto,
+        images: generateUrlsFromFiles(files, this.configService),
         sellerId: user.id,
       },
       include: {
@@ -193,7 +202,12 @@ export class ApartmentService {
     });
   }
 
-  async update(id: number, user: AuthUser, dto: UpdateApartmentDto) {
+  async update(
+    id: number,
+    user: AuthUser,
+    dto: UpdateApartmentDto,
+    files: Express.Multer.File[],
+  ) {
     const apartment = await this.prisma.apartment.findUnique({
       where: { id },
     });
@@ -218,7 +232,10 @@ export class ApartmentService {
 
     return this.prisma.apartment.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        images: replaceImages(files, apartment.images, this.configService),
+      },
     });
   }
 
@@ -270,6 +287,8 @@ export class ApartmentService {
         'Siz faqat o‘zingizning apartmentingizni o‘chira olasiz',
       );
     }
+
+    apartment.images.forEach((image) => unlinkFile(image));
 
     return this.prisma.apartment.delete({ where: { id } });
   }

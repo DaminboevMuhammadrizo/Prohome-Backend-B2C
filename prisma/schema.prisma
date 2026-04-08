@@ -38,6 +38,13 @@ enum BannerLocation {
   OTHER
 }
 
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+  UNKNOWN
+}
+
 model User {
   id                   Int                  @id @default(autoincrement())
   phone                String               @unique
@@ -61,6 +68,8 @@ model User {
   masterProfileViews   MasterProfileView[]
   masterProfileContacts MasterProfileContact[]
   companyViews         CompanyView[]
+  devices              UserDevice[]
+  notifications        Notification[]
   createdAt            DateTime             @default(now()) @map("created_at")
   updatedAt            DateTime             @updatedAt @map("updated_at")
 
@@ -348,4 +357,38 @@ model Banner {
   updatedAt DateTime       @updatedAt @map("updated_at")
 
   @@map("banners")
+}
+
+model UserDevice {
+  id         Int            @id @default(autoincrement())
+  userId     Int            @map("user_id")
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceId   String         @map("device_id")
+  deviceName String?        @map("device_name")
+  platform   DevicePlatform @default(UNKNOWN)
+  fcmToken   String         @map("fcm_token")
+  isActive   Boolean        @default(true) @map("is_active")
+  lastSeenAt DateTime       @default(now()) @map("last_seen_at")
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  @@unique([userId, deviceId])
+  @@map("user_devices")
+}
+
+model Notification {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  data           Json?
+  isRead         Boolean  @default(false) @map("is_read")
+  readAt         DateTime? @map("read_at")
+  deliveredCount Int      @default(0) @map("delivered_count")
+  failedCount    Int      @default(0) @map("failed_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("notifications")
 }
