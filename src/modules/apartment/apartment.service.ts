@@ -3,17 +3,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ApartmentDealStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
+import { ApartmentDealStatus } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { InteractionBufferService } from 'src/common/interactions/interaction-buffer.service';
+import { unlinkFile } from 'src/common/types/file.cotroller.typpes';
 import { AuthUser } from 'src/common/types/auth-user.type';
 import { assertOwnership, isPrivilegedRole } from 'src/common/utils/access.util';
-import { replaceImages, generateUrlsFromFiles } from 'src/common/utils/helper';
-import { unlinkFile } from 'src/common/types/file.cotroller.typpes';
+import { generateUrlsFromFiles, replaceImages } from 'src/common/utils/helper';
 import { CreateApartmentDto } from './dto/create-apartment.dto';
+import { ApartmentQueryDto } from './dto/apartment-query.dto';
 import { UpdateApartmentStatusDto } from './dto/update-apartment-status.dto';
 import { UpdateApartmentDto } from './dto/update-apartment.dto';
+import { buildApartmentWhere } from './utils/apartment-query.util';
 
 @Injectable()
 export class ApartmentService {
@@ -23,9 +25,9 @@ export class ApartmentService {
     private readonly configService: ConfigService,
   ) {}
 
-  private decorateApartment<
-    T extends { id: number; likeCount: number }
-  >(apartment: T) {
+  private decorateApartment<T extends { id: number; likeCount: number }>(
+    apartment: T,
+  ) {
     return {
       ...apartment,
       likeCount:
@@ -77,41 +79,78 @@ export class ApartmentService {
     }
   }
 
-  async getAll() {
-    const apartments = await this.prisma.apartment.findMany({
-      include: {
-        region: true,
-        category: true,
-        seller: {
-          select: { id: true, firstName: true, lastName: true, phone: true },
-        },
-        complex: true,
-        layout: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+  async getAll(query: ApartmentQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+    const where = buildApartmentWhere(query);
 
-    return apartments.map((apartment) => this.decorateApartment(apartment));
+    const [apartments, total] = await Promise.all([
+      this.prisma.apartment.findMany({
+        where,
+        include: {
+          region: true,
+          category: true,
+          seller: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
+          },
+          complex: true,
+          layout: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.apartment.count({ where }),
+    ]);
+
+    return {
+      data: apartments.map((apartment) => this.decorateApartment(apartment)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
-  async getSoldApartments() {
-    const apartments = await this.prisma.apartment.findMany({
-      where: {
-        dealStatus: ApartmentDealStatus.SOLD,
-      },
-      include: {
-        region: true,
-        category: true,
-        seller: {
-          select: { id: true, firstName: true, lastName: true, phone: true },
-        },
-        complex: true,
-        layout: true,
-      },
-      orderBy: { soldAt: 'desc' },
+  async getSoldApartments(query: ApartmentQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const skip = (page - 1) * limit;
+    const where = buildApartmentWhere(query, {
+      dealStatus: ApartmentDealStatus.SOLD,
     });
 
-    return apartments.map((apartment) => this.decorateApartment(apartment));
+    const [apartments, total] = await Promise.all([
+      this.prisma.apartment.findMany({
+        where,
+        include: {
+          region: true,
+          category: true,
+          seller: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
+          },
+          complex: true,
+          layout: true,
+        },
+        orderBy: { soldAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.apartment.count({ where }),
+    ]);
+
+    return {
+      data: apartments.map((apartment) => this.decorateApartment(apartment)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async getOne(id: number) {
@@ -126,8 +165,6 @@ export class ApartmentService {
             firstName: true,
             lastName: true,
             phone: true,
-            isBlocked: true,
-            isArchived: true,
           },
         },
         complex: true,
@@ -185,13 +222,14 @@ export class ApartmentService {
   async create(
     user: AuthUser,
     dto: CreateApartmentDto,
-    files: Express.Multer.File[],
+    images: Express.Multer.File[],
   ) {
     await this.ensureRelations(dto);
+
     return this.prisma.apartment.create({
       data: {
         ...dto,
-        images: generateUrlsFromFiles(files, this.configService),
+        images: generateUrlsFromFiles(images, this.configService),
         sellerId: user.id,
       },
       include: {
@@ -206,7 +244,7 @@ export class ApartmentService {
     id: number,
     user: AuthUser,
     dto: UpdateApartmentDto,
-    files: Express.Multer.File[],
+    images?: Express.Multer.File[],
   ) {
     const apartment = await this.prisma.apartment.findUnique({
       where: { id },
@@ -224,7 +262,7 @@ export class ApartmentService {
       assertOwnership(
         apartment.sellerId,
         user,
-        'Siz faqat o‘zingizning apartmentingizni yangilay olasiz',
+        'Siz faqat ozingizning apartmentingizni yangilay olasiz',
       );
     }
 
@@ -234,7 +272,7 @@ export class ApartmentService {
       where: { id },
       data: {
         ...dto,
-        images: replaceImages(files, apartment.images, this.configService),
+        images: replaceImages(images, apartment.images, this.configService),
       },
     });
   }
@@ -257,7 +295,7 @@ export class ApartmentService {
       assertOwnership(
         apartment.sellerId,
         user,
-        'Siz faqat o‘zingizning apartmentingiz statusini o‘zgartira olasiz',
+        'Siz faqat ozingizning apartmentingiz statusini ozgartira olasiz',
       );
     }
 
@@ -284,7 +322,7 @@ export class ApartmentService {
       assertOwnership(
         apartment.sellerId,
         user,
-        'Siz faqat o‘zingizning apartmentingizni o‘chira olasiz',
+        'Siz faqat ozingizning apartmentingizni ochira olasiz',
       );
     }
 

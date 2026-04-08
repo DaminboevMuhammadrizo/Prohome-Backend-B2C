@@ -1,9 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { SalaryType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
   IsArray,
   IsBoolean,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -48,4 +50,9 @@ export class CreateMasterProfileDto {
   @Type(() => Number)
   @IsNumber()
   salary?: number;
+
+  @ApiPropertyOptional({ enum: SalaryType })
+  @IsOptional()
+  @IsEnum(SalaryType)
+  salaryType?: SalaryType;
 }

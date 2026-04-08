@@ -8,6 +8,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -26,6 +27,7 @@ import { GuardService } from 'src/common/guard/guard.service';
 import { fileStorages } from 'src/common/types/upload_types';
 import { ApartmentService } from './apartment.service';
 import { CreateApartmentDto } from './dto/create-apartment.dto';
+import { ApartmentQueryDto } from './dto/apartment-query.dto';
 import { UpdateApartmentStatusDto } from './dto/update-apartment-status.dto';
 import { UpdateApartmentDto } from './dto/update-apartment.dto';
 
@@ -44,14 +46,14 @@ export class ApartmentController {
 
   @Get()
   @ApiOperation({ summary: 'Apartmentlar ro‘yxati' })
-  getAll() {
-    return this.apartmentService.getAll();
+  getAll(@Query() query: ApartmentQueryDto) {
+    return this.apartmentService.getAll(query);
   }
 
   @Get('sold/all')
   @ApiOperation({ summary: 'Sotilgan uylar ro‘yxati' })
-  getSoldApartments() {
-    return this.apartmentService.getSoldApartments();
+  getSoldApartments(@Query() query: ApartmentQueryDto) {
+    return this.apartmentService.getSoldApartments(query);
   }
 
   @Get(':id')
@@ -138,7 +140,10 @@ export class ApartmentController {
   @ApiBearerAuth()
   @UseGuards(GuardService)
   @ApiOperation({ summary: 'Apartment like toggle' })
-  toggleLike(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload) {
+  toggleLike(
+    @Param('id', ParseIntPipe) id: number,
+    @UserData() user: JwtPayload,
+  ) {
     return this.apartmentService.toggleLike(id, user);
   }
 
@@ -184,14 +189,13 @@ export class ApartmentController {
     @Body() dto: UpdateApartmentDto,
     @UploadedFiles() files: Express.Multer.File[],
   ) {
-    this.validateImages(files ?? []);
     return this.apartmentService.update(id, user, dto, files ?? []);
   }
 
   @Patch(':id/status')
   @ApiBearerAuth()
   @UseGuards(GuardService)
-  @ApiOperation({ summary: 'Apartment statusini o‘zgartirish' })
+  @ApiOperation({ summary: 'Apartment statusini ozgartirish' })
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @UserData() user: JwtPayload,

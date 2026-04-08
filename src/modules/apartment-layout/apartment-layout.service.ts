@@ -1,13 +1,19 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
 import { assertCompanyAccess, isPrivilegedRole } from 'src/common/utils/access.util';
+import { unlinkFile } from 'src/common/types/file.cotroller.typpes';
+import { generateUrlsFromFiles, replaceImages } from 'src/common/utils/helper';
 import { CreateApartmentLayoutDto } from './dto/create-apartment-layout.dto';
 import { UpdateApartmentLayoutDto } from './dto/update-apartment-layout.dto';
 
 @Injectable()
 export class ApartmentLayoutService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   private async assertCanManageComplex(complexId: number, user: AuthUser) {
     const complex = await this.prisma.complex.findUnique({
@@ -21,7 +27,6 @@ export class ApartmentLayoutService {
 
     if (!isPrivilegedRole(user.role)) {
       assertCompanyAccess(
-        complex.company.ownerId,
         complex.company.id,
         user,
         'Siz bu complex layoutlarini boshqara olmaysiz',
@@ -64,12 +69,30 @@ export class ApartmentLayoutService {
     return layout;
   }
 
-  async create(user: AuthUser, dto: CreateApartmentLayoutDto) {
+  async create(
+    user: AuthUser,
+    dto: CreateApartmentLayoutDto,
+    images?: Express.Multer.File[],
+  ) {
+    if (!images?.length) {
+      throw new BadRequestException('Apartment layout uchun kamida bitta rasm majburiy');
+    }
+
     await this.assertCanManageComplex(dto.complexId, user);
-    return this.prisma.apartmentLayout.create({ data: dto });
+    return this.prisma.apartmentLayout.create({
+      data: {
+        ...dto,
+        images: generateUrlsFromFiles(images, this.config),
+      },
+    });
   }
 
-  async update(id: number, user: AuthUser, dto: UpdateApartmentLayoutDto) {
+  async update(
+    id: number,
+    user: AuthUser,
+    dto: UpdateApartmentLayoutDto,
+    images?: Express.Multer.File[],
+  ) {
     const layout = await this.prisma.apartmentLayout.findUnique({
       where: { id },
     });
@@ -85,7 +108,10 @@ export class ApartmentLayoutService {
 
     return this.prisma.apartmentLayout.update({
       where: { id },
-      data: dto,
+      data: {
+        ...dto,
+        images: replaceImages(images, layout.images, this.config),
+      },
     });
   }
 
@@ -99,6 +125,7 @@ export class ApartmentLayoutService {
     }
 
     await this.assertCanManageComplex(layout.complexId, user);
+    layout.images.forEach((image) => unlinkFile(image));
     return this.prisma.apartmentLayout.delete({ where: { id } });
   }
 }

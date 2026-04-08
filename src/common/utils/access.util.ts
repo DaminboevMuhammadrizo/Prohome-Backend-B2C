@@ -5,7 +5,7 @@ import {
 import { UserRole } from '@prisma/client';
 import { AuthUser } from '../types/auth-user.type';
 
-export function isPrivilegedRole(role: UserRole): boolean {
+export function isPrivilegedRole(role: AuthUser['role']): boolean {
   return role === UserRole.ADMIN || role === UserRole.SUPERADMIN;
 }
 
@@ -26,7 +26,6 @@ export function assertOwnership(
 }
 
 export function assertCompanyAccess(
-  ownerId: number,
   companyId: number,
   user: AuthUser,
   message = 'Siz bu companyni boshqara olmaysiz',
@@ -42,9 +41,7 @@ export function assertCompanyAccess(
     return;
   }
 
-  if (ownerId !== user.id) {
-    throw new ForbiddenException(message);
-  }
+  throw new ForbiddenException(message);
 }
 
 export function ensureFound<T>(

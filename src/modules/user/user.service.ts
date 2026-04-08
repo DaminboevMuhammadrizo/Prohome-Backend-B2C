@@ -1,12 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ApartmentDealStatus } from '@prisma/client';
+import { ApartmentDealStatus, Prisma } from '@prisma/client';
 import { hashPassword } from 'src/common/config/bcrypt';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { InteractionBufferService } from 'src/common/interactions/interaction-buffer.service';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { PhoneIdentityService } from 'src/common/services/phone-identity.service';
+import { SchemaCompatibilityService } from 'src/common/services/schema-compatibility.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
+import { buildMasterProfileSelect } from 'src/common/utils/master-profile-select.util';
+import { buildDateRange, normalizeSearch } from 'src/common/utils/query.util';
 import { UpdateUserDto, UpdateUserMeDto } from './dto/updater.user.dto';
+import { UserQueryDto } from './dto/user-query.dto';
 
 @Injectable()
 export class UserService {
@@ -14,6 +17,7 @@ export class UserService {
     private readonly prisma: PrismaService,
     private readonly interactionBuffer: InteractionBufferService,
     private readonly phoneIdentityService: PhoneIdentityService,
+    private readonly schemaCompatibility: SchemaCompatibilityService,
   ) {}
 
   private async ensureRegion(regionId?: number): Promise<void> {
@@ -60,23 +64,47 @@ export class UserService {
     return this.getOne(user.id);
   }
 
-  async getAll(pagination: PaginationDto) {
-    const page = pagination.page ?? 1;
-    const limit = pagination.limit ?? 10;
+  private buildWhere(query: UserQueryDto): Prisma.UserWhereInput {
+    const search = normalizeSearch(query.search);
+
+    return {
+      role: query.role,
+      regionId: query.regionId,
+      isBlocked: query.isBlocked,
+      isArchived: query.isArchived,
+      createdAt: buildDateRange(query.createdFrom, query.createdTo),
+      masterProfile: query.hasMasterProfile === undefined
+        ? undefined
+        : query.hasMasterProfile
+          ? { isNot: null }
+          : { is: null },
+      OR: search
+        ? [
+            { firstName: { contains: search, mode: 'insensitive' } },
+            { lastName: { contains: search, mode: 'insensitive' } },
+            { phone: { contains: search, mode: 'insensitive' } },
+          ]
+        : undefined,
+    };
+  }
+
+  async getAll(query: UserQueryDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
+    const where = this.buildWhere(query);
+    const canUseSalaryType =
+      await this.schemaCompatibility.hasMasterProfileSalaryType();
 
     const [data, total] = await Promise.all([
       this.prisma.user.findMany({
+        where,
         include: {
           region: true,
           masterProfile: {
-            include: {
-              categories: {
-                include: {
-                  jobCategory: true,
-                },
-              },
-            },
+            select: buildMasterProfileSelect(canUseSalaryType, {
+              includeCategories: true,
+            }),
           },
           _count: {
             select: {
@@ -91,7 +119,7 @@ export class UserService {
         skip,
         take: limit,
       }),
-      this.prisma.user.count(),
+      this.prisma.user.count({ where }),
     ]);
 
     return {
@@ -101,26 +129,17 @@ export class UserService {
   }
 
   async getOne(id: number) {
+    const canUseSalaryType =
+      await this.schemaCompatibility.hasMasterProfileSalaryType();
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
         region: true,
         masterProfile: {
-          include: {
-            categories: {
-              include: {
-                jobCategory: true,
-              },
-            },
-            _count: {
-              select: {
-                ratings: true,
-                savedBy: true,
-                views: true,
-                contacts: true,
-              },
-            },
-          },
+          select: buildMasterProfileSelect(canUseSalaryType, {
+            includeCategories: true,
+            includeCounts: true,
+          }),
         },
         apartments: {
           include: {
@@ -140,13 +159,9 @@ export class UserService {
         savedMasterProfiles: {
           include: {
             masterProfile: {
-              include: {
-                categories: {
-                  include: {
-                    jobCategory: true,
-                  },
-                },
-              },
+              select: buildMasterProfileSelect(canUseSalaryType, {
+                includeCategories: true,
+              }),
             },
           },
         },
@@ -299,6 +314,8 @@ export class UserService {
   }
 
   async getSavedMasters(user: AuthUser) {
+    const canUseSalaryType =
+      await this.schemaCompatibility.hasMasterProfileSalaryType();
     const pendingMasterIds = this.interactionBuffer.getPendingMasterSaveIdsForUser(
       user.id,
     );
@@ -307,21 +324,11 @@ export class UserService {
       where: { userId: user.id },
       include: {
         masterProfile: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                phone: true,
-              },
-            },
-            categories: {
-              include: {
-                jobCategory: true,
-              },
-            },
-          },
+          select: buildMasterProfileSelect(canUseSalaryType, {
+            includeUser: true,
+            includeUserPhone: true,
+            includeCategories: true,
+          }),
         },
       },
       orderBy: { createdAt: 'desc' },
@@ -331,21 +338,11 @@ export class UserService {
       pendingMasterIds.length > 0
         ? await this.prisma.masterProfile.findMany({
             where: { id: { in: pendingMasterIds } },
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  phone: true,
-                },
-              },
-              categories: {
-                include: {
-                  jobCategory: true,
-                },
-              },
-            },
+            select: buildMasterProfileSelect(canUseSalaryType, {
+              includeUser: true,
+              includeUserPhone: true,
+              includeCategories: true,
+            }),
           })
         : [];
 

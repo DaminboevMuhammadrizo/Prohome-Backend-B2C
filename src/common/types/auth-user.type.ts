@@ -1,9 +1,9 @@
-import { UserRole } from '@prisma/client';
+import { AuthRole } from '../config/jwt/jwt.service';
 
 export type AuthUser = {
   id: number;
   phone: string;
-  role: UserRole;
+  role: AuthRole;
   entityType: 'USER' | 'COMPANY';
   companyId?: number | null;
 };

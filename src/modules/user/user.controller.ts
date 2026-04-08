@@ -12,13 +12,13 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { UpdateUserDto, UpdateUserMeDto } from './dto/updater.user.dto';
 import { UserArchiveDto, UserBlockDto } from './dto/user-action.dto';
+import { UserQueryDto } from './dto/user-query.dto';
 import { UserService } from './user.service';
 
 @ApiTags('Users')
@@ -63,8 +63,8 @@ export class UserController {
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Get()
   @ApiOperation({ summary: 'Foydalanuvchilar ro‘yxati' })
-  getAll(@Query() pagination: PaginationDto) {
-    return this.userService.getAll(pagination);
+  getAll(@Query() query: UserQueryDto) {
+    return this.userService.getAll(query);
   }
 
   @ApiBearerAuth()

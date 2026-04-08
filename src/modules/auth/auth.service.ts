@@ -1,10 +1,9 @@
 import {
-  ConflictException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Company, User, UserRole } from '@prisma/client';
+import { Company, User } from '@prisma/client';
 import { hashPassword, compirePassword } from 'src/common/config/bcrypt';
 import { JwtPayload, JwtServices } from 'src/common/config/jwt/jwt.service';
 import { RedisService } from 'src/common/config/redis/redis.service';
@@ -16,10 +15,6 @@ import { LoginAuthDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { OtpPurpose, RegisterAuthDto, SendOtpDto } from './dto/register.dto';
-
-type CompanyWithOwner = Company & {
-  owner: Pick<User, 'id' | 'role' | 'isBlocked' | 'isArchived'>;
-};
 
 @Injectable()
 export class AuthService {
@@ -46,11 +41,11 @@ export class AuthService {
     };
   }
 
-  private buildCompanyPayload(company: CompanyWithOwner): JwtPayload {
+  private buildCompanyPayload(company: Company): JwtPayload {
     return {
-      id: company.owner.id,
+      id: company.id,
       phone: company.phone,
-      role: company.owner.role ?? UserRole.USER,
+      role: 'COMPANY',
       entityType: 'COMPANY',
       companyId: company.id,
     };
@@ -61,12 +56,9 @@ export class AuthService {
     return safeUser;
   }
 
-  private sanitizeCompany(company: CompanyWithOwner) {
-    const { password, owner, ...safeCompany } = company;
-    return {
-      ...safeCompany,
-      owner,
-    };
+  private sanitizeCompany(company: Company) {
+    const { password, ...safeCompany } = company;
+    return safeCompany;
   }
 
   private async generateUserAuthResponse(user: User) {
@@ -84,7 +76,7 @@ export class AuthService {
     };
   }
 
-  private async generateCompanyAuthResponse(company: CompanyWithOwner) {
+  private async generateCompanyAuthResponse(company: Company) {
     const payload = this.buildCompanyPayload(company);
     const [accessToken, refreshToken] = await Promise.all([
       this.jwt.generateAccessToken(payload),
@@ -99,33 +91,15 @@ export class AuthService {
     };
   }
 
-  private async findCompanyForLogin(phone: string): Promise<CompanyWithOwner | null> {
+  private async findCompanyForLogin(phone: string): Promise<Company | null> {
     return this.prisma.company.findUnique({
       where: { phone },
-      include: {
-        owner: {
-          select: {
-            id: true,
-            role: true,
-            isBlocked: true,
-            isArchived: true,
-          },
-        },
-      },
     });
   }
 
-  private ensureCompanyCanLogin(company: CompanyWithOwner) {
+  private ensureCompanyCanLogin(company: Company) {
     if (!company.isActive) {
       throw new UnauthorizedException('Company faol emas');
-    }
-
-    if (company.owner.isBlocked) {
-      throw new UnauthorizedException('Company owner block qilingan');
-    }
-
-    if (company.owner.isArchived) {
-      throw new UnauthorizedException('Company owner arxivda');
     }
   }
 
@@ -203,7 +177,6 @@ export class AuthService {
     const company = await this.findCompanyForLogin(phone);
     if (company) {
       this.ensureCompanyCanLogin(company);
-      await this.notificationService.registerDeviceForUser(company.owner.id, dto);
       return this.generateCompanyAuthResponse(company);
     }
 
@@ -232,7 +205,6 @@ export class AuthService {
       );
 
       if (validCompanyPassword) {
-        await this.notificationService.registerDeviceForUser(company.owner.id, dto);
         return this.generateCompanyAuthResponse(company);
       }
     }
@@ -279,11 +251,7 @@ export class AuthService {
 
       this.ensureUserCanLogin(user);
       return this.generateUserAuthResponse(user);
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-
+    } catch {
       throw new UnauthorizedException('Refresh token notogri yoki eskirgan');
     }
   }

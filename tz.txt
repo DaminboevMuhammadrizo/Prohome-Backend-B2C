@@ -478,6 +478,9 @@ Query:
 - regionId
 - isBlocked
 - isArchived
+- hasMasterProfile
+- createdFrom
+- createdTo
 
 Response:
 {
@@ -1152,6 +1155,13 @@ Query:
 - categoryId
 - regionId
 - isAvailable
+- minExperience
+- maxExperience
+- minSalary
+- maxSalary
+- salaryType
+- createdFrom
+- createdTo
 
 Response:
 {
@@ -1165,6 +1175,7 @@ Response:
       "portfolios": ["https://example.com/work1"],
       "isAvailable": true,
       "salary": 500,
+      "salaryType": "MONTHLY",
       "savedCount": 20,
       "viewCount": 120,
       "contactCount": 8,
@@ -1232,6 +1243,7 @@ Response:
   "portfolios": ["https://example.com/work1"],
   "isAvailable": true,
   "salary": 500,
+  "salaryType": "MONTHLY",
   "savedCount": 20,
   "viewCount": 120,
   "contactCount": 8,
@@ -1332,7 +1344,8 @@ Body:
   "skills": ["sim tortish", "truba ulash"],
   "portfolios": ["https://example.com/work1", "https://example.com/work2"],
   "isAvailable": true,
-  "salary": 700
+  "salary": 700,
+  "salaryType": "DAILY"
 }
 
 Response:
@@ -1341,6 +1354,7 @@ Response:
 Business rule:
 - bitta userda bitta master profile bo'ladi
 - `categoryIds` bo'sh bo'lmasligi kerak
+- `salaryType` qiymatlari: `HOURLY`, `DAILY`, `MONTHLY`, `PROJECT`
 
 9.7 POST /master-profiles/:id/save
 Description:
@@ -1398,7 +1412,8 @@ Body:
   "skills": ["sim tortish", "ta'mir"],
   "portfolios": ["https://example.com/work3"],
   "isAvailable": false,
-  "salary": 900
+  "salary": 900,
+  "salaryType": "PROJECT"
 }
 
 Response:
@@ -1551,6 +1566,8 @@ Query:
 - isActive optional
 - isVerified optional
 - ownerId optional
+- createdFrom optional
+- createdTo optional
 
 Response:
 {
@@ -1581,10 +1598,15 @@ Response:
   }
 }
 
+Izoh:
+- `search` company nomi, telefoni, description, website va owner ism-familyasi bo'yicha ishlaydi
+- admin panelda companylar status, yaratilgan vaqt va owner bo'yicha alohida filter qilinadi
+
 11.2 GET /companies/:id
 Description:
 - company detail
 - companyga tegishli komplekslar, layoutlar, apartmentlar va analytics chiqadi
+- companyni boshqarish uchun asosiy detail endpoint shu
 
 Access:
 - Public
@@ -1681,6 +1703,7 @@ Response:
 Business rule:
 - `ownerId` mavjud user bo'lishi kerak
 - phone user yoki companyda band bo'lmasligi kerak
+- admin va superadmin istalgan company yaratishi mumkin
 
 11.5 PATCH /companies/:id
 Description:
@@ -1706,6 +1729,11 @@ Body:
 
 Response:
 - yangilangan company object
+
+Business rule:
+- admin va superadmin istalgan companyni update qila oladi
+- company token faqat o'z companysini update qila oladi
+- owner user faqat o'ziga tegishli companyni update qila oladi
 
 11.6 PATCH /companies/:id/status
 Description:
@@ -1754,6 +1782,8 @@ Query:
 - companyId
 - regionId
 - search
+- createdFrom
+- createdTo
 
 Response:
 {
@@ -1790,6 +1820,9 @@ Response:
   }
 }
 
+Izoh:
+- `search` complex nomlari, description, address va company nomi bo'yicha ishlaydi
+
 12.2 GET /complexes/:id
 Description:
 - bitta kompleks detail
@@ -1824,9 +1857,75 @@ Response:
   "apartments": []
 }
 
-12.3 POST /complexes
+12.3 GET /complexes/:id/apartments
+Description:
+- aynan shu complexga tegishli apartmentlar ro'yxati
+- apartment filterlari shu endpointda ham ishlaydi
+
+Access:
+- Public
+
+Query:
+- page
+- limit
+- search
+- regionId
+- categoryId
+- layoutId
+- sellerId
+- listingType
+- dealStatus
+- roomCountMin
+- roomCountMax
+- areaMin
+- areaMax
+- priceMin
+- priceMax
+- floorMin
+- floorMax
+- isCottage
+- createdFrom
+- createdTo
+
+Response:
+- pagination response, faqat shu complexning apartmentlari
+
+12.4 GET /complexes/:id/cottages
+Description:
+- aynan shu complexga tegishli faqat kotejlar
+- `isCottage = true` bo'lgan uylar
+
+Access:
+- Public
+
+Query:
+- page
+- limit
+- search
+- regionId
+- categoryId
+- layoutId
+- sellerId
+- listingType
+- dealStatus
+- roomCountMin
+- roomCountMax
+- areaMin
+- areaMax
+- priceMin
+- priceMax
+- floorMin
+- floorMax
+- createdFrom
+- createdTo
+
+Response:
+- pagination response, faqat shu complexdagi kotejlar
+
+12.5 POST /complexes
 Description:
 - yangi kompleks
+- company boshqaruvi ichidagi create endpoint
 
 Access:
 - ADMIN
@@ -1852,7 +1951,11 @@ Body:
 Response:
 - yaratilgan complex object
 
-12.4 PATCH /complexes/:id
+Business rule:
+- admin va superadmin istalgan companyga complex qo'sha oladi
+- company token yoki owner user faqat o'z companysi uchun complex qo'sha oladi
+
+12.6 PATCH /complexes/:id
 Access:
 - ADMIN
 - SUPERADMIN
@@ -1866,7 +1969,10 @@ Body:
 Response:
 - yangilangan complex object
 
-12.5 DELETE /complexes/:id
+Business rule:
+- complexni boshqa companyga ko'chirishda ham yangi company ustida ruxsat tekshiriladi
+
+12.7 DELETE /complexes/:id
 Access:
 - ADMIN
 - SUPERADMIN
@@ -1998,11 +2104,17 @@ Query:
 - sellerId
 - listingType
 - dealStatus
-- minPrice
-- maxPrice
-- minArea
-- maxArea
-- roomCount
+- roomCountMin
+- roomCountMax
+- areaMin
+- areaMax
+- priceMin
+- priceMax
+- floorMin
+- floorMax
+- isCottage
+- createdFrom
+- createdTo
 
 Response:
 {
@@ -2075,6 +2187,21 @@ Query:
 - sellerId optional
 - categoryId optional
 - regionId optional
+- search optional
+- complexId optional
+- layoutId optional
+- listingType optional
+- roomCountMin optional
+- roomCountMax optional
+- areaMin optional
+- areaMax optional
+- priceMin optional
+- priceMax optional
+- floorMin optional
+- floorMax optional
+- isCottage optional
+- createdFrom optional
+- createdTo optional
 
 Response:
 - pagination response, `dealStatus = SOLD` bo'lgan apartmentlar
@@ -2529,6 +2656,8 @@ COMPANIES:
 COMPLEXES:
 - GET /complexes
 - GET /complexes/:id
+- GET /complexes/:id/apartments
+- GET /complexes/:id/cottages
 - POST /complexes
 - PATCH /complexes/:id
 - DELETE /complexes/:id

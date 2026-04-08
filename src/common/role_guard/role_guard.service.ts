@@ -29,7 +29,7 @@ export class RoleGuardService implements CanActivate {
       throw new ForbiddenException('User not found in request');
     }
 
-    if (!requiredRoles.includes(user.role)) {
+    if (user.role === 'COMPANY' || !requiredRoles.includes(user.role)) {
       throw new ForbiddenException('Not enough permissions');
     }
 
