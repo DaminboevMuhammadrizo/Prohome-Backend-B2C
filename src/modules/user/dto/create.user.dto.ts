@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Length,
@@ -20,6 +21,11 @@ export class CreateUserDto {
   @IsString()
   lastName?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  address?: string;
+
   @ApiPropertyOptional({ example: '+998901234567' })
   @IsOptional()
   @IsString()
@@ -32,6 +38,18 @@ export class CreateUserDto {
   @IsInt()
   @Min(1)
   regionId?: number;
+
+  @ApiPropertyOptional({ example: 41.3111 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 69.2797 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  longitude?: number;
 
   @ApiPropertyOptional({ example: 'secret123' })
   @IsOptional()

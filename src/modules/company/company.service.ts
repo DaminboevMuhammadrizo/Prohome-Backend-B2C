@@ -106,6 +106,16 @@ export class CompanyService {
         }
 
         const apartments = company.complexes.flatMap((complex) => complex.apartments);
+        const [leadCount, complexInterestCount, apartmentLikeCount] = await Promise.all([
+            this.prisma.lead.count({ where: { companyId: company.id } }),
+            this.prisma.complexInterest.count({
+                where: { complex: { companyId: company.id } },
+            }),
+            this.prisma.apartmentLike.count({
+                where: { apartment: { complex: { companyId: company.id } } },
+            }),
+        ]);
+
         const analytics = {
             complexCount: company.complexes.length,
             apartmentCount: apartments.length,
@@ -121,6 +131,9 @@ export class CompanyService {
                 0,
             ),
             companyViewCount: company.viewCount,
+            leadCount,
+            complexInterestCount,
+            apartmentLikeCount,
         };
 
         return {

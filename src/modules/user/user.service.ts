@@ -201,6 +201,9 @@ export class UserService {
       data: {
         firstName: dto.firstName,
         lastName: dto.lastName,
+        address: dto.address,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
         phone,
         regionId: dto.regionId,
         password: dto.password ? await hashPassword(dto.password) : undefined,
@@ -222,6 +225,9 @@ export class UserService {
       data: {
         firstName: dto.firstName,
         lastName: dto.lastName,
+        address: dto.address,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
         phone,
         regionId: dto.regionId,
         role: dto.role,

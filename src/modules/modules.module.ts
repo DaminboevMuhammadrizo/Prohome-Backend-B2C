@@ -11,6 +11,7 @@ import { MasterProfileModule } from './master-profile/master-profile.module';
 import { RatingModule } from './rating/rating.module';
 import { RegionModule } from './region/region.module';
 import { UserModule } from './user/user.module';
+import { CrmModule } from './crm/crm.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UserModule } from './user/user.module';
     DashboardModule,
     ApartmentLayoutModule,
     ApartmentModule,
+    CrmModule,
   ],
 })
 export class ModulesModule {}

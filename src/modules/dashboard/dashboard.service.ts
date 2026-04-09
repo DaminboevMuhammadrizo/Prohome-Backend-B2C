@@ -26,6 +26,11 @@ export class DashboardService {
       totalJobCategories,
       activeJobCategories,
       totalApartmentCategories,
+      totalLeads,
+      openLeads,
+      searchRecoveryLeads,
+      notFoundSearches,
+      stillSearchingSearches,
     ] = await Promise.all([
       this.prisma.user.count(),
       this.prisma.user.count({ where: { isBlocked: true } }),
@@ -38,6 +43,13 @@ export class DashboardService {
       this.prisma.jobCategory.count(),
       this.prisma.jobCategory.count({ where: { isActive: true, isArchived: false } }),
       this.prisma.apartmentCategory.count(),
+      this.prisma.lead.count(),
+      this.prisma.lead.count({ where: { status: 'NEW' } }),
+      this.prisma.lead.count({ where: { type: 'SEARCH_RECOVERY' } }),
+      this.prisma.searchSession.count({ where: { surveyStatus: 'NOT_FOUND' } }),
+      this.prisma.searchSession.count({
+        where: { surveyStatus: 'STILL_SEARCHING' },
+      }),
     ]);
 
     const [jobCategories, apartmentCategories] = await Promise.all([
@@ -76,6 +88,11 @@ export class DashboardService {
         totalJobCategories,
         activeJobCategories,
         totalApartmentCategories,
+        totalLeads,
+        openLeads,
+        searchRecoveryLeads,
+        notFoundSearches,
+        stillSearchingSearches,
       },
       percentages: {
         activeCompanyPercent: this.percentage(activeCompanies, totalCompanies),
@@ -86,6 +103,7 @@ export class DashboardService {
           activeJobCategories,
           totalJobCategories,
         ),
+        openLeadPercent: this.percentage(openLeads, totalLeads),
       },
       jobCategoryBreakdown: jobCategories.map((category) => ({
         id: category.id,
