@@ -80,6 +80,13 @@ enum ComplexInterestType {
     REQUEST_INFO
 }
 
+enum DevicePlatform {
+    ANDROID
+    IOS
+    WEB
+    UNKNOWN
+}
+
 model User {
     id                    Int                    @id @default(autoincrement())
     phone                 String                 @unique
@@ -110,8 +117,8 @@ model User {
     complexInterests      ComplexInterest[]
     createdAt             DateTime               @default(now()) @map("created_at")
     updatedAt             DateTime               @updatedAt @map("updated_at")
-
-    @@map("users")
+    userDevices           UserDevice[]
+    notifications         Notification[]
 }
 
 model Company {
@@ -403,72 +410,72 @@ model Banner {
 }
 
 model Lead {
-    id                Int                @id @default(autoincrement())
-    type              LeadType
-    status            LeadStatus         @default(NEW)
-    surveyStatus      SearchSurveyStatus?
-    source            String?
-    fullName          String             @map("full_name")
-    phone             String
-    address           String?
-    preferredAddress  String?            @map("preferred_address")
-    budgetMin         Float?             @map("budget_min")
-    budgetMax         Float?             @map("budget_max")
-    downPayment       Float?             @map("down_payment")
-    message           String?
-    otherDetails      Json?              @map("other_details")
-    searchSnapshot    Json?              @map("search_snapshot")
-    isOpened          Boolean            @default(false) @map("is_opened")
-    openedAt          DateTime?          @map("opened_at")
-    openedBy          String?            @map("opened_by")
-    userId            Int?               @map("user_id")
-    user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
-    companyId         Int?               @map("company_id")
-    company           Company?           @relation(fields: [companyId], references: [id], onDelete: SetNull)
-    complexId         Int?               @map("complex_id")
-    complex           Complex?           @relation(fields: [complexId], references: [id], onDelete: SetNull)
-    apartmentId       Int?               @map("apartment_id")
-    apartment         Apartment?         @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
-    masterProfileId   Int?               @map("master_profile_id")
-    masterProfile     MasterProfile?     @relation(fields: [masterProfileId], references: [id], onDelete: SetNull)
-    searchSessionId   Int?               @unique @map("search_session_id")
-    searchSession     SearchSession?     @relation(fields: [searchSessionId], references: [id], onDelete: SetNull)
-    createdAt         DateTime           @default(now()) @map("created_at")
-    updatedAt         DateTime           @updatedAt @map("updated_at")
+    id               Int                 @id @default(autoincrement())
+    type             LeadType
+    status           LeadStatus          @default(NEW)
+    surveyStatus     SearchSurveyStatus?
+    source           String?
+    fullName         String              @map("full_name")
+    phone            String
+    address          String?
+    preferredAddress String?             @map("preferred_address")
+    budgetMin        Float?              @map("budget_min")
+    budgetMax        Float?              @map("budget_max")
+    downPayment      Float?              @map("down_payment")
+    message          String?
+    otherDetails     Json?               @map("other_details")
+    searchSnapshot   Json?               @map("search_snapshot")
+    isOpened         Boolean             @default(false) @map("is_opened")
+    openedAt         DateTime?           @map("opened_at")
+    openedBy         String?             @map("opened_by")
+    userId           Int?                @map("user_id")
+    user             User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+    companyId        Int?                @map("company_id")
+    company          Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
+    complexId        Int?                @map("complex_id")
+    complex          Complex?            @relation(fields: [complexId], references: [id], onDelete: SetNull)
+    apartmentId      Int?                @map("apartment_id")
+    apartment        Apartment?          @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+    masterProfileId  Int?                @map("master_profile_id")
+    masterProfile    MasterProfile?      @relation(fields: [masterProfileId], references: [id], onDelete: SetNull)
+    searchSessionId  Int?                @unique @map("search_session_id")
+    searchSession    SearchSession?      @relation(fields: [searchSessionId], references: [id], onDelete: SetNull)
+    createdAt        DateTime            @default(now()) @map("created_at")
+    updatedAt        DateTime            @updatedAt @map("updated_at")
 
     @@map("leads")
 }
 
 model SearchSession {
-    id             Int                @id @default(autoincrement())
-    intentType     SearchIntentType   @map("intent_type")
-    query          Json
-    resultsCount   Int                @default(0) @map("results_count")
-    surveyStatus   SearchSurveyStatus?
-    notes          String?
-    fullName       String?            @map("full_name")
-    phone          String?
-    address        String?
-    userId         Int?               @map("user_id")
-    user           User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
-    lead           Lead?
-    createdAt      DateTime           @default(now()) @map("created_at")
-    updatedAt      DateTime           @updatedAt @map("updated_at")
+    id           Int                 @id @default(autoincrement())
+    intentType   SearchIntentType    @map("intent_type")
+    query        Json
+    resultsCount Int                 @default(0) @map("results_count")
+    surveyStatus SearchSurveyStatus?
+    notes        String?
+    fullName     String?             @map("full_name")
+    phone        String?
+    address      String?
+    userId       Int?                @map("user_id")
+    user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+    lead         Lead?
+    createdAt    DateTime            @default(now()) @map("created_at")
+    updatedAt    DateTime            @updatedAt @map("updated_at")
 
     @@map("search_sessions")
 }
 
 model ComplexInterest {
-    id           Int                 @id @default(autoincrement())
-    type         ComplexInterestType @default(VIEW)
-    note         String?
-    userId       Int?                @map("user_id")
-    user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-    complexId    Int                 @map("complex_id")
-    complex      Complex             @relation(fields: [complexId], references: [id], onDelete: Cascade)
-    apartmentId  Int?                @map("apartment_id")
-    apartment    Apartment?          @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
-    createdAt    DateTime            @default(now()) @map("created_at")
+    id          Int                 @id @default(autoincrement())
+    type        ComplexInterestType @default(VIEW)
+    note        String?
+    userId      Int?                @map("user_id")
+    user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+    complexId   Int                 @map("complex_id")
+    complex     Complex             @relation(fields: [complexId], references: [id], onDelete: Cascade)
+    apartmentId Int?                @map("apartment_id")
+    apartment   Apartment?          @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
+    createdAt   DateTime            @default(now()) @map("created_at")
 
     @@map("complex_interests")
 }
@@ -496,4 +503,38 @@ model BackupLog {
     createdAt         DateTime @default(now()) @map("created_at")
 
     @@map("backup_logs")
+}
+
+model UserDevice {
+    id         Int            @id @default(autoincrement())
+    userId     Int            @map("user_id")
+    user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    deviceId   String         @map("device_id")
+    deviceName String?        @map("device_name")
+    platform   DevicePlatform @default(UNKNOWN)
+    fcmToken   String         @map("fcm_token")
+    isActive   Boolean        @default(true) @map("is_active")
+    lastSeenAt DateTime       @default(now()) @map("last_seen_at")
+    createdAt  DateTime       @default(now()) @map("created_at")
+    updatedAt  DateTime       @updatedAt @map("updated_at")
+
+    @@unique([userId, deviceId])
+    @@map("user_devices")
+}
+
+model Notification {
+    id             Int       @id @default(autoincrement())
+    userId         Int       @map("user_id")
+    user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+    title          String
+    body           String
+    data           Json?
+    isRead         Boolean   @default(false) @map("is_read")
+    readAt         DateTime? @map("read_at")
+    deliveredCount Int       @default(0) @map("delivered_count")
+    failedCount    Int       @default(0) @map("failed_count")
+    createdAt      DateTime  @default(now()) @map("created_at")
+    updatedAt      DateTime  @updatedAt @map("updated_at")
+
+    @@map("notifications")
 }

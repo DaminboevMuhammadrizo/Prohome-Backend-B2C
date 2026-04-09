@@ -18,58 +18,43 @@ export class SeederService implements OnModuleInit {
   }
 
   private async seedMinimal() {
-    await this.createSuperAdmin();
+    await this.createAdmin();
   }
 
-  private async createSuperAdmin() {
+  private async createAdmin() {
     try {
-      const superAdminPhone =
-        this.configService.get<string>('SUPERADMIN_PHONE') || '+998909009090';
-      const superAdminPassword =
-        this.configService.get<string>('SUPERADMIN_PASSWORD') ||
-        'Pr0H0me!Sup3r@2026#X';
+      const adminPhone =
+        this.configService.get<string>('ADMIN_PHONE') ?? '+998901234567';
+      const adminPassword =
+        this.configService.get<string>('ADMIN_PASSWORD') ?? 'Admin123';
+      const adminRoleValue =
+        this.configService.get<string>('ADMIN_ROLE') ?? UserRole.SUPERADMIN;
+      const adminRole =
+        adminRoleValue === UserRole.ADMIN ? UserRole.ADMIN : UserRole.SUPERADMIN;
 
-      const existingSuperAdmin = await this.prisma.user.findFirst({
-        where: { role: UserRole.SUPERADMIN },
+      const existingAdmin = await this.prisma.user.findUnique({
+        where: { phone: adminPhone },
       });
 
-      if (existingSuperAdmin) {
-        this.logger.log('Superadmin allaqachon mavjud');
+      if (existingAdmin) {
+        this.logger.log(`Admin allaqachon mavjud: ${adminPhone}`);
         return;
       }
 
-      const existingUserByPhone = await this.prisma.user.findUnique({
-        where: { phone: superAdminPhone },
-      });
-
-      if (existingUserByPhone) {
-        await this.prisma.user.update({
-          where: { id: existingUserByPhone.id },
-          data: {
-            role: UserRole.SUPERADMIN,
-            password: await hashPassword(superAdminPassword),
-            firstName: existingUserByPhone.firstName || 'Superadmin',
-          },
-        });
-
-        this.logger.log(
-          `Mavjud foydalanuvchi SUPERADMIN qilindi: ${existingUserByPhone.id}`,
-        );
-        return;
-      }
-
-      const superAdmin = await this.prisma.user.create({
+      const admin = await this.prisma.user.create({
         data: {
-          firstName: 'Superadmin',
-          phone: superAdminPhone,
-          role: UserRole.SUPERADMIN,
-          password: await hashPassword(superAdminPassword),
+          firstName: 'Admin',
+          phone: adminPhone,
+          role: adminRole,
+          password: await hashPassword(adminPassword),
         },
       });
 
-      this.logger.log(`SUPERADMIN yaratildi: ${superAdmin.id}`);
+      this.logger.log(
+        `Seed admin yaratildi: phone=${adminPhone}, password=${adminPassword}, role=${adminRole}, id=${admin.id}`,
+      );
     } catch (error) {
-      this.logger.error('Superadmin seed xatoligi', error);
+      this.logger.error('Admin seed xatoligi', error);
       throw error;
     }
   }

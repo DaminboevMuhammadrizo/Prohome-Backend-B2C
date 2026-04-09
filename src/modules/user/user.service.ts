@@ -176,6 +176,9 @@ export class UserService {
     const soldApartmentCount = user.apartments.filter(
       (apartment) => apartment.dealStatus === ApartmentDealStatus.SOLD,
     ).length;
+    const fcmTokensCount = await this.prisma.userDevice.count({
+      where: { userId: id },
+    });
 
     const { password, ...safeUser } = user;
 
@@ -187,6 +190,7 @@ export class UserService {
         ratingCount: user.ratings.length,
         likedApartmentCount: user.apartmentLikes.length,
         savedMasterCount: user.savedMasterProfiles.length,
+        fcmTokensCount,
       },
     };
   }

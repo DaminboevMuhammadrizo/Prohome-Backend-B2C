@@ -1,5 +1,5 @@
 import { ApartmentListingType } from '@prisma/client';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
@@ -12,12 +12,15 @@ import {
 } from 'class-validator';
 
 export class CreateApartmentDto {
+  @ApiProperty()
   @IsString()
   titleUz: string;
 
+  @ApiProperty()
   @IsString()
   titleUzCyrl: string;
 
+  @ApiProperty()
   @IsString()
   titleRu: string;
 
@@ -36,14 +39,17 @@ export class CreateApartmentDto {
   @IsString()
   descriptionRu?: string;
 
+  @ApiProperty()
   @Type(() => Number)
   @IsNumber()
   price: number;
 
+  @ApiProperty()
   @Type(() => Number)
   @IsNumber()
   area: number;
 
+  @ApiProperty()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -69,7 +75,7 @@ export class CreateApartmentDto {
   @IsNumber()
   landArea?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ default: false })
   @IsOptional()
   @IsBoolean()
   isCottage?: boolean;
@@ -79,16 +85,19 @@ export class CreateApartmentDto {
   @IsEnum(ApartmentListingType)
   listingType?: ApartmentListingType;
 
+  @ApiProperty()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   regionId: number;
 
+  @ApiProperty()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   categoryId: number;
 
+  @ApiProperty()
   @IsString()
   address: string;
 

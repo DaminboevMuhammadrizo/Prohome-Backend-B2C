@@ -1,3 +1,4 @@
+import { DevicePlatform } from '@prisma/client';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -63,20 +64,27 @@ export class RegisterAuthDto {
   @Min(1)
   regionId?: number;
 
-  @ApiPropertyOptional({ example: 'Toshkent shahri, Chilonzor' })
+  @ApiPropertyOptional({ example: 'android-7f3aa8d9-11c2-4d72-b8b8-001' })
   @IsOptional()
   @IsString()
-  address?: string;
+  @MinLength(3)
+  deviceId?: string;
 
-  @ApiPropertyOptional({ example: 41.3111 })
+  @ApiPropertyOptional({
+    example: 'fJwH0Jm3Q1mS4_example_device_token_from_firebase',
+  })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  latitude?: number;
+  @IsString()
+  @MinLength(20)
+  fcmToken?: string;
 
-  @ApiPropertyOptional({ example: 69.2797 })
+  @ApiPropertyOptional({ example: 'Samsung S23' })
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  longitude?: number;
+  @IsString()
+  deviceName?: string;
+
+  @ApiPropertyOptional({ enum: DevicePlatform, default: DevicePlatform.UNKNOWN })
+  @IsOptional()
+  @IsEnum(DevicePlatform)
+  platform?: DevicePlatform;
 }

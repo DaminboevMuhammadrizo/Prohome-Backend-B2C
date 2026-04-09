@@ -12,6 +12,7 @@ import { SeaderModule } from "./seeders/seader.module";
 import { TelegramBotService } from "./services/telegram-bot.service";
 import { DataAccessAuditService } from "./services/data-access-audit.service";
 import { BackupService } from "./services/backup.service";
+import { FirebaseService } from "./services/firebase.service";
 
 @Global()
 @Module({
@@ -28,6 +29,7 @@ import { BackupService } from "./services/backup.service";
     providers: [
         PhoneIdentityService,
         SchemaCompatibilityService,
+        FirebaseService,
         TelegramBotService,
         DataAccessAuditService,
         BackupService,
@@ -36,9 +38,10 @@ import { BackupService } from "./services/backup.service";
     exports: [
         PhoneIdentityService,
         SchemaCompatibilityService,
+        FirebaseService,
         TelegramBotService,
         DataAccessAuditService,
         BackupService,
     ]
 })
-export class CommonModule { }
+export class CommonModule {}

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -12,7 +13,13 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
@@ -28,6 +35,14 @@ import { UpdateApartmentDto } from './dto/update-apartment.dto';
 @Controller('apartments')
 export class ApartmentController {
   constructor(private readonly apartmentService: ApartmentService) {}
+
+  private validateImages(files: Express.Multer.File[], isCreate = false) {
+    if (isCreate && files.length < 3) {
+      throw new BadRequestException(
+        'Apartment yaratishda kamida 3 ta rasm yuborilishi kerak',
+      );
+    }
+  }
 
   @Get()
   @ApiOperation({ summary: 'Apartmentlar ro‘yxati' })
@@ -115,16 +130,20 @@ export class ApartmentController {
   create(
     @UserData() user: JwtPayload,
     @Body() dto: CreateApartmentDto,
-    @UploadedFiles() images?: Express.Multer.File[],
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.apartmentService.create(user, dto, images);
+    this.validateImages(files ?? [], true);
+    return this.apartmentService.create(user, dto, files ?? []);
   }
 
   @Post(':id/like')
   @ApiBearerAuth()
   @UseGuards(GuardService)
   @ApiOperation({ summary: 'Apartment like toggle' })
-  toggleLike(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload) {
+  toggleLike(
+    @Param('id', ParseIntPipe) id: number,
+    @UserData() user: JwtPayload,
+  ) {
     return this.apartmentService.toggleLike(id, user);
   }
 
@@ -168,9 +187,9 @@ export class ApartmentController {
     @Param('id', ParseIntPipe) id: number,
     @UserData() user: JwtPayload,
     @Body() dto: UpdateApartmentDto,
-    @UploadedFiles() images?: Express.Multer.File[],
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.apartmentService.update(id, user, dto, images);
+    return this.apartmentService.update(id, user, dto, files ?? []);
   }
 
   @Patch(':id/status')
