@@ -4,7 +4,11 @@ import { AuthService } from './auth.service';
 import { LoginAuthDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { RegisterAuthDto, SendOtpDto } from './dto/register.dto';
+import {
+  RegisterAuthDto,
+  ResetPasswordDto,
+  SendOtpDto,
+} from './dto/register.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -33,6 +37,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Parol bilan kirish' })
   login2(@Body() dto: Login2Dto) {
     return this.authService.login2(dto);
+  }
+
+  @Post('reset-password')
+  @ApiOperation({ summary: 'OTP orqali parolni tiklash' })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 
   @Post('refresh')

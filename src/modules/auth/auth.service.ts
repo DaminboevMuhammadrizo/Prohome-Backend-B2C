@@ -14,7 +14,12 @@ import { SmsService } from 'src/common/services/sms.service';
 import { LoginAuthDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { OtpPurpose, RegisterAuthDto, SendOtpDto } from './dto/register.dto';
+import {
+  OtpPurpose,
+  RegisterAuthDto,
+  ResetPasswordDto,
+  SendOtpDto,
+} from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
@@ -31,7 +36,9 @@ export class AuthService {
     return `otp:${purpose}:${phone}`;
   }
 
-  private buildUserPayload(user: Pick<User, 'id' | 'phone' | 'role'>): JwtPayload {
+  private buildUserPayload(
+    user: Pick<User, 'id' | 'phone' | 'role'>,
+  ): JwtPayload {
     return {
       id: user.id,
       phone: user.phone,
@@ -97,6 +104,12 @@ export class AuthService {
     });
   }
 
+  private async findUserForLogin(phone: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { phone },
+    });
+  }
+
   private ensureCompanyCanLogin(company: Company) {
     if (!company.isActive) {
       throw new UnauthorizedException('Company faol emas');
@@ -115,15 +128,41 @@ export class AuthService {
 
   async sendOtp(dto: SendOtpDto) {
     const phone = this.phoneIdentityService.normalizePhone(dto.phone);
+    await this.validateOtpRequest(phone, dto.purpose);
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await this.redis.set(this.getOtpKey(phone, dto.purpose), otp, 120);
     await this.sms.sendSMS(
-      `"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp}`,
+      `"PROHOME" platformasi uchun tasdiqlash kodi: ${otp}`,
       phone,
     );
 
     return { message: 'OTP yuborildi' };
+  }
+
+  private async validateOtpRequest(phone: string, purpose: OtpPurpose) {
+    if (purpose === OtpPurpose.REGISTER) {
+      await this.phoneIdentityService.ensurePhoneAvailable({ phone });
+      return;
+    }
+
+    const [company, user] = await Promise.all([
+      this.findCompanyForLogin(phone),
+      this.findUserForLogin(phone),
+    ]);
+
+    if (!company && !user) {
+      throw new NotFoundException('Company yoki foydalanuvchi topilmadi');
+    }
+
+    if (company) {
+      this.ensureCompanyCanLogin(company);
+    }
+
+    if (user) {
+      this.ensureUserCanLogin(user);
+    }
   }
 
   private async verifyOtp(phone: string, otp: string, purpose: OtpPurpose) {
@@ -180,9 +219,7 @@ export class AuthService {
       return this.generateCompanyAuthResponse(company);
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { phone },
-    });
+    const user = await this.findUserForLogin(phone);
 
     if (!user) {
       throw new NotFoundException('Company yoki foydalanuvchi topilmadi');
@@ -209,7 +246,7 @@ export class AuthService {
       }
     }
 
-    const user = await this.prisma.user.findUnique({ where: { phone } });
+    const user = await this.findUserForLogin(phone);
 
     if (!user?.password) {
       throw new UnauthorizedException('Notogri login yoki parol');
@@ -224,6 +261,38 @@ export class AuthService {
 
     await this.notificationService.registerDeviceForUser(user.id, dto);
     return this.generateUserAuthResponse(user);
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const phone = this.phoneIdentityService.normalizePhone(dto.phone);
+    await this.verifyOtp(phone, dto.otp, OtpPurpose.RESET_PASSWORD);
+
+    const hashedPassword = await hashPassword(dto.password);
+    const company = await this.findCompanyForLogin(phone);
+
+    if (company) {
+      this.ensureCompanyCanLogin(company);
+      await this.prisma.company.update({
+        where: { id: company.id },
+        data: { password: hashedPassword },
+      });
+
+      return { message: 'Parol yangilandi', entityType: 'COMPANY' as const };
+    }
+
+    const user = await this.findUserForLogin(phone);
+
+    if (!user) {
+      throw new NotFoundException('Company yoki foydalanuvchi topilmadi');
+    }
+
+    this.ensureUserCanLogin(user);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Parol yangilandi', entityType: 'USER' as const };
   }
 
   async refresh(dto: RefreshTokenDto) {

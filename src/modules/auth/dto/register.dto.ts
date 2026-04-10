@@ -4,7 +4,6 @@ import { Type } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
-  IsNumber,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -16,6 +15,7 @@ import {
 export enum OtpPurpose {
   REGISTER = 'REGISTER',
   LOGIN = 'LOGIN',
+  RESET_PASSWORD = 'RESET_PASSWORD',
 }
 
 export class SendOtpDto {
@@ -83,8 +83,30 @@ export class RegisterAuthDto {
   @IsString()
   deviceName?: string;
 
-  @ApiPropertyOptional({ enum: DevicePlatform, default: DevicePlatform.UNKNOWN })
+  @ApiPropertyOptional({
+    enum: DevicePlatform,
+    default: DevicePlatform.UNKNOWN,
+  })
   @IsOptional()
   @IsEnum(DevicePlatform)
   platform?: DevicePlatform;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ example: '+998901234567' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(9, 20)
+  phone: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(6, 6)
+  otp: string;
+
+  @ApiProperty({ example: 'new-strong-password' })
+  @IsString()
+  @MinLength(6)
+  password: string;
 }
