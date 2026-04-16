@@ -6,18 +6,28 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
   Min,
 } from 'class-validator';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import {
+  MASTER_REQUEST_TYPES,
+} from 'src/common/constants/property.constants';
+import type { MasterRequestTypeValue } from 'src/common/constants/property.constants';
 
 export class MasterProfileQueryDto extends PaginationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ enum: MASTER_REQUEST_TYPES })
+  @IsOptional()
+  @IsIn(MASTER_REQUEST_TYPES)
+  requestType?: MasterRequestTypeValue;
 
   @ApiPropertyOptional()
   @IsOptional()

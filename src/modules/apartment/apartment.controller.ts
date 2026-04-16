@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -21,6 +22,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { GuardService } from 'src/common/guard/guard.service';
@@ -60,6 +62,21 @@ export class ApartmentController {
   @ApiOperation({ summary: 'Bitta apartment' })
   getOne(@Param('id', ParseIntPipe) id: number) {
     return this.apartmentService.getOne(id);
+  }
+
+  @Get(':id/pdf')
+  @ApiOperation({ summary: 'Apartment ma\'lumotlarini PDF qilib olish' })
+  async exportPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.apartmentService.exportPdf(id);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${file.filename}"`,
+    );
+    return file.buffer;
   }
 
   @Post(':id/view')

@@ -63,9 +63,7 @@ export class ComplexService {
             createdAt: buildDateRange(query.createdFrom, query.createdTo),
             OR: search
                 ? [
-                    { nameUz: { contains: search, mode: 'insensitive' } },
-                    { nameUzCyrl: { contains: search, mode: 'insensitive' } },
-                    { nameRu: { contains: search, mode: 'insensitive' } },
+                    { name: { contains: search, mode: 'insensitive' } },
                     { descriptionUz: { contains: search, mode: 'insensitive' } },
                     { descriptionUzCyrl: { contains: search, mode: 'insensitive' } },
                     { descriptionRu: { contains: search, mode: 'insensitive' } },

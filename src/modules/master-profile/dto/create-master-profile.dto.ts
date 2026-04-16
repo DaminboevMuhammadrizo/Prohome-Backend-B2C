@@ -42,6 +42,36 @@ export class CreateMasterProfileDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsUrl({ require_tld: false })
+  telegramUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  instagramUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  youtubeUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  facebookUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  tiktokUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUrl({ require_tld: false })
+  websiteUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsBoolean()
   isAvailable?: boolean;
 

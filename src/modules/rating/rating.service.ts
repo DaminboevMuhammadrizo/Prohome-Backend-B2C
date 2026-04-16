@@ -3,8 +3,10 @@ import { PrismaService } from 'src/common/database/prisma.service';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { SchemaCompatibilityService } from 'src/common/services/schema-compatibility.service';
 import { AuthUser } from 'src/common/types/auth-user.type';
+import { assertAdmin } from 'src/common/utils/access.util';
 import { buildMasterProfileSelect } from 'src/common/utils/master-profile-select.util';
 import { CreateRatingDto } from './dto/create-rating.dto';
+import { ModerateRatingDto } from './dto/moderate-rating.dto';
 import { UpdateRatingDto } from './dto/update-rating.dto';
 
 @Injectable()
@@ -35,6 +37,7 @@ export class RatingService {
 
         const [data, total] = await Promise.all([
             this.prisma.rating.findMany({
+                where: { isApproved: true },
                 include: {
                     user: {
                         select: { id: true, firstName: true, lastName: true },
@@ -78,6 +81,36 @@ export class RatingService {
         }
 
         return rating;
+    }
+
+    async getPendingRatings(user: AuthUser, pagination: PaginationDto) {
+        assertAdmin(user);
+        const page = pagination.page ?? 1;
+        const limit = pagination.limit ?? 10;
+        const skip = (page - 1) * limit;
+
+        const [data, total] = await Promise.all([
+            this.prisma.rating.findMany({
+                where: { isApproved: false },
+                include: {
+                    user: {
+                        select: { id: true, firstName: true, lastName: true, phone: true },
+                    },
+                    masterProfile: {
+                        select: { id: true, userId: true, bio: true },
+                    },
+                },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            this.prisma.rating.count({ where: { isApproved: false } }),
+        ]);
+
+        return {
+            data,
+            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        };
     }
 
     async getMyRatings(user: AuthUser, pagination: PaginationDto) {
@@ -124,7 +157,7 @@ export class RatingService {
 
         const [data, total] = await Promise.all([
             this.prisma.rating.findMany({
-                where: { masterProfileId },
+                where: { masterProfileId, isApproved: true },
                 include: {
                     user: {
                         select: { id: true, firstName: true, lastName: true },
@@ -174,6 +207,7 @@ export class RatingService {
             data: {
                 score: dto.score,
                 comment: dto.comment,
+                isApproved: false,
                 userId: user.id,
                 masterProfileId: dto.masterProfileId,
             },
@@ -201,6 +235,10 @@ export class RatingService {
             data: {
                 score: dto.score,
                 comment: dto.comment,
+                isApproved: false,
+                moderationNote: null,
+                moderatedAt: null,
+                moderatedBy: null,
             },
         });
 
@@ -227,5 +265,30 @@ export class RatingService {
 
         await this.recalculateMasterRating(rating.masterProfileId);
         return deletedRating;
+    }
+
+    async moderate(id: number, user: AuthUser, dto: ModerateRatingDto) {
+        assertAdmin(user);
+
+        const rating = await this.prisma.rating.findUnique({
+            where: { id },
+        });
+
+        if (!rating) {
+            throw new NotFoundException('Rating topilmadi');
+        }
+
+        const updatedRating = await this.prisma.rating.update({
+            where: { id },
+            data: {
+                isApproved: dto.isApproved,
+                moderationNote: dto.moderationNote,
+                moderatedAt: new Date(),
+                moderatedBy: user.id,
+            },
+        });
+
+        await this.recalculateMasterRating(rating.masterProfileId);
+        return updatedRating;
     }
 }

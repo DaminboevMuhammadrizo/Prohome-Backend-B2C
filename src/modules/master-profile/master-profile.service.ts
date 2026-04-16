@@ -52,9 +52,13 @@ export class MasterProfileService {
         canUseSalaryType: boolean,
     ): Prisma.MasterProfileWhereInput {
         const search = normalizeSearch(query.search);
+        const requestType = query.requestType ?? 'MASTER';
 
         return {
-            isAvailable: query.isAvailable,
+            isAvailable:
+                requestType === 'PARTNER'
+                    ? true
+                    : query.isAvailable,
             experience: {
                 gte: query.minExperience,
                 lte: query.maxExperience,
@@ -111,13 +115,61 @@ export class MasterProfileService {
         };
     }
 
+    private async getBrokenMasterProfileIds(): Promise<number[]> {
+        const rows = await this.prisma.$queryRaw<Array<{ id: number }>>(Prisma.sql`
+            SELECT mp.id
+            FROM master_profiles mp
+            LEFT JOIN "User" u ON u.id = mp."userId"
+            WHERE u.id IS NULL
+        `);
+
+        return rows.map((row) => row.id);
+    }
+
+    private async buildSafeWhere(
+        query: MasterProfileQueryDto,
+        canUseSalaryType: boolean,
+    ): Promise<Prisma.MasterProfileWhereInput> {
+        const where = this.buildWhere(query, canUseSalaryType);
+        const brokenIds = await this.getBrokenMasterProfileIds();
+
+        if (!brokenIds.length) {
+            return where;
+        }
+
+        return {
+            AND: [
+                where,
+                {
+                    id: {
+                        notIn: brokenIds,
+                    },
+                },
+            ],
+        };
+    }
+
+    private async ensureProfileHasUser(id: number): Promise<void> {
+        const rows = await this.prisma.$queryRaw<Array<{ id: number }>>(Prisma.sql`
+            SELECT mp.id
+            FROM master_profiles mp
+            LEFT JOIN "User" u ON u.id = mp."userId"
+            WHERE mp.id = ${id}
+              AND u.id IS NULL
+        `);
+
+        if (rows.length) {
+            throw new NotFoundException('Master profile foydalanuvchi bilan bog‘lanmagan');
+        }
+    }
+
     async getAll(query: MasterProfileQueryDto) {
         const page = query.page ?? 1;
         const limit = query.limit ?? 10;
         const skip = (page - 1) * limit;
         const canUseSalaryType =
             await this.schemaCompatibility.hasMasterProfileSalaryType();
-        const where = this.buildWhere(query, canUseSalaryType);
+        const where = await this.buildSafeWhere(query, canUseSalaryType);
 
         const [data, total] = await Promise.all([
             this.prisma.masterProfile.findMany({
@@ -138,11 +190,13 @@ export class MasterProfileService {
 
         return {
             data: data.map((profile) => this.decorateProfile(profile)),
+            requestType: query.requestType ?? 'MASTER',
             meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
         };
     }
 
     async getOne(id: number) {
+        await this.ensureProfileHasUser(id);
         const canUseSalaryType =
             await this.schemaCompatibility.hasMasterProfileSalaryType();
         const profile = await this.prisma.masterProfile.findUnique({
@@ -205,6 +259,12 @@ export class MasterProfileService {
                 experience: dto.experience,
                 skills: dto.skills,
                 portfolios: dto.portfolios,
+                telegramUrl: dto.telegramUrl,
+                instagramUrl: dto.instagramUrl,
+                youtubeUrl: dto.youtubeUrl,
+                facebookUrl: dto.facebookUrl,
+                tiktokUrl: dto.tiktokUrl,
+                websiteUrl: dto.websiteUrl,
                 isAvailable: dto.isAvailable,
                 salary: dto.salary,
                 ...(canUseSalaryType ? { salaryType: dto.salaryType } : {}),
@@ -243,6 +303,12 @@ export class MasterProfileService {
                 experience: dto.experience,
                 skills: dto.skills,
                 portfolios: dto.portfolios,
+                telegramUrl: dto.telegramUrl,
+                instagramUrl: dto.instagramUrl,
+                youtubeUrl: dto.youtubeUrl,
+                facebookUrl: dto.facebookUrl,
+                tiktokUrl: dto.tiktokUrl,
+                websiteUrl: dto.websiteUrl,
                 isAvailable: dto.isAvailable,
                 salary: dto.salary,
                 ...(canUseSalaryType ? { salaryType: dto.salaryType } : {}),

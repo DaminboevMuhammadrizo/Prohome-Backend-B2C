@@ -1,10 +1,14 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { UserRole } from '@prisma/client';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UserData } from 'src/common/decorators/auth.decorators';
+import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
+import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateRatingDto } from './dto/create-rating.dto';
+import { ModerateRatingDto } from './dto/moderate-rating.dto';
 import { UpdateRatingDto } from './dto/update-rating.dto';
 import { RatingService } from './rating.service';
 
@@ -25,6 +29,15 @@ export class RatingController {
     @ApiOperation({ summary: 'Mening ratinglarim' })
     getMyRatings(@UserData() user: JwtPayload, @Query() pagination: PaginationDto) {
         return this.ratingService.getMyRatings(user, pagination);
+    }
+
+    @Get('pending/moderation')
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Moderatsiya kutayotgan ratinglar' })
+    getPendingRatings(@UserData() user: JwtPayload, @Query() pagination: PaginationDto) {
+        return this.ratingService.getPendingRatings(user, pagination);
     }
 
     @Get('master/:masterProfileId')
@@ -68,5 +81,18 @@ export class RatingController {
     @ApiOperation({ summary: 'Rating ochirish' })
     delete(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload) {
         return this.ratingService.delete(id, user);
+    }
+
+    @Patch(':id/moderate')
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Ratingni approve yoki reject qilish' })
+    moderate(
+        @Param('id', ParseIntPipe) id: number,
+        @UserData() user: JwtPayload,
+        @Body() dto: ModerateRatingDto,
+    ) {
+        return this.ratingService.moderate(id, user, dto);
     }
 }
