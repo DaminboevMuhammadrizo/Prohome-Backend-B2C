@@ -397,6 +397,7 @@ model Region {
     children Region[] @relation("RegionHierarchy")
     parent   Region?  @relation("RegionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
 
+    @@unique([nameUz, parentId], name: "nameUz_parentId")
     @@map("regions")
 }
 

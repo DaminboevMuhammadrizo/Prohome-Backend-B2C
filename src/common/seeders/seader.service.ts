@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { hashPassword } from '../config/bcrypt';
 import { PrismaService } from '../database/prisma.service';
+import { UZBEKISTAN_REGIONS } from './region.seed';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
@@ -19,6 +20,49 @@ export class SeederService implements OnModuleInit {
 
   private async seedMinimal() {
     await this.createAdmin();
+    await this.seedRegions();
+  }
+
+  private async seedRegions() {
+    try {
+      for (const region of UZBEKISTAN_REGIONS) {
+        let parent = await this.prisma.region.findFirst({
+          where: { nameUz: region.nameUz, parentId: null },
+        });
+
+        if (!parent) {
+          parent = await this.prisma.region.create({
+            data: {
+              nameUz: region.nameUz,
+              nameUzCyrl: region.nameUzCyrl,
+              nameRu: region.nameRu,
+            },
+          });
+        }
+
+        for (const d of region.districts) {
+          const exists = await this.prisma.region.findFirst({
+            where: { nameUz: d.nameUz, parentId: parent.id },
+          });
+
+          if (!exists) {
+            await this.prisma.region.create({
+              data: {
+                nameUz: d.nameUz,
+                nameUzCyrl: d.nameUzCyrl,
+                nameRu: d.nameRu,
+                parentId: parent.id,
+              },
+            });
+          }
+        }
+      }
+
+      this.logger.log("O'zbekiston viloyat va tumanlari seed qilindi");
+    } catch (error) {
+      this.logger.error('Region seed xatoligi', error);
+      throw error;
+    }
   }
 
   private async createAdmin() {
