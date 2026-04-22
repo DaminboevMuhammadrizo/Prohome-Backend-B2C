@@ -21,6 +21,7 @@ export class SeederService implements OnModuleInit {
   private async seedMinimal() {
     await this.createAdmin();
     await this.seedRegions();
+    await this.seedJobCategories();
   }
 
   private async seedRegions() {
@@ -61,6 +62,38 @@ export class SeederService implements OnModuleInit {
       this.logger.log("O'zbekiston viloyat va tumanlari seed qilindi");
     } catch (error) {
       this.logger.error('Region seed xatoligi', error);
+      throw error;
+    }
+  }
+
+  private async seedJobCategories() {
+    const categories = [
+      { nameUz: 'Santexnik', nameUzCyrl: 'Сантехник', nameRu: 'Сантехник' },
+      { nameUz: 'Elektrik', nameUzCyrl: 'Электрик', nameRu: 'Электрик' },
+      { nameUz: 'Plitkachilik', nameUzCyrl: 'Плиткачилик', nameRu: 'Укладка плитки' },
+      { nameUz: 'Gipschilik', nameUzCyrl: 'Гипсчилик', nameRu: 'Гипсокартон' },
+      { nameUz: 'Bo\'yoqchilik', nameUzCyrl: 'Бўёқчилик', nameRu: 'Покраска' },
+      { nameUz: 'Duradgorlik', nameUzCyrl: 'Дурадгорлик', nameRu: 'Столярные работы' },
+      { nameUz: 'Temir konstruksiya', nameUzCyrl: 'Темир конструкция', nameRu: 'Металлоконструкции' },
+      { nameUz: 'Konditsioner o\'rnatish', nameUzCyrl: 'Кондиционер ўрнатиш', nameRu: 'Установка кондиционеров' },
+      { nameUz: 'Pol yotqizish', nameUzCyrl: 'Пол ётқизиш', nameRu: 'Укладка пола' },
+      { nameUz: 'Umumiy ta\'mirlash', nameUzCyrl: 'Умумий таъмирлаш', nameRu: 'Общий ремонт' },
+    ];
+
+    try {
+      for (const cat of categories) {
+        const exists = await this.prisma.jobCategory.findFirst({
+          where: { nameUz: cat.nameUz },
+        });
+
+        if (!exists) {
+          await this.prisma.jobCategory.create({ data: cat });
+        }
+      }
+
+      this.logger.log('Job kategoriyalar seed qilindi');
+    } catch (error) {
+      this.logger.error('Job category seed xatoligi', error);
       throw error;
     }
   }
