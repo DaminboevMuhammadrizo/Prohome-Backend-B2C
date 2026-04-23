@@ -7,6 +7,7 @@ import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { ApartmentCategoryService } from './apartment-category.service';
 import { CreateApartmentCategoryDto } from './dto/create-apartment-category.dto';
 import { UpdateApartmentCategoryDto } from './dto/update-apartment-category.dto';
+import { UpdateApartmentCategoryStatusDto } from './dto/update-apartment-category-status.dto';
 
 @ApiTags('Apartment Categories')
 @Controller('apartment-categories')
@@ -46,6 +47,45 @@ export class ApartmentCategoryController {
         @Body() dto: UpdateApartmentCategoryDto,
     ) {
         return this.apartmentCategoryService.update(id, dto);
+    }
+
+    @Patch(':id/archive')
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Apartment kategoriya arxivlash' })
+    archive(@Param('id', ParseIntPipe) id: number) {
+        return this.apartmentCategoryService.archive(id);
+    }
+
+    @Patch(':id/unarchive')
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Apartment kategoriya arxivdan chiqarish' })
+    unarchive(@Param('id', ParseIntPipe) id: number) {
+        return this.apartmentCategoryService.unarchive(id);
+    }
+
+    @Patch(':id/status')
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Apartment kategoriya active statusini yangilash' })
+    updateStatus(
+        @Param('id', ParseIntPipe) id: number,
+        @Body() dto: UpdateApartmentCategoryStatusDto,
+    ) {
+        return this.apartmentCategoryService.updateStatus(id, dto);
+    }
+
+    @Patch(':id/status-toggle')
+    @ApiBearerAuth()
+    @UseGuards(GuardService, RoleGuardService)
+    @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+    @ApiOperation({ summary: 'Apartment kategoriya status toggle' })
+    toggleStatus(@Param('id', ParseIntPipe) id: number) {
+        return this.apartmentCategoryService.toggleStatus(id);
     }
 
     @Delete(':id')

@@ -85,4 +85,17 @@ export class MasterQueryDto extends PaginationDto {
   @IsOptional()
   @IsDateString()
   createdTo?: string;
+
+  // Frontend admin panel yuboradigan extra paramlar — backend tomonidan e'tiborga olinmaydi
+  @IsOptional()
+  deleted?: any;
+
+  @IsOptional()
+  sort?: any;
+
+  @IsOptional()
+  order?: any;
+
+  @IsOptional()
+  filter?: any;
 }

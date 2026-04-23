@@ -117,4 +117,16 @@ export class CreateApartmentDto {
   @IsInt()
   @Min(1)
   layoutId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  latitude?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  longitude?: number;
 }

@@ -7,6 +7,7 @@ import { CompanyModule } from './company/company.module';
 import { ComplexModule } from './complex/complex.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { JobModule } from './job/job.module';
+import { MasterModule } from './user/master/master.module';
 import { MasterProfileModule } from './master-profile/master-profile.module';
 import { NotificationModule } from './notification/notification.module';
 import { RatingModule } from './rating/rating.module';
@@ -17,6 +18,7 @@ import { CrmModule } from './crm/crm.module';
 @Module({
   imports: [
     AuthModule,
+    MasterModule,   // UserModule dan OLDIN — GET /users/masters, GET /users/:id konfliktini hal qiladi
     UserModule,
     RegionModule,
     BannerModule,

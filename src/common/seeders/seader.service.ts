@@ -70,14 +70,38 @@ export class SeederService implements OnModuleInit {
     const categories = [
       { nameUz: 'Santexnik', nameUzCyrl: 'Сантехник', nameRu: 'Сантехник' },
       { nameUz: 'Elektrik', nameUzCyrl: 'Электрик', nameRu: 'Электрик' },
-      { nameUz: 'Plitkachilik', nameUzCyrl: 'Плиткачилик', nameRu: 'Укладка плитки' },
+      {
+        nameUz: 'Plitkachilik',
+        nameUzCyrl: 'Плиткачилик',
+        nameRu: 'Укладка плитки',
+      },
       { nameUz: 'Gipschilik', nameUzCyrl: 'Гипсчилик', nameRu: 'Гипсокартон' },
-      { nameUz: 'Bo\'yoqchilik', nameUzCyrl: 'Бўёқчилик', nameRu: 'Покраска' },
-      { nameUz: 'Duradgorlik', nameUzCyrl: 'Дурадгорлик', nameRu: 'Столярные работы' },
-      { nameUz: 'Temir konstruksiya', nameUzCyrl: 'Темир конструкция', nameRu: 'Металлоконструкции' },
-      { nameUz: 'Konditsioner o\'rnatish', nameUzCyrl: 'Кондиционер ўрнатиш', nameRu: 'Установка кондиционеров' },
-      { nameUz: 'Pol yotqizish', nameUzCyrl: 'Пол ётқизиш', nameRu: 'Укладка пола' },
-      { nameUz: 'Umumiy ta\'mirlash', nameUzCyrl: 'Умумий таъмирлаш', nameRu: 'Общий ремонт' },
+      { nameUz: "Bo'yoqchilik", nameUzCyrl: 'Бўёқчилик', nameRu: 'Покраска' },
+      {
+        nameUz: 'Duradgorlik',
+        nameUzCyrl: 'Дурадгорлик',
+        nameRu: 'Столярные работы',
+      },
+      {
+        nameUz: 'Temir konstruksiya',
+        nameUzCyrl: 'Темир конструкция',
+        nameRu: 'Металлоконструкции',
+      },
+      {
+        nameUz: "Konditsioner o'rnatish",
+        nameUzCyrl: 'Кондиционер ўрнатиш',
+        nameRu: 'Установка кондиционеров',
+      },
+      {
+        nameUz: 'Pol yotqizish',
+        nameUzCyrl: 'Пол ётқизиш',
+        nameRu: 'Укладка пола',
+      },
+      {
+        nameUz: "Umumiy ta'mirlash",
+        nameUzCyrl: 'Умумий таъмирлаш',
+        nameRu: 'Общий ремонт',
+      },
     ];
 
     try {
@@ -107,14 +131,24 @@ export class SeederService implements OnModuleInit {
       const adminRoleValue =
         this.configService.get<string>('ADMIN_ROLE') ?? UserRole.SUPERADMIN;
       const adminRole =
-        adminRoleValue === UserRole.ADMIN ? UserRole.ADMIN : UserRole.SUPERADMIN;
+        adminRoleValue === UserRole.ADMIN
+          ? UserRole.ADMIN
+          : UserRole.SUPERADMIN;
 
       const existingAdmin = await this.prisma.user.findUnique({
         where: { phone: adminPhone },
       });
 
       if (existingAdmin) {
-        this.logger.log(`Admin allaqachon mavjud: ${adminPhone}`);
+        if (existingAdmin.isArchived || existingAdmin.isBlocked) {
+          await this.prisma.user.update({
+            where: { phone: adminPhone },
+            data: { isArchived: false, isBlocked: false, blockedAt: null, archivedAt: null },
+          });
+          this.logger.log(`Admin arxivdan/blokdan chiqarildi: ${adminPhone}`);
+        } else {
+          this.logger.log(`Admin allaqachon mavjud: ${adminPhone}`);
+        }
         return;
       }
 

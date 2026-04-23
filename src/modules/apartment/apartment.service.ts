@@ -168,7 +168,12 @@ export class ApartmentService {
             phone: true,
           },
         },
-        complex: true,
+        complex: {
+          include: {
+            company: true,
+            region: true,
+          },
+        },
         layout: true,
       },
     });

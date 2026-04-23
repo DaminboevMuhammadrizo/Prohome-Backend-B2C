@@ -293,6 +293,61 @@ export class MasterService {
     return this.getOne(id);
   }
 
+  async toggleActive(id: number) {
+    const master = await this.findMasterOrThrow(id);
+    const user = await this.prisma.user.findUnique({
+      where: { id: master.userId },
+      select: { isBlocked: true },
+    });
+
+    const nowBlocked = !user!.isBlocked;
+    await this.prisma.user.update({
+      where: { id: master.userId },
+      data: {
+        isBlocked: nowBlocked,
+        blockedAt: nowBlocked ? new Date() : null,
+      },
+    });
+
+    return {
+      isActive: !nowBlocked,
+      ...(await this.getOne(id)),
+    };
+  }
+
+  async toggleAvailability(id: number) {
+    await this.findMasterOrThrow(id);
+    const current = await this.prisma.masterProfile.findUnique({
+      where: { id },
+      select: { isAvailable: true },
+    });
+
+    await this.prisma.masterProfile.update({
+      where: { id },
+      data: { isAvailable: !current!.isAvailable },
+    });
+
+    return this.getOne(id);
+  }
+
+  async toggleBlock(id: number) {
+    const master = await this.findMasterOrThrow(id);
+    const user = await this.prisma.user.findUnique({
+      where: { id: master.userId },
+      select: { isBlocked: true },
+    });
+
+    await this.prisma.user.update({
+      where: { id: master.userId },
+      data: {
+        isBlocked: !user!.isBlocked,
+        blockedAt: !user!.isBlocked ? new Date() : null,
+      },
+    });
+
+    return this.getOne(id);
+  }
+
   async delete(id: number) {
     const master = await this.findMasterOrThrow(id);
     await this.prisma.user.delete({ where: { id: master.userId } });

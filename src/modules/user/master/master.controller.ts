@@ -9,6 +9,8 @@ import {
   Post,
   Query,
   UseGuards,
+  UsePipes,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -34,6 +36,12 @@ export class MasterController {
   constructor(private readonly masterService: MasterService) {}
 
   @Get()
+  @UsePipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: false,
+    transform: true,
+    transformOptions: { enableImplicitConversion: true },
+  }))
   @ApiOperation({
     summary: 'Barcha ustalar ro\'yxati',
     description: '🔐 Ruxsat: ADMIN, SUPERADMIN',
@@ -74,7 +82,7 @@ export class MasterController {
 
   @Patch(':id/status')
   @ApiOperation({
-    summary: 'Usta statusini o\'zgartirish — isAvailable / isBlocked',
+    summary: 'Usta statusini o\'zgartirish — isAvailable / isBlocked (body bilan)',
     description: '🔐 Ruxsat: ADMIN, SUPERADMIN',
   })
   toggleStatus(
@@ -82,6 +90,33 @@ export class MasterController {
     @Body() dto: MasterStatusDto,
   ) {
     return this.masterService.toggleStatus(id, dto);
+  }
+
+  @Patch(':id/toggle-active')
+  @ApiOperation({
+    summary: 'Usta Faol/Nofaol toggle — body kerak emas',
+    description: '🔐 Ruxsat: ADMIN, SUPERADMIN',
+  })
+  toggleActive(@Param('id', ParseIntPipe) id: number) {
+    return this.masterService.toggleActive(id);
+  }
+
+  @Patch(':id/toggle-availability')
+  @ApiOperation({
+    summary: 'Usta isAvailable statusini toggle qilish — body kerak emas',
+    description: '🔐 Ruxsat: ADMIN, SUPERADMIN',
+  })
+  toggleAvailability(@Param('id', ParseIntPipe) id: number) {
+    return this.masterService.toggleAvailability(id);
+  }
+
+  @Patch(':id/toggle-block')
+  @ApiOperation({
+    summary: 'Usta isBlocked statusini toggle qilish — body kerak emas',
+    description: '🔐 Ruxsat: ADMIN, SUPERADMIN',
+  })
+  toggleBlock(@Param('id', ParseIntPipe) id: number) {
+    return this.masterService.toggleBlock(id);
   }
 
   @Delete(':id')
