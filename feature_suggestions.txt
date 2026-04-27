@@ -1,0 +1,215 @@
+Prohome Backend uchun foydali takliflar va ularning sababi
+
+1. Apartment uchun marketType qo'shish: PRIMARY, SECONDARY
+Nima uchun kerak:
+Bu yangi qurilish uyimi yoki ikkilamchi bozordagi uymi degan savol user uchun juda muhim.
+Qanday yordam beradi:
+User qidiruvni aniqroq qiladi, company va realtorlar esa leadni to'g'ri segmentlaydi.
+
+2. Apartment uchun ownershipType qo'shish: OWNER, AGENCY, BUILDER
+Nima uchun kerak:
+Kim sotayotgani ishonch va narx muzokarasiga ta'sir qiladi.
+Qanday yordam beradi:
+User egadan to'g'ridan-to'g'ri uy qidirsa yoki agentlikni xohlasa filterlab oladi.
+
+3. Complex uchun deliveryDate qo'shish
+Nima uchun kerak:
+Yangi qurilishlarda topshirish vaqti eng muhim omillardan biri.
+Qanday yordam beradi:
+User qachon ko'chib kira olishini oldindan biladi, CRM ham qiziqqanlarni topshirish muddatiga qarab ajratadi.
+
+4. Complex uchun installmentAvailable qo'shish
+Nima uchun kerak:
+Ko'p userlar biryo'la to'liq to'lov qilolmaydi.
+Qanday yordam beradi:
+Bo'lib to'lash bor komplekslarni alohida chiqarish conversionni oshiradi.
+
+5. Apartment uchun repairState qo'shish
+Misol: QORA_SUVOQ, O'RTA_REMONT, EURO, TAYYOR
+Nima uchun kerak:
+Narxni ham, userning haqiqiy ehtiyojini ham shu juda o'zgartiradi.
+Qanday yordam beradi:
+Faqat tayyor uy qidirayotgan userga hali bitmagan variantlar ko'rinmaydi.
+
+6. Apartment uchun documentStatus qo'shish
+Misol: KADASTR_BOR, KADASTR_YOQ, RASMIYLASHMOQDA
+Nima uchun kerak:
+Ko'p xaridor hujjat masalasiga juda ehtiyot bo'ladi.
+Qanday yordam beradi:
+Noaniq leadlar kamayadi, user ishonchli variantlarni tezroq topadi.
+
+7. MasterProfile uchun workRadiusKm qo'shish
+Nima uchun kerak:
+Har usta har hududga bormaydi.
+Qanday yordam beradi:
+User lokatsiyasiga yaqin ishlaydigan ustalarni chiqarish mumkin bo'ladi.
+
+8. MasterProfile uchun homeVisitAvailable qo'shish
+Nima uchun kerak:
+Ba'zi xizmatlarda ustaning obyektga chiqib ko'rishi muhim.
+Qanday yordam beradi:
+User tezroq qaror qiladi va bekor suhbatlar kamayadi.
+
+9. MasterProfile uchun responseTime analytics
+Nima uchun kerak:
+Qaysi usta tez javob berishini bilish servis sifati uchun muhim.
+Qanday yordam beradi:
+Tez javob beradigan ustalar yuqoriroqda ko'rsatiladi, user tajribasi yaxshilanadi.
+
+10. CRM leadlar uchun source breakdown qo'shish
+Misol: LIKE, VIEW, SEARCH_SURVEY, CALLBACK, COMPLEX_INTEREST
+Nima uchun kerak:
+Lead qayerdan kelayotganini bilmasdan marketingni optimallashtirib bo'lmaydi.
+Qanday yordam beradi:
+Eng kuchli kanalni topish va foydasiz oqimlarni qisqartirish osonlashadi.
+
+11. Leadlarga assignedManagerId qo'shish
+Nima uchun kerak:
+Lead bilan kim ishlayotgani aniq bo'lishi kerak.
+Qanday yordam beradi:
+Company ichida tartib bo'ladi, bir leadga ikki xil odam aralashib ketmaydi.
+
+12. Leadlarga nextFollowUpAt qo'shish
+Nima uchun kerak:
+Leadlar esdan chiqib ketmasligi kerak.
+Qanday yordam beradi:
+Manager qayta bog'lanish vaqtini ko'radi, yo'qolayotgan leadlar kamayadi.
+
+13. Company uchun lead timeline qo'shish
+Nima uchun kerak:
+Lead qachon kelgani, ochilgani, statusi qachon o'zgargani ko'rinishi kerak.
+Qanday yordam beradi:
+Ichki nazorat va savdo jarayoni ancha tushunarli bo'ladi.
+
+14. Saved search funksiyasi qo'shish
+Nima uchun kerak:
+User har safar bir xil filtrni qayta kiritishni xohlamaydi.
+Qanday yordam beradi:
+User qaytib kelish ehtimoli oshadi, retention yaxshilanadi.
+
+15. Natija 0 bo'lsa avtomatik lead capture form ochish
+Nima uchun kerak:
+Aynan shu yerda userni yo'qotish ehtimoli eng katta.
+Qanday yordam beradi:
+Natija topmagan userni ham leadga aylantirib qolish mumkin bo'ladi.
+
+16. Real distance sorting qo'shish
+Nima uchun kerak:
+Faqat region bo'yicha emas, haqiqiy yaqinlik bo'yicha saralash foydaliroq.
+Qanday yordam beradi:
+Userga eng qulay variantlar tepada chiqadi.
+
+17. Master-profiles uchun nearest va top-rated sort qo'shish
+Nima uchun kerak:
+Ba'zi user tez yetib keladigan ustani xohlaydi, ba'zisi esa eng ishonchlini.
+Qanday yordam beradi:
+Bir xil ro'yxat o'rniga niyatga mos qidiruv paydo bo'ladi.
+
+18. Complex uchun amenities filter qo'shish
+Misol: parking, lift, bolalar maydonchasi, qo'riqlash
+Nima uchun kerak:
+Userlar ko'pincha uy emas, yashash sharoitini tanlaydi.
+Qanday yordam beradi:
+Kompleks tanlash ancha aniq va tez bo'ladi.
+
+19. Notification uchun segment yuborish
+Misol: region, category, qiziqish turi, saved search bo'yicha
+Nima uchun kerak:
+Barcha userga bir xil xabar yuborish samarasiz.
+Qanday yordam beradi:
+Mos auditoriyaga xabar boradi, ochilish va qaytish ko'rsatkichi oshadi.
+
+20. Audit panel qo'shish
+Kim qaysi leadni qachon ochgan, o'chirgan, statusini o'zgartirgan
+Nima uchun kerak:
+CRMda shaffoflik bo'lmasa ichki chalkashlik paydo bo'ladi.
+Qanday yordam beradi:
+Nazorat, xavfsizlik va javobgarlik kuchayadi.
+
+21. Pagination va "Ko'proq yuklash" tugmasi
+Nima uchun kerak:
+Hozir ko'p ro'yxatlar birinchi sahifada to'xtab qolsa user qolgan ma'lumotni ko'ra olmaydi.
+Qanday yordam beradi:
+Frontend bosqichma-bosqich ma'lumot yuklaydi, sahifa yengil ishlaydi va user ko'proq kontent ko'radi.
+
+22. Skeleton loading placeholder
+Nima uchun kerak:
+Loading paytida bo'sh ekran userga noqulay va sekinlik hissini beradi.
+Qanday yordam beradi:
+Kartalar skeleton bilan chiqsa interfeys tezroq tuyuladi va user kutishda ham orientatsiyani yo'qotmaydi.
+
+23. Xarita integratsiyasi
+Kompleks va uy joylashuvini xaritada ko'rsatish
+Nima uchun kerak:
+Ko'p user joylashuvni matndan ko'ra xaritada tezroq tushunadi.
+Qanday yordam beradi:
+Yaqin metro, yo'l, maktab yoki ish joyiga nisbatan baholash osonlashadi.
+
+24. SEO meta taglar
+Har bir sahifa uchun dynamic title va description
+Nima uchun kerak:
+Qidiruv tizimlarida sahifalar yaxshi indekslanishi uchun bu juda muhim.
+Qanday yordam beradi:
+Google dan organik trafik oshadi va kompleks yoki uy sahifalari to'g'ridan-to'g'ri topiladi.
+
+25. PDF export
+Uy ma'lumotlarini PDF formatda yuklab olish
+Nima uchun kerak:
+User yoki broker uyni keyinroq offline ko'rish yoki yuborish uchun saqlab qo'ymoqchi bo'ladi.
+Qanday yordam beradi:
+Bir listingni mijozga jo'natish, chop etish yoki arxivlash osonlashadi.
+
+26. Multi-image upload va drag and drop
+Nima uchun kerak:
+Rasm ko'p yuklanadigan joylarda oddiy upload noqulay.
+Qanday yordam beradi:
+Admin, company yoki user bir nechta rasmni tez yuklaydi, kontent qo'shish osonlashadi.
+
+27. Usta portfolio galereya slider
+Nima uchun kerak:
+Ustaning haqiqiy ish namunalari ishonchni kuchli oshiradi.
+Qanday yordam beradi:
+User ustani faqat matn bilan emas, ishlari bilan ham baholaydi va tezroq bog'lanadi.
+
+28. Rating moderatsiya
+Admin sharhlarni tekshirishi
+Nima uchun kerak:
+Spam, haqoratli yoki soxta sharhlar servis sifatini tushiradi.
+Qanday yordam beradi:
+Review tizimi ishonchli bo'ladi, ustalar ham adolatli baholanadi.
+
+29. Ustalar uchun ijtimoiy tarmoq linklari
+Telegram, Instagram, YouTube va boshqa platformalar
+Nima uchun kerak:
+Usta o'z ishlarini faqat platforma ichida emas, tashqi profillari orqali ham ko'rsatishi kerak.
+Qanday yordam beradi:
+Master profil ichida Telegramga o'tish, Instagramni ko'rish, YouTube videolarini ochish mumkin bo'ladi.
+Bu ustaga ko'proq ishonch beradi, user esa ustaning ish uslubini oldindan ko'radi.
+
+30. Usta profilida social buttonlar
+Ikonka bosilganda tegishli tarmoqqa o'tish
+Nima uchun kerak:
+Faqat link saqlash yetmaydi, foydalanuvchi uchun qulay ko'rinish ham kerak.
+Qanday yordam beradi:
+Profil dizayni kuchayadi, user bitta bosishda ustaning kanaliga yoki sahifasiga o'tadi.
+
+Qisqa xulosa:
+Eng tez foyda beradiganlari:
+1. Natija 0 bo'lsa lead capture
+2. Lead source breakdown
+3. Saved search
+4. Nearest sorting
+5. Installment va deliveryDate filterlari
+6. Pagination va ko'proq yuklash
+7. Skeleton loading
+8. Social linklar bilan usta profili
+
+Eng ko'p savdoga ta'sir qiladiganlari:
+1. documentStatus
+2. repairState
+3. installmentAvailable
+4. assignedManagerId
+5. nextFollowUpAt
+6. Xarita integratsiyasi
+7. Usta portfolio galereya
+8. SEO meta taglar

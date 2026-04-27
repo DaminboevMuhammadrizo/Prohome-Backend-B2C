@@ -1,13 +1,16 @@
-import { LayoutStatus } from '@prisma/client';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsEnum,
   IsInt,
+  IsIn,
   IsNumber,
   IsOptional,
   Min,
 } from 'class-validator';
+import {
+  APARTMENT_LAYOUT_STATUSES,
+} from 'src/common/constants/property.constants';
+import type { ApartmentLayoutStatusValue } from 'src/common/constants/property.constants';
 
 export class CreateApartmentLayoutDto {
   @Type(() => Number)
@@ -36,10 +39,10 @@ export class CreateApartmentLayoutDto {
   @IsNumber()
   priceMax?: number;
 
-  @ApiPropertyOptional({ enum: LayoutStatus })
+  @ApiPropertyOptional({ enum: APARTMENT_LAYOUT_STATUSES })
   @IsOptional()
-  @IsEnum(LayoutStatus)
-  status?: LayoutStatus;
+  @IsIn(APARTMENT_LAYOUT_STATUSES)
+  status?: ApartmentLayoutStatusValue;
 
   @ApiPropertyOptional()
   @IsOptional()

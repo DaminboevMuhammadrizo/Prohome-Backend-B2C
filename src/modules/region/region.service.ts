@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { CreateRegionDto } from './dto/create-region.dto';
+import { QueryRegionDto } from './dto/query-region.dto';
 import { UpdateRegionDto } from './dto/update-region.dto';
 
 @Injectable()
@@ -19,10 +20,17 @@ export class RegionService {
     }
   }
 
-  async getAll() {
+  async getAll(query: QueryRegionDto) {
+    const { parentId, search } = query;
+
     return this.prisma.region.findMany({
-      include: { children: true, parent: true },
-      orderBy: { createdAt: 'desc' },
+      where: {
+        parentId: parentId !== undefined ? parentId : null,
+        ...(search && {
+          nameUz: { contains: search, mode: 'insensitive' },
+        }),
+      },
+      orderBy: { nameUz: 'asc' },
     });
   }
 

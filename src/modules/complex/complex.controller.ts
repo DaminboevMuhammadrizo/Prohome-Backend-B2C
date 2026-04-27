@@ -54,11 +54,9 @@ export class ComplexController {
     @ApiBody({
         schema: {
             type: 'object',
-            required: ['nameUz', 'nameUzCyrl', 'nameRu', 'address', 'companyId', 'regionId', 'images'],
+            required: ['name', 'address', 'companyId', 'regionId', 'images'],
             properties: {
-                nameUz: { type: 'string' },
-                nameUzCyrl: { type: 'string' },
-                nameRu: { type: 'string' },
+                name: { type: 'string' },
                 descriptionUz: { type: 'string' },
                 descriptionUzCyrl: { type: 'string' },
                 descriptionRu: { type: 'string' },
@@ -92,9 +90,7 @@ export class ComplexController {
         schema: {
             type: 'object',
             properties: {
-                nameUz: { type: 'string' },
-                nameUzCyrl: { type: 'string' },
-                nameRu: { type: 'string' },
+                name: { type: 'string' },
                 descriptionUz: { type: 'string' },
                 descriptionUzCyrl: { type: 'string' },
                 descriptionRu: { type: 'string' },

@@ -133,10 +133,13 @@ export class AuthService {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     await this.redis.set(this.getOtpKey(phone, dto.purpose), otp, 120);
-    await this.sms.sendSMS(
-      `"PROHOME" platformasi uchun tasdiqlash kodi: ${otp}`,
-      phone,
-    );
+
+    const smsText =
+      dto.purpose === 'RESET_PASSWORD'
+        ? `"PROHOME" platformasi: parolni tiklash uchun tasdiqlash kodi ${otp}. Kodni hech kimga bermang.`
+        : `"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp}`;
+
+    await this.sms.sendSMS(smsText, phone);
 
     return { message: 'OTP yuborildi' };
   }

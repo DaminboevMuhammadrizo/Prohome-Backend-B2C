@@ -6,28 +6,18 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
-  IsIn,
   IsNumber,
   IsOptional,
   IsString,
   Min,
 } from 'class-validator';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
-import {
-  MASTER_REQUEST_TYPES,
-} from 'src/common/constants/property.constants';
-import type { MasterRequestTypeValue } from 'src/common/constants/property.constants';
 
-export class MasterProfileQueryDto extends PaginationDto {
+export class MasterQueryDto extends PaginationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   search?: string;
-
-  @ApiPropertyOptional({ enum: MASTER_REQUEST_TYPES })
-  @IsOptional()
-  @IsIn(MASTER_REQUEST_TYPES)
-  requestType?: MasterRequestTypeValue;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -48,6 +38,12 @@ export class MasterProfileQueryDto extends PaginationDto {
   @Type(() => Boolean)
   @IsBoolean()
   isAvailable?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  isBlocked?: boolean;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -89,4 +85,17 @@ export class MasterProfileQueryDto extends PaginationDto {
   @IsOptional()
   @IsDateString()
   createdTo?: string;
+
+  // Frontend admin panel yuboradigan extra paramlar — backend tomonidan e'tiborga olinmaydi
+  @IsOptional()
+  deleted?: any;
+
+  @IsOptional()
+  sort?: any;
+
+  @IsOptional()
+  order?: any;
+
+  @IsOptional()
+  filter?: any;
 }

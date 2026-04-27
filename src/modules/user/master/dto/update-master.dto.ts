@@ -2,7 +2,6 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { SalaryType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
-  ArrayNotEmpty,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -12,33 +11,69 @@ import {
   IsString,
   IsUrl,
   Min,
+  MinLength,
 } from 'class-validator';
 
-export class CreateMasterProfileDto {
+export class UpdateMasterDto {
+  @ApiPropertyOptional({ example: '+998901234567' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'NewPassword123' })
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  regionId?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  experience: number;
+  experience?: number;
 
+  @ApiPropertyOptional({ example: [1, 2] })
+  @IsOptional()
   @IsArray()
-  @ArrayNotEmpty()
   @Type(() => Number)
   @IsInt({ each: true })
   @Min(1, { each: true })
-  categoryIds: number[];
+  categoryIds?: number[];
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   bio?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  skills: string[];
+  skills?: string[];
 
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsArray()
   @IsUrl({ require_tld: false }, { each: true })
-  portfolios: string[];
+  portfolios?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()

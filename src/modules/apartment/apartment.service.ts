@@ -11,6 +11,7 @@ import { unlinkFile } from 'src/common/types/file.cotroller.typpes';
 import { AuthUser } from 'src/common/types/auth-user.type';
 import { assertOwnership, isPrivilegedRole } from 'src/common/utils/access.util';
 import { generateUrlsFromFiles, replaceImages } from 'src/common/utils/helper';
+import { buildSimplePdf } from 'src/common/utils/pdf.util';
 import { CreateApartmentDto } from './dto/create-apartment.dto';
 import { ApartmentQueryDto } from './dto/apartment-query.dto';
 import { UpdateApartmentStatusDto } from './dto/update-apartment-status.dto';
@@ -167,7 +168,12 @@ export class ApartmentService {
             phone: true,
           },
         },
-        complex: true,
+        complex: {
+          include: {
+            company: true,
+            region: true,
+          },
+        },
         layout: true,
       },
     });
@@ -177,6 +183,30 @@ export class ApartmentService {
     }
 
     return this.decorateApartment(apartment);
+  }
+
+  async exportPdf(id: number) {
+    const apartment = await this.getOne(id);
+    const pdf = buildSimplePdf([
+      'Prohome apartment ma\'lumotlari',
+      `ID: ${apartment.id}`,
+      `Sarlavha: ${apartment.titleUz}`,
+      `Narx: ${apartment.price}`,
+      `Maydon: ${apartment.area} kv.m`,
+      `Xonalar: ${apartment.roomCount}`,
+      `Manzil: ${apartment.address}`,
+      `Status: ${apartment.dealStatus}`,
+      `Listing: ${apartment.listingType}`,
+      `Complex: ${apartment.complex?.name ?? 'Biriktirilmagan'}`,
+      `Kategoriya: ${apartment.category?.nameUz ?? '-'}`,
+      `Telefon: ${apartment.seller?.phone ?? '-'}`,
+      `Yaratilgan: ${apartment.createdAt.toISOString()}`,
+    ]);
+
+    return {
+      filename: `apartment-${apartment.id}.pdf`,
+      buffer: pdf,
+    };
   }
 
   async getInteractionState(id: number, user: AuthUser) {

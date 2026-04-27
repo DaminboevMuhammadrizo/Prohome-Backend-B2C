@@ -1,60 +1,48 @@
+import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsInt,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
 
 export class CreateComplexDto {
-  @IsString()
-  nameUz: string;
+    @IsString()
+    name: string;
 
-  @IsString()
-  nameUzCyrl: string;
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    descriptionUz?: string;
 
-  @IsString()
-  nameRu: string;
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    descriptionUzCyrl?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  descriptionUz?: string;
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    descriptionRu?: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  descriptionUzCyrl?: string;
+    @IsString()
+    address: string;
 
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  descriptionRu?: string;
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    companyId: number;
 
-  @IsString()
-  address: string;
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    regionId: number;
 
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  companyId: number;
+    @ApiPropertyOptional()
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    latitude?: number;
 
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  regionId: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  latitude?: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  longitude?: number;
+    @ApiPropertyOptional()
+    @IsOptional()
+    @Type(() => Number)
+    @IsNumber()
+    longitude?: number;
 }

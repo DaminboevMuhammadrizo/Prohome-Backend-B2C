@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateRegionDto } from './dto/create-region.dto';
+import { QueryRegionDto } from './dto/query-region.dto';
 import { UpdateRegionDto } from './dto/update-region.dto';
 import { RegionService } from './region.service';
 
@@ -24,9 +26,9 @@ export class RegionController {
   constructor(private readonly regionService: RegionService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Regionlar ro‘yxati' })
-  getAll() {
-    return this.regionService.getAll();
+  @ApiOperation({ summary: `Regionlar royxati (parentId yoq = viloyatlar, parentId=N = tumanlar)` })
+  getAll(@Query() query: QueryRegionDto) {
+    return this.regionService.getAll(query);
   }
 
   @Get(':id')

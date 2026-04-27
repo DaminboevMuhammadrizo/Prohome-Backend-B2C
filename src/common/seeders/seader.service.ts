@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { hashPassword } from '../config/bcrypt';
 import { PrismaService } from '../database/prisma.service';
+import { UZBEKISTAN_REGIONS } from './region.seed';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
@@ -19,6 +20,106 @@ export class SeederService implements OnModuleInit {
 
   private async seedMinimal() {
     await this.createAdmin();
+    await this.seedRegions();
+    await this.seedJobCategories();
+  }
+
+  private async seedRegions() {
+    try {
+      for (const region of UZBEKISTAN_REGIONS) {
+        let parent = await this.prisma.region.findFirst({
+          where: { nameUz: region.nameUz, parentId: null },
+        });
+
+        if (!parent) {
+          parent = await this.prisma.region.create({
+            data: {
+              nameUz: region.nameUz,
+              nameUzCyrl: region.nameUzCyrl,
+              nameRu: region.nameRu,
+            },
+          });
+        }
+
+        for (const d of region.districts) {
+          const exists = await this.prisma.region.findFirst({
+            where: { nameUz: d.nameUz, parentId: parent.id },
+          });
+
+          if (!exists) {
+            await this.prisma.region.create({
+              data: {
+                nameUz: d.nameUz,
+                nameUzCyrl: d.nameUzCyrl,
+                nameRu: d.nameRu,
+                parentId: parent.id,
+              },
+            });
+          }
+        }
+      }
+
+      this.logger.log("O'zbekiston viloyat va tumanlari seed qilindi");
+    } catch (error) {
+      this.logger.error('Region seed xatoligi', error);
+      throw error;
+    }
+  }
+
+  private async seedJobCategories() {
+    const categories = [
+      { nameUz: 'Santexnik', nameUzCyrl: 'Сантехник', nameRu: 'Сантехник' },
+      { nameUz: 'Elektrik', nameUzCyrl: 'Электрик', nameRu: 'Электрик' },
+      {
+        nameUz: 'Plitkachilik',
+        nameUzCyrl: 'Плиткачилик',
+        nameRu: 'Укладка плитки',
+      },
+      { nameUz: 'Gipschilik', nameUzCyrl: 'Гипсчилик', nameRu: 'Гипсокартон' },
+      { nameUz: "Bo'yoqchilik", nameUzCyrl: 'Бўёқчилик', nameRu: 'Покраска' },
+      {
+        nameUz: 'Duradgorlik',
+        nameUzCyrl: 'Дурадгорлик',
+        nameRu: 'Столярные работы',
+      },
+      {
+        nameUz: 'Temir konstruksiya',
+        nameUzCyrl: 'Темир конструкция',
+        nameRu: 'Металлоконструкции',
+      },
+      {
+        nameUz: "Konditsioner o'rnatish",
+        nameUzCyrl: 'Кондиционер ўрнатиш',
+        nameRu: 'Установка кондиционеров',
+      },
+      {
+        nameUz: 'Pol yotqizish',
+        nameUzCyrl: 'Пол ётқизиш',
+        nameRu: 'Укладка пола',
+      },
+      {
+        nameUz: "Umumiy ta'mirlash",
+        nameUzCyrl: 'Умумий таъмирлаш',
+        nameRu: 'Общий ремонт',
+      },
+    ];
+
+    try {
+      for (const cat of categories) {
+        const exists = await this.prisma.jobCategory.findFirst({
+          where: { nameUz: cat.nameUz },
+        });
+
+        if (!exists) {
+          await this.prisma.jobCategory.create({ data: cat });
+        }
+      }
+
+      this.logger.log('Job kategoriyalar seed qilindi');
+    } catch (error) {
+      this.logger.error('Job category seed xatoligi', error);
+      throw error;
+    }
   }
 
   private async createAdmin() {
@@ -30,14 +131,24 @@ export class SeederService implements OnModuleInit {
       const adminRoleValue =
         this.configService.get<string>('ADMIN_ROLE') ?? UserRole.SUPERADMIN;
       const adminRole =
-        adminRoleValue === UserRole.ADMIN ? UserRole.ADMIN : UserRole.SUPERADMIN;
+        adminRoleValue === UserRole.ADMIN
+          ? UserRole.ADMIN
+          : UserRole.SUPERADMIN;
 
       const existingAdmin = await this.prisma.user.findUnique({
         where: { phone: adminPhone },
       });
 
       if (existingAdmin) {
-        this.logger.log(`Admin allaqachon mavjud: ${adminPhone}`);
+        if (existingAdmin.isArchived || existingAdmin.isBlocked) {
+          await this.prisma.user.update({
+            where: { phone: adminPhone },
+            data: { isArchived: false, isBlocked: false, blockedAt: null, archivedAt: null },
+          });
+          this.logger.log(`Admin arxivdan/blokdan chiqarildi: ${adminPhone}`);
+        } else {
+          this.logger.log(`Admin allaqachon mavjud: ${adminPhone}`);
+        }
         return;
       }
 
