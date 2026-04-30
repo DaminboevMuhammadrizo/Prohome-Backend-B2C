@@ -1,9 +1,4 @@
-import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { JwtPayload } from '../config/jwt/jwt.service';
@@ -19,25 +14,14 @@ export class GuardService implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers.authorization;
 
-    if (!authHeader) {
-      throw new UnauthorizedException('Authorization header missing');
-    }
+    if (!authHeader) throw new UnauthorizedException('Authorization header missing');
 
     const [type, token] = authHeader.split(' ');
-
-    if (type !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Invalid token format');
-    }
+    if (type !== 'Bearer' || !token) throw new UnauthorizedException('Invalid token format');
 
     try {
-      const secret = this.configService.get<string>(
-        'JWT_ACCESS_TOKEN_SECRET',
-        'access_default_secret',
-      );
-      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, {
-        secret,
-      });
-
+      const secret = this.configService.get<string>('JWT_ACCESS_TOKEN_SECRET', 'access_default_secret');
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(token, { secret });
       request.user = payload;
       return true;
     } catch {

@@ -1,14 +1,10 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginAuthDto } from './dto/login.dto';
+import { LoginOtpDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import {
-  RegisterAuthDto,
-  ResetPasswordDto,
-  SendOtpDto,
-} from './dto/register.dto';
+import { RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -22,21 +18,21 @@ export class AuthController {
   }
 
   @Post('register')
-  @ApiOperation({ summary: 'OTP va parol bilan ro‘yxatdan o‘tish' })
+  @ApiOperation({ summary: 'Ro\'yxatdan o\'tish (telefon+OTP yoki email+parol)' })
   register(@Body() dto: RegisterAuthDto) {
     return this.authService.register(dto);
   }
 
-  @Post('login')
-  @ApiOperation({ summary: 'OTP bilan kirish' })
-  login(@Body() dto: LoginAuthDto) {
-    return this.authService.login(dto);
+  @Post('login/otp')
+  @ApiOperation({ summary: 'OTP bilan kirish (parolsiz)' })
+  loginOtp(@Body() dto: LoginOtpDto) {
+    return this.authService.loginOtp(dto);
   }
 
-  @Post('login2')
-  @ApiOperation({ summary: 'Parol bilan kirish' })
-  login2(@Body() dto: Login2Dto) {
-    return this.authService.login2(dto);
+  @Post('login/password')
+  @ApiOperation({ summary: 'Parol bilan kirish (telefon yoki email)' })
+  loginPassword(@Body() dto: Login2Dto) {
+    return this.authService.loginPassword(dto);
   }
 
   @Post('reset-password')

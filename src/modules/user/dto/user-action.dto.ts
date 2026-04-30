@@ -1,11 +1,9 @@
-import { IsBoolean } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { UserStatus } from '@prisma/client';
+import { IsEnum } from 'class-validator';
 
-export class UserBlockDto {
-  @IsBoolean()
-  isBlocked: boolean;
-}
-
-export class UserArchiveDto {
-  @IsBoolean()
-  isArchived: boolean;
+export class ChangeUserStatusDto {
+  @ApiProperty({ enum: UserStatus })
+  @IsEnum(UserStatus)
+  status: UserStatus;
 }
