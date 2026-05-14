@@ -49,8 +49,9 @@ export class RealEstateService {
     roomCount?: number;
     status?: RealEstateStatus;
     userId?: number;
+    subscriberUserId?: number;
   }) {
-    const { page = 1, limit = 20, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId } = params;
+    const { page = 1, limit = 20, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId } = params;
     const skip = (page - 1) * limit;
 
     const where: any = userId ? {} : { status: status || RealEstateStatus.ACTIVE };
@@ -76,13 +77,50 @@ export class RealEstateService {
       this.prisma.realEstate.count({ where }),
     ]);
 
+    if (data.length === 0 && (search || propertyType || dealType || sellerType || locationId || roomCount || minPrice !== undefined || maxPrice !== undefined)) {
+      const query = JSON.stringify({ type: 'real-estate', search, propertyType, dealType, sellerType, locationId, roomCount, minPrice, maxPrice });
+      this.prisma.searchSubscription.create({ data: { query, userId: subscriberUserId ?? null } }).catch(() => null);
+    }
+
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
+  private listSelect = {
+    id: true,
+    title: true,
+    price: true,
+    propertyType: true,
+    dealType: true,
+    areaSize: true,
+    roomCount: true,
+    floor: true,
+    viewCount: true,
+    likeCount: true,
+    status: true,
+    locationId: true,
+    createdAt: true,
+    location: { select: { id: true, name: true, type: true, parent: { select: { id: true, name: true } } } },
+    user: { select: { id: true, firstName: true, lastName: true } },
+    media: { where: { isMain: true }, take: 1 },
+  };
+
   async getById(id: number) {
     const re = await this.prisma.realEstate.findUnique({ where: { id }, select: this.select });
-    if (!re) throw new NotFoundException('Ko\'chmas mulk topilmadi');
-    return re;
+    if (!re) throw new NotFoundException("Ko'chmas mulk topilmadi");
+
+    const similar = await this.prisma.realEstate.findMany({
+      where: {
+        id: { not: id },
+        propertyType: (re as any).propertyType,
+        dealType: (re as any).dealType,
+        status: 'ACTIVE',
+      },
+      take: 10,
+      orderBy: { createdAt: 'desc' },
+      select: this.listSelect,
+    });
+
+    return { ...re, similar };
   }
 
   async create(userId: number, dto: CreateRealEstateDto) {

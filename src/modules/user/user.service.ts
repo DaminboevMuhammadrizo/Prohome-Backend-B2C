@@ -4,7 +4,7 @@ import { PrismaService } from 'src/common/database/prisma.service';
 import { ChangeUserStatusDto } from './dto/user-action.dto';
 import { hashPassword } from 'src/common/config/bcrypt';
 import { CreateUserDto } from './dto/create.user.dto';
-import { UserStatus } from '@prisma/client';
+import { Prisma, UserRole, UserStatus } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -45,9 +45,10 @@ export class UserService {
         return this.prisma.user.update({ where: { id: userId }, data, select: this.userSelect });
     }
 
-    async getAll(page = 1, limit = 20, search?: string, status?: UserStatus, role?: string) {
+    async getAll(page = 1, limit = 20, search?: string, status?: UserStatus) {
         const skip = (page - 1) * limit;
-        const where: any = {};
+        const where: Prisma.UserWhereInput = { role: UserRole.USER };
+
         if (search) {
             where.OR = [
                 { phone: { contains: search, mode: 'insensitive' } },
@@ -57,7 +58,6 @@ export class UserService {
             ];
         }
         if (status) where.status = status;
-        if (role) where.role = role;
 
         const [data, total] = await Promise.all([
             this.prisma.user.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.userSelect }),

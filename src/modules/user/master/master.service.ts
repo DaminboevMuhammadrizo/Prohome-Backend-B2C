@@ -8,7 +8,25 @@ import { CreateMasterByAdminDto, RegisterAsMasterDto, UpdateMasterDto } from './
 export class MasterService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private masterSelect = {
+  private masterListSelect = {
+    id: true,
+    profileImg: true,
+    experience: true,
+    isFree: true,
+    likeCount: true,
+    viewCount: true,
+    createdAt: true,
+    user: { select: { id: true, firstName: true, lastName: true, phone: true } },
+    skills: {
+      take: 1,
+      select: {
+        skill: { select: { id: true, name: true, type: { select: { id: true, name: true } } } },
+      },
+    },
+    _count: { select: { ratings: true } },
+  };
+
+  private masterDetailSelect = {
     id: true,
     profileImg: true,
     experience: true,
@@ -20,21 +38,20 @@ export class MasterService {
     viewCount: true,
     createdAt: true,
     updatedAt: true,
-    user: {
-      select: { id: true, firstName: true, lastName: true, phone: true, email: true, status: true, locationId: true },
-    },
+    user: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, status: true } },
     skills: {
-      include: { skill: { select: { id: true, name: true, type: { select: { id: true, name: true } } } } },
+      select: {
+        skill: { select: { id: true, name: true, type: { select: { id: true, name: true } } } },
+      },
     },
-    socials: true,
+    socials: { select: { id: true, platform: true, url: true } },
     _count: { select: { ratings: true } },
   };
 
-  async getAll(page = 1, limit = 20, search?: string, isFree?: boolean, skillTypeId?: number) {
+  async getAll(page = 1, limit = 20, search?: string, isFree?: boolean, skillTypeId?: number, subscriberUserId?: number) {
     const skip = (page - 1) * limit;
     const where: any = {};
     if (skillTypeId) where.skills = { some: { skill: { typeId: skillTypeId } } };
-
     if (isFree !== undefined) where.isFree = isFree;
     if (search) {
       where.OR = [
@@ -46,21 +63,44 @@ export class MasterService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.master.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.masterSelect }),
+      this.prisma.master.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: this.masterListSelect,
+      }),
       this.prisma.master.count({ where }),
     ]);
+
+    if (data.length === 0 && (search || skillTypeId || isFree !== undefined)) {
+      const query = JSON.stringify({ type: 'master', search, skillTypeId, isFree });
+      this.prisma.searchSubscription.create({ data: { query, userId: subscriberUserId ?? null } }).catch(() => null);
+    }
 
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getById(id: number) {
-    const master = await this.prisma.master.findUnique({ where: { id }, select: this.masterSelect });
+    const master = await this.prisma.master.findUnique({ where: { id }, select: this.masterDetailSelect });
     if (!master) throw new NotFoundException('Usta topilmadi');
-    return master;
+
+    const firstSkillTypeId = (master.skills[0] as any)?.skill?.type?.id;
+    let similar: any[] = [];
+    if (firstSkillTypeId) {
+      similar = await this.prisma.master.findMany({
+        where: { id: { not: id }, skills: { some: { skill: { typeId: firstSkillTypeId } } } },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        select: this.masterListSelect,
+      });
+    }
+
+    return { ...master, similar };
   }
 
   async getByUserId(userId: number) {
-    const master = await this.prisma.master.findUnique({ where: { userId }, select: this.masterSelect });
+    const master = await this.prisma.master.findUnique({ where: { userId }, select: this.masterDetailSelect });
     if (!master) throw new NotFoundException('Usta topilmadi');
     return master;
   }
@@ -108,7 +148,6 @@ export class MasterService {
         bio: dto.bio,
         salary: dto.salary ? dto.salary : undefined,
       },
-      select: this.masterSelect,
     });
 
     if (dto.skillIds?.length) {
@@ -132,7 +171,6 @@ export class MasterService {
 
     const master = await this.prisma.master.create({
       data: { userId, experience: dto.experience ?? 0, bio: dto.bio, salary: dto.salary ?? undefined },
-      select: this.masterSelect,
     });
 
     if (dto.skillIds?.length) {
@@ -161,12 +199,8 @@ export class MasterService {
 
     return this.prisma.master.update({
       where: { id },
-      data: {
-        experience: dto.experience,
-        bio: dto.bio,
-        salary: dto.salary ? dto.salary : undefined,
-      },
-      select: this.masterSelect,
+      data: { experience: dto.experience, bio: dto.bio, salary: dto.salary ? dto.salary : undefined },
+      select: this.masterDetailSelect,
     });
   }
 
@@ -175,7 +209,7 @@ export class MasterService {
     return this.prisma.master.update({
       where: { id },
       data: { isFree: !(master as any).isFree },
-      select: this.masterSelect,
+      select: this.masterDetailSelect,
     });
   }
 
@@ -186,20 +220,24 @@ export class MasterService {
       where: { id: (master as any).user.id },
       data: { role: UserRole.USER },
     });
-    return { message: 'Usta o\'chirildi' };
+    return { message: "Usta o'chirildi" };
   }
 
   async uploadProfileImg(id: number, filename: string) {
     return this.prisma.master.update({
       where: { id },
       data: { profileImg: `image/${filename}` },
-      select: this.masterSelect,
+      select: this.masterDetailSelect,
     });
   }
 
   async recordView(id: number) {
     await this.getById(id);
-    return this.prisma.master.update({ where: { id }, data: { viewCount: { increment: 1 } }, select: { id: true, viewCount: true } });
+    return this.prisma.master.update({
+      where: { id },
+      data: { viewCount: { increment: 1 } },
+      select: { id: true, viewCount: true },
+    });
   }
 
   async toggleLike(masterId: number, userId: number) {
@@ -232,7 +270,7 @@ export class MasterService {
     return this.prisma.master.update({
       where: { id },
       data: { workImgs: { push: `image/${filename}` } },
-      select: this.masterSelect,
+      select: this.masterDetailSelect,
     });
   }
 }

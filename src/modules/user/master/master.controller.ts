@@ -1,10 +1,13 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { memoryStorage } from 'multer';
+import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { writeFile } from 'fs/promises';
+import sharp from 'sharp';
+import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { Role } from 'src/common/decorators/role.decorator';
@@ -13,30 +16,50 @@ import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateMasterByAdminDto, RegisterAsMasterDto, UpdateMasterDto } from './dto/create-master.dto';
 import { MasterService } from './master.service';
 
-const imgStorage = diskStorage({
-  destination: (req, file, cb) => {
-    const dest = join(process.cwd(), 'core', 'uploads', 'images');
-    if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
-    cb(null, dest);
-  },
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}${extname(file.originalname)}`);
-  },
-});
+function ensureImgDir() {
+  const dest = join(process.cwd(), 'core', 'uploads', 'images');
+  if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
+  return dest;
+}
+
+async function saveAsWebp(buffer: Buffer): Promise<string> {
+  const filename = `${Date.now()}.webp`;
+  const dest = ensureImgDir();
+  const webpBuffer = await sharp(buffer)
+    .webp({ quality: 88, effort: 4 })
+    .toBuffer();
+  await writeFile(join(dest, filename), webpBuffer);
+  return filename;
+}
 
 @ApiTags('Masters')
 @Controller('masters')
 export class MasterController {
-  constructor(private readonly masterService: MasterService) {}
+  constructor(
+    private readonly masterService: MasterService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  private extractUserId(req: any): number | undefined {
+    try {
+      const token = req.headers.authorization?.split(' ')[1];
+      if (!token) return undefined;
+      const payload = this.jwtService.decode(token) as JwtPayload | null;
+      return payload?.id ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
 
   @Get()
-  @ApiOperation({ summary: 'Ustalar ro\'yxati' })
+  @ApiOperation({ summary: "Ustalar ro'yxati" })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'isFree', required: false })
   @ApiQuery({ name: 'skillTypeId', required: false })
   getAll(
+    @Req() req: any,
     @Query('page') page = 1,
     @Query('limit') limit = 20,
     @Query('search') search?: string,
@@ -47,6 +70,7 @@ export class MasterController {
       +page, +limit, search,
       isFree !== undefined ? isFree === 'true' : undefined,
       skillTypeId ? +skillTypeId : undefined,
+      this.extractUserId(req),
     );
   }
 
@@ -59,7 +83,7 @@ export class MasterController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Bitta usta' })
+  @ApiOperation({ summary: 'Bitta usta (o\'xshash ustalar ham qaytadi)' })
   getById(@Param('id', ParseIntPipe) id: number) {
     return this.masterService.getById(id);
   }
@@ -67,13 +91,13 @@ export class MasterController {
   @ApiBearerAuth()
   @UseGuards(GuardService)
   @Post('me/register')
-  @ApiOperation({ summary: 'Foydalanuvchi usta bo\'lish (o\'zi)' })
+  @ApiOperation({ summary: "Foydalanuvchi usta bo'lish (o'zi)" })
   registerAsMaster(@Body() dto: RegisterAsMasterDto, @UserData() user: JwtPayload) {
     return this.masterService.registerAsMaster(user.id, dto);
   }
 
   @Post(':id/view')
-  @ApiOperation({ summary: 'Ko\'rishni qayd etish' })
+  @ApiOperation({ summary: "Ko'rishni qayd etish" })
   recordView(@Param('id', ParseIntPipe) id: number) {
     return this.masterService.recordView(id);
   }
@@ -107,7 +131,7 @@ export class MasterController {
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Patch(':id/toggle-free')
-  @ApiOperation({ summary: 'Usta band/bo\'sh holatini almashtirish' })
+  @ApiOperation({ summary: "Usta band/bo'sh holatini almashtirish" })
   toggleFree(@Param('id', ParseIntPipe) id: number) {
     return this.masterService.toggleFree(id);
   }
@@ -116,7 +140,7 @@ export class MasterController {
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Delete(':id')
-  @ApiOperation({ summary: 'Ustani o\'chirish' })
+  @ApiOperation({ summary: "Ustani o'chirish" })
   delete(@Param('id', ParseIntPipe) id: number) {
     return this.masterService.delete(id);
   }
@@ -124,20 +148,36 @@ export class MasterController {
   @ApiBearerAuth()
   @UseGuards(GuardService)
   @Post(':id/profile-img')
-  @UseInterceptors(FileInterceptor('file', { storage: imgStorage }))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (!file.mimetype.startsWith('image/')) return cb(new Error('Faqat rasm yuklash mumkin'), false);
+      cb(null, true);
+    },
+  }))
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Usta profil rasmi yuklash' })
-  uploadProfileImg(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
-    return this.masterService.uploadProfileImg(id, file.filename);
+  @ApiOperation({ summary: 'Usta profil rasmi yuklash (WebP ga aylantiriladi)' })
+  async uploadProfileImg(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
+    const filename = await saveAsWebp(file.buffer);
+    return this.masterService.uploadProfileImg(id, filename);
   }
 
   @ApiBearerAuth()
   @UseGuards(GuardService)
   @Post(':id/work-img')
-  @UseInterceptors(FileInterceptor('file', { storage: imgStorage }))
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      if (!file.mimetype.startsWith('image/')) return cb(new Error('Faqat rasm yuklash mumkin'), false);
+      cb(null, true);
+    },
+  }))
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Usta ish rasmi qo\'shish' })
-  addWorkImg(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
-    return this.masterService.addWorkImg(id, file.filename);
+  @ApiOperation({ summary: "Usta ish rasmi qo'shish (WebP ga aylantiriladi)" })
+  async addWorkImg(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
+    const filename = await saveAsWebp(file.buffer);
+    return this.masterService.addWorkImg(id, filename);
   }
 }

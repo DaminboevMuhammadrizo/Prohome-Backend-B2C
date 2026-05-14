@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Length, Min, MinLength } from 'class-validator';
+import { IsArray, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Length, Min, MinLength } from 'class-validator';
 
 export enum OtpPurpose {
   REGISTER = 'REGISTER',
@@ -65,6 +65,45 @@ export class RegisterAuthDto {
   @IsInt()
   @Min(1)
   locationId?: number;
+}
+
+export class MasterRegisterDto {
+  @ApiProperty({ example: '+998901234567' })
+  @IsString()
+  @IsNotEmpty()
+  phone!: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString()
+  @IsNotEmpty()
+  @Length(6, 6)
+  otp!: string;
+
+  @ApiProperty({ example: 'Ali' })
+  @IsString()
+  @IsNotEmpty()
+  firstName!: string;
+
+  @ApiProperty({ example: 'Valiyev' })
+  @IsString()
+  @IsNotEmpty()
+  lastName!: string;
+
+  @ApiProperty({ example: 3, description: 'Tajriba yillari' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  experience!: number;
+
+  @ApiProperty({ example: 1, description: 'Asosiy skill turi (SkillType ID)' })
+  @Type(() => Number)
+  @IsInt()
+  skillTypeId!: number;
+
+  @ApiProperty({ example: [1, 2], description: 'Skill IDlari (kamida 1 ta)' })
+  @IsArray()
+  @IsInt({ each: true })
+  skillIds!: number[];
 }
 
 export class ResetPasswordDto {

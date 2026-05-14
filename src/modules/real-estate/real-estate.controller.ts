@@ -1,10 +1,13 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DealType, MediaType, PropertyType, RealEstateStatus, SellerType, UserRole } from '@prisma/client';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { memoryStorage } from 'multer';
+import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { writeFile } from 'fs/promises';
+import sharp from 'sharp';
+import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { Role } from 'src/common/decorators/role.decorator';
@@ -15,26 +18,49 @@ import { RealEstateService } from './real-estate.service';
 
 const MAX_VIDEO_MB = 50;
 
-const mediaStorage = (type: 'images' | 'videos') =>
-    diskStorage({
-        destination: (req, file, cb) => {
-            const dest = join(process.cwd(), 'core', 'uploads', type);
-            if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
-            cb(null, dest);
-        },
-        filename: (req, file, cb) => {
-            cb(null, `${Date.now()}${extname(file.originalname)}`);
-        },
-    });
+function ensureDir(type: 'images' | 'videos') {
+    const dest = join(process.cwd(), 'core', 'uploads', type);
+    if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
+    return dest;
+}
+
+async function saveVideoToDisk(buffer: Buffer, originalname: string): Promise<string> {
+    const ext = originalname.split('.').pop() || 'mp4';
+    const filename = `${Date.now()}.${ext}`;
+    await writeFile(join(ensureDir('videos'), filename), buffer);
+    return filename;
+}
+
+async function saveImageAsWebp(buffer: Buffer): Promise<string> {
+    const filename = `${Date.now()}.webp`;
+    const webpBuffer = await sharp(buffer).webp({ quality: 88, effort: 4 }).toBuffer();
+    await writeFile(join(ensureDir('images'), filename), webpBuffer);
+    return filename;
+}
 
 @ApiTags('Real Estate')
 @Controller('real-estates')
 export class RealEstateController {
-    constructor(private readonly realEstateService: RealEstateService) { }
+    constructor(
+        private readonly realEstateService: RealEstateService,
+        private readonly jwtService: JwtService,
+    ) {}
+
+    private extractUserId(req: any): number | undefined {
+        try {
+            const token = req.headers.authorization?.split(' ')[1];
+            if (!token) return undefined;
+            const payload = this.jwtService.decode(token) as JwtPayload | null;
+            return payload?.id ?? undefined;
+        } catch {
+            return undefined;
+        }
+    }
 
     @Get()
-    @ApiOperation({ summary: 'Ko\'chmas mulklar ro\'yxati (filtrlash bilan)' })
+    @ApiOperation({ summary: "Ko'chmas mulklar ro'yxati (filtrlash bilan)" })
     getAll(
+        @Req() req: any,
         @Query('page') page = 1,
         @Query('limit') limit = 20,
         @Query('search') search?: string,
@@ -56,6 +82,7 @@ export class RealEstateController {
             roomCount: roomCount ? +roomCount : undefined,
             status,
             userId: userId ? +userId : undefined,
+            subscriberUserId: this.extractUserId(req),
         });
     }
 
@@ -114,26 +141,27 @@ export class RealEstateController {
         return this.realEstateService.toggleLike(id, user.id);
     }
 
-    // Rasm yuklash
+    // Rasm yuklash (WebP ga aylantiriladi)
     @ApiBearerAuth()
     @UseGuards(GuardService)
     @Post(':id/media/image')
     @UseInterceptors(FileInterceptor('file', {
-        storage: mediaStorage('images'),
-        limits: { fileSize: 5 * 1024 * 1024 },
+        storage: memoryStorage(),
+        limits: { fileSize: 10 * 1024 * 1024 },
         fileFilter: (req, file, cb) => {
-            if (!file.mimetype.startsWith('image/')) cb(new BadRequestException('Faqat rasm yuklash mumkin'), false);
-            else cb(null, true);
+            if (!file.mimetype.startsWith('image/')) return cb(new BadRequestException('Faqat rasm yuklash mumkin'), false);
+            cb(null, true);
         },
     }))
     @ApiConsumes('multipart/form-data')
-    @ApiOperation({ summary: 'Mulk rasmi yuklash (max 5MB)' })
-    uploadImage(
+    @ApiOperation({ summary: 'Mulk rasmi yuklash — WebP ga aylantiriladi (max 10MB)' })
+    async uploadImage(
         @Param('id', ParseIntPipe) id: number,
         @UploadedFile() file: Express.Multer.File,
         @Query('isMain') isMain = 'false',
     ) {
-        return this.realEstateService.addMedia(id, file.filename, isMain === 'true', MediaType.IMAGE);
+        const filename = await saveImageAsWebp(file.buffer);
+        return this.realEstateService.addMedia(id, filename, isMain === 'true', MediaType.IMAGE);
     }
 
     // Video yuklash
@@ -141,20 +169,21 @@ export class RealEstateController {
     @UseGuards(GuardService)
     @Post(':id/media/video')
     @UseInterceptors(FileInterceptor('file', {
-        storage: mediaStorage('videos'),
+        storage: memoryStorage(),
         limits: { fileSize: MAX_VIDEO_MB * 1024 * 1024 },
         fileFilter: (req, file, cb) => {
-            if (!file.mimetype.startsWith('video/')) cb(new BadRequestException('Faqat video yuklash mumkin'), false);
-            else cb(null, true);
+            if (!file.mimetype.startsWith('video/')) return cb(new BadRequestException('Faqat video yuklash mumkin'), false);
+            cb(null, true);
         },
     }))
     @ApiConsumes('multipart/form-data')
     @ApiOperation({ summary: `Mulk videosi yuklash (max ${MAX_VIDEO_MB}MB)` })
-    uploadVideo(
+    async uploadVideo(
         @Param('id', ParseIntPipe) id: number,
         @UploadedFile() file: Express.Multer.File,
     ) {
-        return this.realEstateService.addMedia(id, file.filename, false, MediaType.VIDEO);
+        const filename = await saveVideoToDisk(file.buffer, file.originalname);
+        return this.realEstateService.addMedia(id, filename, false, MediaType.VIDEO);
     }
 
     @ApiBearerAuth()

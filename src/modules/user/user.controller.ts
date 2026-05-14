@@ -55,10 +55,9 @@ export class UserController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
     @Query('search') search?: string,
-    @Query('status') status?: UserStatus,
-    @Query('role') role?: string,
+    @Query('status') status?: UserStatus
   ) {
-    return this.userService.getAll(+page, +limit, search, status, role);
+    return this.userService.getAll(+page, +limit, search, status);
   }
 
   @ApiBearerAuth()

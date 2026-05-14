@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { OtpPurpose, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
+import { User, UserRole } from '@prisma/client';
+import { MasterRegisterDto, OtpPurpose, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
 import { JwtPayload, JwtServices } from 'src/common/config/jwt/jwt.service';
 import { hashPassword, compirePassword } from 'src/common/config/bcrypt';
 import { RedisService } from 'src/common/config/redis/redis.service';
@@ -8,7 +9,6 @@ import { SmsService } from 'src/common/services/sms.service';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LoginOtpDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
-import { User } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -198,7 +198,41 @@ export class AuthService {
             this.ensureActive(user);
             return this.genTokens(user);
         } catch {
-            throw new UnauthorizedException('Refresh token noto\'g\'ri yoki eskirgan');
+            throw new UnauthorizedException("Refresh token noto'g'ri yoki eskirgan");
         }
+    }
+
+    async registerMaster(dto: MasterRegisterDto) {
+        const phone = this.normalizePhone(dto.phone);
+        await this.verifyOtp(phone, dto.otp, OtpPurpose.REGISTER);
+
+        const existingUser = await this.prisma.user.findUnique({ where: { phone } });
+        if (existingUser) throw new BadRequestException('Bu telefon raqam band');
+
+        const skillType = await this.prisma.skillType.findUnique({ where: { id: dto.skillTypeId } });
+        if (!skillType) throw new NotFoundException('Skill turi topilmadi');
+
+        const skills = await this.prisma.skills.findMany({
+            where: { id: { in: dto.skillIds }, typeId: dto.skillTypeId },
+        });
+        if (skills.length !== dto.skillIds.length) {
+            throw new BadRequestException("Skill IDlar noto'g'ri yoki belgilangan skill turiga tegishli emas");
+        }
+
+        const user = await this.prisma.user.create({
+            data: { phone, firstName: dto.firstName, lastName: dto.lastName, role: UserRole.MASTER },
+        });
+
+        const master = await this.prisma.master.create({
+            data: { userId: user.id, experience: dto.experience },
+        });
+
+        await this.prisma.masterSkills.createMany({
+            data: dto.skillIds.map((skillId) => ({ masterId: master.id, skillId })),
+            skipDuplicates: true,
+        });
+
+        const tokens = await this.genTokens(user);
+        return { ...tokens, masterId: master.id };
     }
 }

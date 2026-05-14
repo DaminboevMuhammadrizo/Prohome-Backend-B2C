@@ -1,7 +1,7 @@
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -17,16 +17,11 @@ async function bootstrap() {
         }),
     );
 
-    const bigIntPrototype = BigInt.prototype as BigInt & {
-        toJSON?: () => string;
-    };
-    bigIntPrototype.toJSON = function () {
-        return this.toString();
-    };
+    const bigIntPrototype = BigInt.prototype as BigInt & { toJSON?: () => string };
+    bigIntPrototype.toJSON = function () { return this.toString() };
 
-    app.enableCors({
-        origin: '*',
-    });
+    app.enableCors({ origin: '*' });
+
     const config = new DocumentBuilder()
         .setTitle('ProHome B2C API')
         .setDescription('ProHome B2C backend API documentation')
@@ -35,7 +30,12 @@ async function bootstrap() {
         .build();
 
     const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
+    SwaggerModule.setup('api/docs', app, document, {
+        swaggerOptions: {
+            filter: true,
+            showRequestDuration: true,
+        },
+    });
     await app.listen(process.env.PORT ?? 4000);
 }
 

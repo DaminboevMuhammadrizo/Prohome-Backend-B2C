@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 import { LoginOtpDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
+import { MasterRegisterDto, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -45,5 +45,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh token orqali yangi token olish' })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refresh(dto);
+  }
+
+  @Post('master/register')
+  @ApiOperation({
+    summary: 'Usta ro\'yxatdan o\'tish — faqat majburiy ma\'lumotlar: ism, familiya, tajriba, skill turi va skilllar',
+  })
+  registerMaster(@Body() dto: MasterRegisterDto) {
+    return this.authService.registerMaster(dto);
   }
 }
