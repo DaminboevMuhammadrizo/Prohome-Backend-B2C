@@ -1,356 +1,276 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { UserRole, UserStatus } from '@prisma/client';
 import { hashPassword } from 'src/common/config/bcrypt';
 import { PrismaService } from 'src/common/database/prisma.service';
-import { PhoneIdentityService } from 'src/common/services/phone-identity.service';
-import { SchemaCompatibilityService } from 'src/common/services/schema-compatibility.service';
-import { buildMasterProfileSelect } from 'src/common/utils/master-profile-select.util';
-import { buildDateRange, normalizeSearch } from 'src/common/utils/query.util';
-import { CreateMasterDto } from './dto/create-master.dto';
-import { MasterQueryDto } from './dto/master-query.dto';
-import { MasterStatusDto } from './dto/master-status.dto';
-import { UpdateMasterDto } from './dto/update-master.dto';
+import { CreateMasterByAdminDto, RegisterAsMasterDto, UpdateMasterDto } from './dto/create-master.dto';
 
 @Injectable()
 export class MasterService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly phoneIdentity: PhoneIdentityService,
-    private readonly schemaCompatibility: SchemaCompatibilityService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  private buildWhere(query: MasterQueryDto): Prisma.MasterProfileWhereInput {
-    const search = normalizeSearch(query.search);
-
-    return {
-      isAvailable: query.isAvailable,
-      experience: {
-        gte: query.minExperience,
-        lte: query.maxExperience,
+  private masterListSelect = {
+    id: true,
+    profileImg: true,
+    experience: true,
+    isFree: true,
+    likeCount: true,
+    viewCount: true,
+    createdAt: true,
+    user: { select: { id: true, firstName: true, lastName: true, phone: true } },
+    skills: {
+      take: 1,
+      select: {
+        skill: { select: { id: true, name: true, type: { select: { id: true, name: true } } } },
       },
-      salary: {
-        gte: query.minSalary,
-        lte: query.maxSalary,
+    },
+    _count: { select: { ratings: true } },
+  };
+
+  private masterDetailSelect = {
+    id: true,
+    profileImg: true,
+    experience: true,
+    bio: true,
+    salary: true,
+    workImgs: true,
+    isFree: true,
+    likeCount: true,
+    viewCount: true,
+    createdAt: true,
+    updatedAt: true,
+    user: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, status: true } },
+    skills: {
+      select: {
+        skill: { select: { id: true, name: true, type: { select: { id: true, name: true } } } },
       },
-      createdAt: buildDateRange(query.createdFrom, query.createdTo),
-      user: {
-        regionId: query.regionId,
-        isBlocked: query.isBlocked,
-      },
-      categories: query.categoryId
-        ? { some: { jobCategoryId: query.categoryId } }
-        : undefined,
-      OR: search
-        ? [
-            { bio: { contains: search, mode: 'insensitive' } },
-            { user: { firstName: { contains: search, mode: 'insensitive' } } },
-            { user: { lastName: { contains: search, mode: 'insensitive' } } },
-            { user: { phone: { contains: search, mode: 'insensitive' } } },
-          ]
-        : undefined,
-    };
-  }
+    },
+    socials: { select: { id: true, platform: true, url: true } },
+    _count: { select: { ratings: true } },
+  };
 
-  private async ensureCategories(categoryIds: number[]) {
-    if (!categoryIds.length) return;
-
-    const found = await this.prisma.jobCategory.findMany({
-      where: { id: { in: categoryIds }, isArchived: false },
-    });
-
-    if (found.length !== new Set(categoryIds).size) {
-      throw new NotFoundException('Job categorylardan biri topilmadi');
-    }
-  }
-
-  private async findMasterOrThrow(id: number) {
-    const master = await this.prisma.masterProfile.findUnique({
-      where: { id },
-      select: { id: true, userId: true },
-    });
-
-    if (!master) {
-      throw new NotFoundException('Usta topilmadi');
-    }
-
-    return master;
-  }
-
-  async getAll(query: MasterQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
+  async getAll(page = 1, limit = 20, search?: string, isFree?: boolean, skillTypeId?: number, subscriberUserId?: number) {
     const skip = (page - 1) * limit;
-    const canUseSalaryType =
-      await this.schemaCompatibility.hasMasterProfileSalaryType();
-    const where = this.buildWhere(query);
+    const where: any = {};
+    if (skillTypeId) where.skills = { some: { skill: { typeId: skillTypeId } } };
+    if (isFree !== undefined) where.isFree = isFree;
+    if (search) {
+      where.OR = [
+        { user: { firstName: { contains: search, mode: 'insensitive' } } },
+        { user: { lastName: { contains: search, mode: 'insensitive' } } },
+        { user: { phone: { contains: search, mode: 'insensitive' } } },
+        { bio: { contains: search, mode: 'insensitive' } },
+      ];
+    }
 
     const [data, total] = await Promise.all([
-      this.prisma.masterProfile.findMany({
+      this.prisma.master.findMany({
         where,
-        select: buildMasterProfileSelect(canUseSalaryType, {
-          includeUser: true,
-          includeUserPhone: true,
-          includeUserStatus: true,
-          includeUserRegion: true,
-          includeCategories: true,
-          includeCounts: true,
-        }),
-        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: this.masterListSelect,
       }),
-      this.prisma.masterProfile.count({ where }),
+      this.prisma.master.count({ where }),
     ]);
 
-    return {
-      data,
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    };
-  }
-
-  async getOne(id: number) {
-    const canUseSalaryType =
-      await this.schemaCompatibility.hasMasterProfileSalaryType();
-
-    const master = await this.prisma.masterProfile.findUnique({
-      where: { id },
-      select: buildMasterProfileSelect(canUseSalaryType, {
-        includeUser: true,
-        includeUserPhone: true,
-        includeUserStatus: true,
-        includeUserRegion: true,
-        includeCategories: true,
-        includeRatings: true,
-        includeCounts: true,
-      }),
-    });
-
-    if (!master) {
-      throw new NotFoundException('Usta topilmadi');
+    if (data.length === 0 && (search || skillTypeId || isFree !== undefined)) {
+      const query = JSON.stringify({ type: 'master', search, skillTypeId, isFree });
+      this.prisma.searchSubscription.create({ data: { query, userId: subscriberUserId ?? null } }).catch(() => null);
     }
 
-    return master;
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
-  async create(dto: CreateMasterDto) {
-    const phone = await this.phoneIdentity.ensurePhoneAvailable({ phone: dto.phone });
+  async getById(id: number) {
+    const master = await this.prisma.master.findUnique({ where: { id }, select: this.masterDetailSelect });
+    if (!master) throw new NotFoundException('Usta topilmadi');
 
-    if (dto.regionId) {
-      const region = await this.prisma.region.findUnique({ where: { id: dto.regionId } });
-      if (!region) throw new NotFoundException('Region topilmadi');
-    }
-
-    await this.ensureCategories(dto.categoryIds);
-
-    const canUseSalaryType =
-      await this.schemaCompatibility.hasMasterProfileSalaryType();
-
-    const user = await this.prisma.user.create({
-      data: {
-        phone,
-        password: await hashPassword(dto.password),
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        regionId: dto.regionId,
-        masterProfile: {
-          create: {
-            experience: dto.experience,
-            bio: dto.bio,
-            skills: dto.skills ?? [],
-            portfolios: dto.portfolios ?? [],
-            telegramUrl: dto.telegramUrl,
-            instagramUrl: dto.instagramUrl,
-            youtubeUrl: dto.youtubeUrl,
-            facebookUrl: dto.facebookUrl,
-            tiktokUrl: dto.tiktokUrl,
-            websiteUrl: dto.websiteUrl,
-            isAvailable: dto.isAvailable ?? true,
-            salary: dto.salary,
-            ...(canUseSalaryType ? { salaryType: dto.salaryType } : {}),
-            categories: {
-              create: dto.categoryIds.map((jobCategoryId) => ({ jobCategoryId })),
-            },
-          },
-        },
-      },
-      include: {
-        masterProfile: {
-          select: buildMasterProfileSelect(canUseSalaryType, {
-            includeCategories: true,
-          }),
-        },
-        region: true,
-      },
-    });
-
-    const { password, ...safeUser } = user;
-    return safeUser;
-  }
-
-  async update(id: number, dto: UpdateMasterDto) {
-    const master = await this.findMasterOrThrow(id);
-
-    if (dto.phone) {
-      await this.phoneIdentity.ensurePhoneAvailable({
-        phone: dto.phone,
-        excludeUserId: master.userId,
+    const firstSkillTypeId = (master.skills[0] as any)?.skill?.type?.id;
+    let similar: any[] = [];
+    if (firstSkillTypeId) {
+      similar = await this.prisma.master.findMany({
+        where: { id: { not: id }, skills: { some: { skill: { typeId: firstSkillTypeId } } } },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        select: this.masterListSelect,
       });
     }
 
-    if (dto.regionId) {
-      const region = await this.prisma.region.findUnique({ where: { id: dto.regionId } });
-      if (!region) throw new NotFoundException('Region topilmadi');
-    }
-
-    if (dto.categoryIds?.length) {
-      await this.ensureCategories(dto.categoryIds);
-    }
-
-    const canUseSalaryType =
-      await this.schemaCompatibility.hasMasterProfileSalaryType();
-
-    const [, updatedMaster] = await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: master.userId },
-        data: {
-          ...(dto.phone ? { phone: this.phoneIdentity.normalizePhone(dto.phone) } : {}),
-          ...(dto.password ? { password: await hashPassword(dto.password) } : {}),
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          regionId: dto.regionId,
-        },
-      }),
-      this.prisma.masterProfile.update({
-        where: { id },
-        data: {
-          experience: dto.experience,
-          bio: dto.bio,
-          skills: dto.skills,
-          portfolios: dto.portfolios,
-          telegramUrl: dto.telegramUrl,
-          instagramUrl: dto.instagramUrl,
-          youtubeUrl: dto.youtubeUrl,
-          facebookUrl: dto.facebookUrl,
-          tiktokUrl: dto.tiktokUrl,
-          websiteUrl: dto.websiteUrl,
-          isAvailable: dto.isAvailable,
-          salary: dto.salary,
-          ...(canUseSalaryType ? { salaryType: dto.salaryType } : {}),
-          ...(dto.categoryIds
-            ? {
-                categories: {
-                  deleteMany: {},
-                  create: dto.categoryIds.map((jobCategoryId) => ({ jobCategoryId })),
-                },
-              }
-            : {}),
-        },
-        select: buildMasterProfileSelect(canUseSalaryType, {
-          includeUser: true,
-          includeUserPhone: true,
-          includeUserStatus: true,
-          includeUserRegion: true,
-          includeCategories: true,
-        }),
-      }),
-    ]);
-
-    return updatedMaster;
+    return { ...master, similar };
   }
 
-  async toggleStatus(id: number, dto: MasterStatusDto) {
-    const master = await this.findMasterOrThrow(id);
-
-    const updates: Array<Promise<unknown>> = [];
-
-    if (dto.isAvailable !== undefined) {
-      updates.push(
-        this.prisma.masterProfile.update({
-          where: { id },
-          data: { isAvailable: dto.isAvailable },
-        }),
-      );
-    }
-
-    if (dto.isBlocked !== undefined) {
-      updates.push(
-        this.prisma.user.update({
-          where: { id: master.userId },
-          data: {
-            isBlocked: dto.isBlocked,
-            blockedAt: dto.isBlocked ? new Date() : null,
-          },
-        }),
-      );
-    }
-
-    await Promise.all(updates);
-
-    return this.getOne(id);
+  async getByUserId(userId: number) {
+    const master = await this.prisma.master.findUnique({ where: { userId }, select: this.masterDetailSelect });
+    if (!master) throw new NotFoundException('Usta topilmadi');
+    return master;
   }
 
-  async toggleActive(id: number) {
-    const master = await this.findMasterOrThrow(id);
-    const user = await this.prisma.user.findUnique({
-      where: { id: master.userId },
-      select: { isBlocked: true },
-    });
+  async createByAdmin(dto: CreateMasterByAdminDto) {
+    if (!dto.phone && !dto.email) throw new BadRequestException('Telefon yoki email kerak');
 
-    const nowBlocked = !user!.isBlocked;
-    await this.prisma.user.update({
-      where: { id: master.userId },
+    if (dto.phone) {
+      const exists = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+      if (exists) throw new BadRequestException('Bu telefon raqam band');
+    }
+    if (dto.email) {
+      const exists = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (exists) throw new BadRequestException('Bu email band');
+    }
+
+    if (dto.locationId) {
+      const loc = await this.prisma.location.findUnique({ where: { id: dto.locationId } });
+      if (!loc) throw new NotFoundException('Joylashuv topilmadi');
+    }
+
+    if (dto.skillIds?.length) {
+      const skills = await this.prisma.skills.findMany({ where: { id: { in: dto.skillIds } } });
+      if (skills.length !== dto.skillIds.length) throw new NotFoundException('Bir yoki bir nechta skill topilmadi');
+    }
+
+    const user = await this.prisma.user.create({
       data: {
-        isBlocked: nowBlocked,
-        blockedAt: nowBlocked ? new Date() : null,
+        phone: dto.phone,
+        email: dto.email,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        age: dto.age,
+        role: UserRole.MASTER,
+        status: UserStatus.ACTIVE,
+        locationId: dto.locationId,
+        password: dto.password ? await hashPassword(dto.password) : undefined,
       },
     });
 
-    return {
-      isActive: !nowBlocked,
-      ...(await this.getOne(id)),
-    };
-  }
-
-  async toggleAvailability(id: number) {
-    await this.findMasterOrThrow(id);
-    const current = await this.prisma.masterProfile.findUnique({
-      where: { id },
-      select: { isAvailable: true },
-    });
-
-    await this.prisma.masterProfile.update({
-      where: { id },
-      data: { isAvailable: !current!.isAvailable },
-    });
-
-    return this.getOne(id);
-  }
-
-  async toggleBlock(id: number) {
-    const master = await this.findMasterOrThrow(id);
-    const user = await this.prisma.user.findUnique({
-      where: { id: master.userId },
-      select: { isBlocked: true },
-    });
-
-    await this.prisma.user.update({
-      where: { id: master.userId },
+    const master = await this.prisma.master.create({
       data: {
-        isBlocked: !user!.isBlocked,
-        blockedAt: !user!.isBlocked ? new Date() : null,
+        userId: user.id,
+        experience: dto.experience ?? 0,
+        bio: dto.bio,
+        salary: dto.salary ? dto.salary : undefined,
       },
     });
 
-    return this.getOne(id);
+    if (dto.skillIds?.length) {
+      await this.prisma.masterSkills.createMany({
+        data: dto.skillIds.map((skillId) => ({ masterId: master.id, skillId })),
+        skipDuplicates: true,
+      });
+    }
+
+    return this.getById(master.id);
+  }
+
+  async registerAsMaster(userId: number, dto: RegisterAsMasterDto) {
+    const existing = await this.prisma.master.findUnique({ where: { userId } });
+    if (existing) throw new BadRequestException('Siz allaqachon ustasiz');
+
+    if (dto.skillIds?.length) {
+      const skills = await this.prisma.skills.findMany({ where: { id: { in: dto.skillIds } } });
+      if (skills.length !== dto.skillIds.length) throw new NotFoundException('Bir yoki bir nechta skill topilmadi');
+    }
+
+    const master = await this.prisma.master.create({
+      data: { userId, experience: dto.experience ?? 0, bio: dto.bio, salary: dto.salary ?? undefined },
+    });
+
+    if (dto.skillIds?.length) {
+      await this.prisma.masterSkills.createMany({
+        data: dto.skillIds.map((skillId) => ({ masterId: master.id, skillId })),
+        skipDuplicates: true,
+      });
+    }
+
+    await this.prisma.user.update({ where: { id: userId }, data: { role: UserRole.MASTER } });
+    return this.getById(master.id);
+  }
+
+  async update(id: number, dto: UpdateMasterDto) {
+    await this.getById(id);
+
+    if (dto.skillIds !== undefined) {
+      await this.prisma.masterSkills.deleteMany({ where: { masterId: id } });
+      if (dto.skillIds.length > 0) {
+        await this.prisma.masterSkills.createMany({
+          data: dto.skillIds.map((skillId) => ({ masterId: id, skillId })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    return this.prisma.master.update({
+      where: { id },
+      data: { experience: dto.experience, bio: dto.bio, salary: dto.salary ? dto.salary : undefined },
+      select: this.masterDetailSelect,
+    });
+  }
+
+  async toggleFree(id: number) {
+    const master = await this.getById(id);
+    return this.prisma.master.update({
+      where: { id },
+      data: { isFree: !(master as any).isFree },
+      select: this.masterDetailSelect,
+    });
   }
 
   async delete(id: number) {
-    const master = await this.findMasterOrThrow(id);
-    await this.prisma.user.delete({ where: { id: master.userId } });
-    return { message: 'Usta muvaffaqiyatli o\'chirildi' };
+    const master = await this.getById(id);
+    await this.prisma.master.delete({ where: { id } });
+    await this.prisma.user.update({
+      where: { id: (master as any).user.id },
+      data: { role: UserRole.USER },
+    });
+    return { message: "Usta o'chirildi" };
+  }
+
+  async uploadProfileImg(id: number, filename: string) {
+    return this.prisma.master.update({
+      where: { id },
+      data: { profileImg: `image/${filename}` },
+      select: this.masterDetailSelect,
+    });
+  }
+
+  async recordView(id: number) {
+    await this.getById(id);
+    return this.prisma.master.update({
+      where: { id },
+      data: { viewCount: { increment: 1 } },
+      select: { id: true, viewCount: true },
+    });
+  }
+
+  async toggleLike(masterId: number, userId: number) {
+    await this.getById(masterId);
+    const existing = await this.prisma.masterLike.findUnique({
+      where: { userId_masterId: { userId, masterId } },
+    });
+    if (existing) {
+      await this.prisma.masterLike.delete({ where: { userId_masterId: { userId, masterId } } });
+      const updated = await this.prisma.master.update({
+        where: { id: masterId },
+        data: { likeCount: { decrement: 1 } },
+        select: { likeCount: true },
+      });
+      return { liked: false, likeCount: updated.likeCount };
+    } else {
+      await this.prisma.masterLike.create({ data: { userId, masterId } });
+      const updated = await this.prisma.master.update({
+        where: { id: masterId },
+        data: { likeCount: { increment: 1 } },
+        select: { likeCount: true },
+      });
+      return { liked: true, likeCount: updated.likeCount };
+    }
+  }
+
+  async addWorkImg(id: number, filename: string) {
+    const master = await this.prisma.master.findUnique({ where: { id } });
+    if (!master) throw new NotFoundException('Usta topilmadi');
+    return this.prisma.master.update({
+      where: { id },
+      data: { workImgs: { push: `image/${filename}` } },
+      select: this.masterDetailSelect,
+    });
   }
 }

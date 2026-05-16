@@ -5,7 +5,7 @@ import { SMSSendResponse } from '../utils/helper';
 @Injectable()
 export class SmsService {
   private readonly USERNAME = process.env.SMS_USERNAME;
-  private readonly PASSWORD = process.env.SMS_PASSWORD; 
+  private readonly PASSWORD = process.env.SMS_PASSWORD;
   private readonly FROM = process.env.SMS_FROM;
   private axiosInstance: AxiosInstance;
 
@@ -26,7 +26,7 @@ export class SmsService {
   public async sendSMS(message: string, phone: string) {
     try {
       const token = await this.getToken();
-      const cleanPhone = phone.replace(/[^\d]/g, ''); 
+      const cleanPhone = phone.replace(/[^\d]/g, '');
       await this.axiosInstance.post(
         '/message/sms/send',
         {

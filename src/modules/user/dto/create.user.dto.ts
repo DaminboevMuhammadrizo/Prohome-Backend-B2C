@@ -1,16 +1,18 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsInt,
-  IsNumber,
-  IsOptional,
-  IsString,
-  Length,
-  Min,
-  MinLength,
-} from 'class-validator';
+import { IsEmail, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class CreateUserDto {
+  @ApiPropertyOptional({ example: '+998901234567' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'user@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -21,39 +23,22 @@ export class CreateUserDto {
   @IsString()
   lastName?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ example: 25 })
   @IsOptional()
-  @IsString()
-  address?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  age?: number;
 
-  @ApiPropertyOptional({ example: '+998901234567' })
+  @ApiPropertyOptional({ example: 'secret123', minLength: 6 })
   @IsOptional()
   @IsString()
-  @Length(9, 20)
-  phone?: string;
+  @MinLength(6)
+  password?: string;
 
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  regionId?: number;
-
-  @ApiPropertyOptional({ example: 41.3111 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  latitude?: number;
-
-  @ApiPropertyOptional({ example: 69.2797 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
-  longitude?: number;
-
-  @ApiPropertyOptional({ example: 'secret123' })
-  @IsOptional()
-  @IsString()
-  @MinLength(6)
-  password?: string;
+  locationId?: number;
 }

@@ -1,37 +1,17 @@
-import { Module } from '@nestjs/common';
-import { ApartmentLayoutModule } from './apartment-layout/apartment-layout.module';
-import { ApartmentModule } from './apartment/apartment.module';
-import { AuthModule } from './auth/auth.module';
-import { BannerModule } from './banner/banner.module';
-import { CompanyModule } from './company/company.module';
-import { ComplexModule } from './complex/complex.module';
-import { DashboardModule } from './dashboard/dashboard.module';
-import { JobModule } from './job/job.module';
+import { RealEstateModule } from './real-estate/real-estate.module';
+import { SkillTypeModule } from './skill-type/skill-type.module';
+import { LocationModule } from './location/location.module';
 import { MasterModule } from './user/master/master.module';
-import { MasterProfileModule } from './master-profile/master-profile.module';
-import { NotificationModule } from './notification/notification.module';
+import { SkillsModule } from './skills/skills.module';
 import { RatingModule } from './rating/rating.module';
-import { RegionModule } from './region/region.module';
+import { SocialModule } from './social/social.module';
+import { BannerModule } from './banner/banner.module';
+import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
-import { CrmModule } from './crm/crm.module';
+import { JobModule } from './job/job.module';
+import { Module } from '@nestjs/common';
 
 @Module({
-  imports: [
-    AuthModule,
-    MasterModule,   // UserModule dan OLDIN — GET /users/masters, GET /users/:id konfliktini hal qiladi
-    UserModule,
-    RegionModule,
-    BannerModule,
-    NotificationModule,
-    JobModule,
-    MasterProfileModule,
-    RatingModule,
-    CompanyModule,
-    ComplexModule,
-    DashboardModule,
-    ApartmentLayoutModule,
-    ApartmentModule,
-    CrmModule,
-  ],
+    imports: [AuthModule, UserModule, MasterModule, LocationModule, SkillTypeModule, SkillsModule, RealEstateModule, JobModule, BannerModule, RatingModule, SocialModule]
 })
-export class ModulesModule {}
+export class ModulesModule { }

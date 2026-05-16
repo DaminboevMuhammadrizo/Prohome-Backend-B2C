@@ -1,294 +1,79 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { SchemaCompatibilityService } from 'src/common/services/schema-compatibility.service';
-import { AuthUser } from 'src/common/types/auth-user.type';
-import { assertAdmin } from 'src/common/utils/access.util';
-import { buildMasterProfileSelect } from 'src/common/utils/master-profile-select.util';
-import { CreateRatingDto } from './dto/create-rating.dto';
-import { ModerateRatingDto } from './dto/moderate-rating.dto';
-import { UpdateRatingDto } from './dto/update-rating.dto';
 
 @Injectable()
 export class RatingService {
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly schemaCompatibility: SchemaCompatibilityService,
-    ) { }
+  constructor(private readonly prisma: PrismaService) {}
 
-    private async recalculateMasterRating(masterProfileId: number) {
-        const aggregate = await this.prisma.rating.aggregate({
-            where: { masterProfileId },
-            _avg: { score: true },
-        });
+  async getAll(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [data, total] = await Promise.all([
+      this.prisma.rating.findMany({ skip, take: limit, orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, firstName: true, lastName: true } }, master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } } } }),
+      this.prisma.rating.count(),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
 
-        await this.prisma.masterProfile.update({
-            where: { id: masterProfileId },
-            data: { rating: aggregate._avg.score ?? 0 },
-        });
-    }
+  async getByMaster(masterId: number, page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    const where = { masterId };
+    const [data, total] = await Promise.all([
+      this.prisma.rating.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' },
+        include: { user: { select: { id: true, firstName: true, lastName: true } } } }),
+      this.prisma.rating.count({ where }),
+    ]);
+    const avg = data.length ? data.reduce((sum, r) => sum + r.rating, 0) / data.length : 0;
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) }, averageRating: Math.round(avg * 10) / 10 };
+  }
 
-    async getAll(pagination: PaginationDto) {
-        const page = pagination.page ?? 1;
-        const limit = pagination.limit ?? 10;
-        const skip = (page - 1) * limit;
-        const canUseSalaryType =
-            await this.schemaCompatibility.hasMasterProfileSalaryType();
+  async getMyRatings(userId: number, page = 1, limit = 10) {
+    const skip = (page - 1) * limit;
+    const where = { userId };
+    const [data, total] = await Promise.all([
+      this.prisma.rating.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' },
+        include: { master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } } } }),
+      this.prisma.rating.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  }
 
-        const [data, total] = await Promise.all([
-            this.prisma.rating.findMany({
-                where: { isApproved: true },
-                include: {
-                    user: {
-                        select: { id: true, firstName: true, lastName: true },
-                    },
-                    masterProfile: {
-                        select: buildMasterProfileSelect(canUseSalaryType, {
-                            includeUser: true,
-                        }),
-                    },
-                },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit,
-            }),
-            this.prisma.rating.count(),
-        ]);
+  async create(userId: number, dto: { masterId: number; rating: number; comment?: string }) {
+    if (dto.rating < 1 || dto.rating > 5) throw new BadRequestException('Reyting 1-5 oralig\'ida bo\'lishi kerak');
 
-        return {
-            data,
-            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        };
-    }
+    const master = await this.prisma.master.findUnique({ where: { id: dto.masterId } });
+    if (!master) throw new NotFoundException('Usta topilmadi');
 
-    async getOne(id: number) {
-        const canUseSalaryType =
-            await this.schemaCompatibility.hasMasterProfileSalaryType();
-        const rating = await this.prisma.rating.findUnique({
-            where: { id },
-            include: {
-                user: {
-                    select: { id: true, firstName: true, lastName: true },
-                },
-                masterProfile: {
-                    select: buildMasterProfileSelect(canUseSalaryType),
-                },
-            },
-        });
+    const existing = await this.prisma.rating.findUnique({ where: { userId_masterId: { userId, masterId: dto.masterId } } });
+    if (existing) throw new BadRequestException('Siz bu ustaga allaqachon baho bergansiz');
 
-        if (!rating) {
-            throw new NotFoundException('Rating topilmadi');
-        }
+    const created = await this.prisma.rating.create({
+      data: { userId, masterId: dto.masterId, rating: dto.rating, comment: dto.comment },
+      include: { user: { select: { id: true, firstName: true, lastName: true } } },
+    });
 
-        return rating;
-    }
+    // Usta like count yangilash
+    const avg = await this.prisma.rating.aggregate({ where: { masterId: dto.masterId }, _avg: { rating: true } });
 
-    async getPendingRatings(user: AuthUser, pagination: PaginationDto) {
-        assertAdmin(user);
-        const page = pagination.page ?? 1;
-        const limit = pagination.limit ?? 10;
-        const skip = (page - 1) * limit;
+    return { ...created, masterAvgRating: avg._avg.rating };
+  }
 
-        const [data, total] = await Promise.all([
-            this.prisma.rating.findMany({
-                where: { isApproved: false },
-                include: {
-                    user: {
-                        select: { id: true, firstName: true, lastName: true, phone: true },
-                    },
-                    masterProfile: {
-                        select: { id: true, userId: true, bio: true },
-                    },
-                },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit,
-            }),
-            this.prisma.rating.count({ where: { isApproved: false } }),
-        ]);
+  async update(id: number, userId: number, dto: { rating?: number; comment?: string }) {
+    const existing = await this.prisma.rating.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Reyting topilmadi');
+    if (existing.userId !== userId) throw new ForbiddenException('Ruxsat yo\'q');
+    if (dto.rating && (dto.rating < 1 || dto.rating > 5)) throw new BadRequestException('Reyting 1-5 oralig\'ida bo\'lishi kerak');
 
-        return {
-            data,
-            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        };
-    }
+    return this.prisma.rating.update({ where: { id }, data: dto,
+      include: { user: { select: { id: true, firstName: true, lastName: true } } } });
+  }
 
-    async getMyRatings(user: AuthUser, pagination: PaginationDto) {
-        const page = pagination.page ?? 1;
-        const limit = pagination.limit ?? 10;
-        const skip = (page - 1) * limit;
-        const canUseSalaryType =
-            await this.schemaCompatibility.hasMasterProfileSalaryType();
+  async delete(id: number, userId: number, isAdmin: boolean) {
+    const existing = await this.prisma.rating.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Reyting topilmadi');
+    if (!isAdmin && existing.userId !== userId) throw new ForbiddenException('Ruxsat yo\'q');
 
-        const [data, total] = await Promise.all([
-            this.prisma.rating.findMany({
-                where: { userId: user.id },
-                include: {
-                    masterProfile: {
-                        select: buildMasterProfileSelect(canUseSalaryType),
-                    },
-                },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit,
-            }),
-            this.prisma.rating.count({ where: { userId: user.id } }),
-        ]);
-
-        return {
-            data,
-            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        };
-    }
-
-    async getByMaster(masterProfileId: number, pagination: PaginationDto) {
-        const masterProfile = await this.prisma.masterProfile.findUnique({
-            where: { id: masterProfileId },
-            select: { id: true },
-        });
-
-        if (!masterProfile) {
-            throw new NotFoundException('Master profile topilmadi');
-        }
-
-        const page = pagination.page ?? 1;
-        const limit = pagination.limit ?? 10;
-        const skip = (page - 1) * limit;
-
-        const [data, total] = await Promise.all([
-            this.prisma.rating.findMany({
-                where: { masterProfileId, isApproved: true },
-                include: {
-                    user: {
-                        select: { id: true, firstName: true, lastName: true },
-                    },
-                },
-                orderBy: { createdAt: 'desc' },
-                skip,
-                take: limit,
-            }),
-            this.prisma.rating.count({ where: { masterProfileId } }),
-        ]);
-
-        return {
-            data,
-            meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
-        };
-    }
-
-    async create(user: AuthUser, dto: CreateRatingDto) {
-        const masterProfile = await this.prisma.masterProfile.findUnique({
-            where: { id: dto.masterProfileId },
-            select: { id: true, userId: true },
-        });
-
-        if (!masterProfile) {
-            throw new NotFoundException('Master profile topilmadi');
-        }
-
-        if (masterProfile.userId === user.id) {
-            throw new ForbiddenException('O‘zingizga rating bera olmaysiz');
-        }
-
-        const existingRating = await this.prisma.rating.findUnique({
-            where: {
-                userId_masterProfileId: {
-                    userId: user.id,
-                    masterProfileId: dto.masterProfileId,
-                },
-            },
-        });
-
-        if (existingRating) {
-            throw new ConflictException('Siz bu master uchun allaqachon rating qoldirgansiz');
-        }
-
-        const rating = await this.prisma.rating.create({
-            data: {
-                score: dto.score,
-                comment: dto.comment,
-                isApproved: false,
-                userId: user.id,
-                masterProfileId: dto.masterProfileId,
-            },
-        });
-
-        await this.recalculateMasterRating(dto.masterProfileId);
-        return rating;
-    }
-
-    async update(id: number, user: AuthUser, dto: UpdateRatingDto) {
-        const rating = await this.prisma.rating.findUnique({
-            where: { id },
-        });
-
-        if (!rating) {
-            throw new NotFoundException('Rating topilmadi');
-        }
-
-        if (rating.userId !== user.id) {
-            throw new ForbiddenException('Siz faqat o‘zingizning ratingingizni yangilay olasiz');
-        }
-
-        const updatedRating = await this.prisma.rating.update({
-            where: { id },
-            data: {
-                score: dto.score,
-                comment: dto.comment,
-                isApproved: false,
-                moderationNote: null,
-                moderatedAt: null,
-                moderatedBy: null,
-            },
-        });
-
-        await this.recalculateMasterRating(rating.masterProfileId);
-        return updatedRating;
-    }
-
-    async delete(id: number, user: AuthUser) {
-        const rating = await this.prisma.rating.findUnique({
-            where: { id },
-        });
-
-        if (!rating) {
-            throw new NotFoundException('Rating topilmadi');
-        }
-
-        if (rating.userId !== user.id) {
-            throw new ForbiddenException('Siz faqat o‘zingizning ratingingizni o‘chira olasiz');
-        }
-
-        const deletedRating = await this.prisma.rating.delete({
-            where: { id },
-        });
-
-        await this.recalculateMasterRating(rating.masterProfileId);
-        return deletedRating;
-    }
-
-    async moderate(id: number, user: AuthUser, dto: ModerateRatingDto) {
-        assertAdmin(user);
-
-        const rating = await this.prisma.rating.findUnique({
-            where: { id },
-        });
-
-        if (!rating) {
-            throw new NotFoundException('Rating topilmadi');
-        }
-
-        const updatedRating = await this.prisma.rating.update({
-            where: { id },
-            data: {
-                isApproved: dto.isApproved,
-                moderationNote: dto.moderationNote,
-                moderatedAt: new Date(),
-                moderatedBy: user.id,
-            },
-        });
-
-        await this.recalculateMasterRating(rating.masterProfileId);
-        return updatedRating;
-    }
+    await this.prisma.rating.delete({ where: { id } });
+    return { message: 'Reyting o\'chirildi' };
+  }
 }

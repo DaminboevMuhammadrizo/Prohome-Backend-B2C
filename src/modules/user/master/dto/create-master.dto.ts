@@ -1,112 +1,109 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { SalaryType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import {
-  ArrayNotEmpty,
-  IsArray,
-  IsBoolean,
-  IsEnum,
-  IsInt,
-  IsNumber,
-  IsOptional,
-  IsString,
-  IsUrl,
-  Min,
-  MinLength,
-} from 'class-validator';
+import { IsArray, IsEmail, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
-export class CreateMasterDto {
-  @ApiProperty({ example: '+998901234567' })
-  @IsString()
-  phone: string;
-
-  @ApiProperty({ example: 'Password123' })
-  @IsString()
-  @MinLength(6)
-  password: string;
-
-  @ApiPropertyOptional({ example: 'Ali' })
+export class CreateMasterByAdminDto {
+  @ApiPropertyOptional({ example: '+998901234567' })
   @IsOptional()
   @IsString()
-  firstName?: string;
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 'master@example.com' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @ApiProperty({ example: 'Ali' })
+  @IsString()
+  @MinLength(1)
+  firstName: string;
 
   @ApiPropertyOptional({ example: 'Valiyev' })
   @IsOptional()
   @IsString()
   lastName?: string;
 
+  @ApiPropertyOptional({ example: 25 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  age?: number;
+
+  @ApiPropertyOptional({ minLength: 6 })
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  password?: string;
+
   @ApiPropertyOptional({ example: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
-  @Min(1)
-  regionId?: number;
+  locationId?: number;
 
-  @ApiProperty({ example: 3 })
+  @ApiPropertyOptional({ example: 3 })
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  experience: number;
-
-  @ApiProperty({ example: [1, 2] })
-  @IsArray()
-  @ArrayNotEmpty()
-  @Type(() => Number)
-  @IsInt({ each: true })
-  @Min(1, { each: true })
-  categoryIds: number[];
+  experience?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   bio?: string;
 
-  @ApiPropertyOptional({ example: ['plitka', 'gips'] })
+  @ApiPropertyOptional({ example: 500000 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  salary?: number;
+
+  @ApiPropertyOptional({ example: [1, 2], description: 'Skill IDlari' })
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  skills?: string[];
+  @IsInt({ each: true })
+  skillIds?: number[];
+}
 
-  @ApiPropertyOptional({ example: [] })
+export class RegisterAsMasterDto {
+  @ApiPropertyOptional({ example: 3 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  experience?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bio?: string;
+
+  @ApiPropertyOptional({ example: 500000 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  salary?: number;
+
+  @ApiPropertyOptional({ example: [1, 2], description: 'Skill IDlari' })
   @IsOptional()
   @IsArray()
-  @IsUrl({ require_tld: false }, { each: true })
-  portfolios?: string[];
+  @IsInt({ each: true })
+  skillIds?: number[];
+}
+
+export class UpdateMasterDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  experience?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
-  @IsUrl({ require_tld: false })
-  telegramUrl?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  instagramUrl?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  youtubeUrl?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  facebookUrl?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  tiktokUrl?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsUrl({ require_tld: false })
-  websiteUrl?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsBoolean()
-  isAvailable?: boolean;
+  @IsString()
+  bio?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -114,8 +111,9 @@ export class CreateMasterDto {
   @IsNumber()
   salary?: number;
 
-  @ApiPropertyOptional({ enum: SalaryType })
+  @ApiPropertyOptional()
   @IsOptional()
-  @IsEnum(SalaryType)
-  salaryType?: SalaryType;
+  @IsArray()
+  @IsInt({ each: true })
+  skillIds?: number[];
 }

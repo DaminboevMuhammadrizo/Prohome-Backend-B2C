@@ -1,9 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { UserRole } from '@prisma/client';
+import { LocationType, SkillStatus, UserRole, UserStatus } from '@prisma/client';
 import { hashPassword } from '../config/bcrypt';
 import { PrismaService } from '../database/prisma.service';
-import { UZBEKISTAN_REGIONS } from './region.seed';
+import { CENTRAL_ASIA_LOCATIONS, RUSSIA_LOCATIONS } from './location.seed';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
@@ -11,162 +11,116 @@ export class SeederService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly configService: ConfigService,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
-    await this.seedMinimal();
+    await this.seedSuperAdmin();
+    await this.seedLocations();
+    await this.seedSkillTypes();
   }
 
-  private async seedMinimal() {
-    await this.createAdmin();
-    await this.seedRegions();
-    await this.seedJobCategories();
-  }
-
-  private async seedRegions() {
+  private async seedSuperAdmin() {
     try {
-      for (const region of UZBEKISTAN_REGIONS) {
-        let parent = await this.prisma.region.findFirst({
-          where: { nameUz: region.nameUz, parentId: null },
+      const phone = this.config.get<string>('SUPERADMIN_PHONE') ?? '+998909009090';
+      const password = this.config.get<string>('SUPERADMIN_PASSWORD') ?? 'Admin123!';
+
+      const existing = await this.prisma.user.findFirst({ where: { role: UserRole.SUPERADMIN } });
+      if (existing) {
+        this.logger.log('Superadmin mavjud');
+        return;
+      }
+
+      await this.prisma.user.create({
+        data: {
+          phone,
+          firstName: 'Super',
+          lastName: 'Admin',
+          role: UserRole.SUPERADMIN,
+          status: UserStatus.ACTIVE,
+          password: await hashPassword(password),
+        },
+      });
+
+      this.logger.log(`Superadmin yaratildi: ${phone}`);
+    } catch (e) {
+      this.logger.error('Superadmin seed xatoligi', e);
+    }
+  }
+
+  private async seedLocations() {
+    try {
+      const existing = await this.prisma.location.count();
+      if (existing > 0) {
+        this.logger.log('Joylashuvlar allaqachon mavjud');
+        return;
+      }
+
+      const allGroups = [...CENTRAL_ASIA_LOCATIONS, ...RUSSIA_LOCATIONS];
+
+      for (const group of allGroups) {
+        const country = await this.prisma.location.create({
+          data: { name: group.country, type: LocationType.COUNTRY },
         });
 
-        if (!parent) {
-          parent = await this.prisma.region.create({
-            data: {
-              nameUz: region.nameUz,
-              nameUzCyrl: region.nameUzCyrl,
-              nameRu: region.nameRu,
-            },
-          });
-        }
-
-        for (const d of region.districts) {
-          const exists = await this.prisma.region.findFirst({
-            where: { nameUz: d.nameUz, parentId: parent.id },
+        for (const reg of group.regions) {
+          const region = await this.prisma.location.create({
+            data: { name: reg.name, type: LocationType.REGION, parentId: country.id },
           });
 
-          if (!exists) {
-            await this.prisma.region.create({
-              data: {
-                nameUz: d.nameUz,
-                nameUzCyrl: d.nameUzCyrl,
-                nameRu: d.nameRu,
-                parentId: parent.id,
-              },
-            });
+          if (reg.cities && reg.cities.length > 0) {
+            const cityData = reg.cities.map((c) => ({
+              name: c,
+              type: LocationType.CITY,
+              parentId: region.id,
+            }));
+
+            // Batch insert
+            for (let i = 0; i < cityData.length; i += 10) {
+              await this.prisma.location.createMany({
+                data: cityData.slice(i, i + 10),
+                skipDuplicates: true,
+              });
+            }
           }
         }
       }
 
-      this.logger.log("O'zbekiston viloyat va tumanlari seed qilindi");
-    } catch (error) {
-      this.logger.error('Region seed xatoligi', error);
-      throw error;
+      this.logger.log('Joylashuvlar seed qilindi (Markaziy Osiyo + Rossiya)');
+    } catch (e) {
+      this.logger.error('Location seed xatoligi', e);
     }
   }
 
-  private async seedJobCategories() {
-    const categories = [
-      { nameUz: 'Santexnik', nameUzCyrl: 'Сантехник', nameRu: 'Сантехник' },
-      { nameUz: 'Elektrik', nameUzCyrl: 'Электрик', nameRu: 'Электрик' },
-      {
-        nameUz: 'Plitkachilik',
-        nameUzCyrl: 'Плиткачилик',
-        nameRu: 'Укладка плитки',
-      },
-      { nameUz: 'Gipschilik', nameUzCyrl: 'Гипсчилик', nameRu: 'Гипсокартон' },
-      { nameUz: "Bo'yoqchilik", nameUzCyrl: 'Бўёқчилик', nameRu: 'Покраска' },
-      {
-        nameUz: 'Duradgorlik',
-        nameUzCyrl: 'Дурадгорлик',
-        nameRu: 'Столярные работы',
-      },
-      {
-        nameUz: 'Temir konstruksiya',
-        nameUzCyrl: 'Темир конструкция',
-        nameRu: 'Металлоконструкции',
-      },
-      {
-        nameUz: "Konditsioner o'rnatish",
-        nameUzCyrl: 'Кондиционер ўрнатиш',
-        nameRu: 'Установка кондиционеров',
-      },
-      {
-        nameUz: 'Pol yotqizish',
-        nameUzCyrl: 'Пол ётқизиш',
-        nameRu: 'Укладка пола',
-      },
-      {
-        nameUz: "Umumiy ta'mirlash",
-        nameUzCyrl: 'Умумий таъмирлаш',
-        nameRu: 'Общий ремонт',
-      },
-    ];
-
+  private async seedSkillTypes() {
     try {
-      for (const cat of categories) {
-        const exists = await this.prisma.jobCategory.findFirst({
-          where: { nameUz: cat.nameUz },
-        });
-
-        if (!exists) {
-          await this.prisma.jobCategory.create({ data: cat });
-        }
-      }
-
-      this.logger.log('Job kategoriyalar seed qilindi');
-    } catch (error) {
-      this.logger.error('Job category seed xatoligi', error);
-      throw error;
-    }
-  }
-
-  private async createAdmin() {
-    try {
-      const adminPhone =
-        this.configService.get<string>('ADMIN_PHONE') ?? '+998901234567';
-      const adminPassword =
-        this.configService.get<string>('ADMIN_PASSWORD') ?? 'Admin123';
-      const adminRoleValue =
-        this.configService.get<string>('ADMIN_ROLE') ?? UserRole.SUPERADMIN;
-      const adminRole =
-        adminRoleValue === UserRole.ADMIN
-          ? UserRole.ADMIN
-          : UserRole.SUPERADMIN;
-
-      const existingAdmin = await this.prisma.user.findUnique({
-        where: { phone: adminPhone },
-      });
-
-      if (existingAdmin) {
-        if (existingAdmin.isArchived || existingAdmin.isBlocked) {
-          await this.prisma.user.update({
-            where: { phone: adminPhone },
-            data: { isArchived: false, isBlocked: false, blockedAt: null, archivedAt: null },
-          });
-          this.logger.log(`Admin arxivdan/blokdan chiqarildi: ${adminPhone}`);
-        } else {
-          this.logger.log(`Admin allaqachon mavjud: ${adminPhone}`);
-        }
+      const existing = await this.prisma.skillType.count();
+      if (existing > 0) {
+        this.logger.log('Skill turlari allaqachon mavjud');
         return;
       }
 
-      const admin = await this.prisma.user.create({
-        data: {
-          firstName: 'Admin',
-          phone: adminPhone,
-          role: adminRole,
-          password: await hashPassword(adminPassword),
-        },
-      });
+      const types = [
+        { name: 'Qurilish ishlari', skills: ['Plitkachilik', 'Gipsokarton', 'Suvash', 'Bo\'yash', 'Pol yotqizish'] },
+        { name: 'Muhandislik', skills: ['Santexnik', 'Elektrik', 'Gaz o\'rnatish', 'Konditsioner'] },
+        { name: 'Duradgorlik', skills: ['Mebel yasash', 'Eshik-deraza', 'Parket'] },
+        { name: 'Umumiy ta\'mir', skills: ['Ta\'mirlash', 'Ko\'chirish', 'Tozalash'] },
+      ];
 
-      this.logger.log(
-        `Seed admin yaratildi: phone=${adminPhone}, password=${adminPassword}, role=${adminRole}, id=${admin.id}`,
-      );
-    } catch (error) {
-      this.logger.error('Admin seed xatoligi', error);
-      throw error;
+      for (const t of types) {
+        const skillType = await this.prisma.skillType.create({
+          data: { name: t.name, status: SkillStatus.ACTIVE },
+        });
+
+        await this.prisma.skills.createMany({
+          data: t.skills.map((s) => ({ name: s, status: SkillStatus.ACTIVE, typeId: skillType.id })),
+          skipDuplicates: true,
+        });
+      }
+
+      this.logger.log('Skill turlari seed qilindi');
+    } catch (e) {
+      this.logger.error('SkillType seed xatoligi', e);
     }
   }
 }

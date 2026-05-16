@@ -7,15 +7,61 @@ datasource db {
     url      = env("DATABASE_URL")
 }
 
-enum UserRole {
-    SUPERADMIN
-    ADMIN
-    USER
+enum UserStatus {
+    ACTIVE
+    BLOCKED
+    ARCHIVED
 }
 
-enum ApartmentDealStatus {
+enum UserRole {
+    USER
+    ADMIN
+    SUPERADMIN
+    MASTER
+}
+
+enum LocationType {
+    COUNTRY
+    REGION
+    CITY
+}
+
+enum SocialPlatform {
+    TELEGRAM
+    INSTAGRAM
+    YOUTUBE
+    LINKEDIN
+    GITHUB
+    WEBSITE
+}
+
+enum PropertyType {
+    APARTMENT
+    HOUSE
+    OFFICE
+    RETAIL
+}
+
+enum DealType {
+    SALE
+    RENT
+}
+
+enum SellerType {
+    INDIVIDUAL
+    COMPANY
+}
+
+enum JobStatus {
+    OPEN
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+enum SkillStatus {
     ACTIVE
-    SOLD
+    INACTIVE
 }
 
 enum BannerLocation {
@@ -25,553 +71,311 @@ enum BannerLocation {
     OTHER
 }
 
-enum SalaryType {
-    HOURLY
-    DAILY
-    MONTHLY
-    PROJECT
+enum MediaType {
+    IMAGE
+    VIDEO
 }
 
-enum LeadType {
-    APARTMENT
-    COMPLEX
-    MASTER
-    CALLBACK
-    SEARCH_RECOVERY
-    OTHER
-}
-
-enum LeadStatus {
-    NEW
-    CONTACTED
-    QUALIFIED
-    WON
-    LOST
-}
-
-enum SearchIntentType {
-    APARTMENT
-    MASTER
-    OTHER
-}
-
-enum SearchSurveyStatus {
-    FOUND
-    NOT_FOUND
-    STILL_SEARCHING
-}
-
-enum ComplexInterestType {
-    VIEW
-    LIKE
-    REQUEST_INFO
-}
-
-enum DevicePlatform {
-    ANDROID
-    IOS
-    WEB
-    UNKNOWN
+enum RealEstateStatus {
+    ACTIVE
+    SOLD
+    ARCHIVED
 }
 
 model User {
-    id         Int       @id @default(autoincrement())
-    phone      String    @unique
+    id         Int        @id @default(autoincrement())
+    phone      String?    @unique
+    email      String?    @unique
     password   String?
-    firstName  String?
-    lastName   String?
-    address    String?
-    latitude   Float?
-    longitude  Float?
-    role       UserRole  @default(USER)
-    regionId   Int?
-    region     Region?   @relation(fields: [regionId], references: [id], onDelete: Cascade)
-    isBlocked  Boolean   @default(false) @map("is_blocked")
-    blockedAt  DateTime? @map("blocked_at")
-    isArchived Boolean   @default(false) @map("is_archived")
-    archivedAt DateTime? @map("archived_at")
+    age        Int?
+    firstName  String?    @map("first_name")
+    lastName   String?    @map("last_name")
+    status     UserStatus @default(ACTIVE)
+    statusAt   DateTime   @default(now()) @map("status_at")
+    role       UserRole   @default(USER)
+    locationId Int?       @map("location_id")
 
     createdAt DateTime @default(now()) @map("created_at")
     updatedAt DateTime @updatedAt @map("updated_at")
 
-    leads                 Lead[]
-    ratings               Rating[]
-    apartments            Apartment[]
-    userDevices           UserDevice[]
-    companyViews          CompanyView[]
-    notifications         Notification[]
-    masterProfile         MasterProfile?
-    apartmentLikes        ApartmentLike[]
-    apartmentViews        ApartmentView[]
-    searchSessions        SearchSession[]
-    complexInterests      ComplexInterest[]
-    savedMasterProfiles   MasterProfileSave[]
-    masterProfileViews    MasterProfileView[]
-    masterProfileContacts MasterProfileContact[]
+    location            Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+    master              Master?
+    ratings             Rating[]
+    realEstates         RealEstate[]
+    jobLikes            JobLike[]
+    jobViews            JobView[]
+    masterLikes         MasterLike[]
+    searchSubscriptions SearchSubscription[]
+    jobs                Job[]
+
+    @@map("users")
 }
 
-model Company {
-    id          Int     @id @default(autoincrement())
-    name        String
-    phone       String  @unique
-    password    String?
-    logo        String?
-    description String?
-    website     String?
-    isVerified  Boolean @default(false)
-    isActive    Boolean @default(true) @map("is_active")
-    viewCount   Int     @default(0) @map("view_count")
+model Location {
+    id        Int          @id @default(autoincrement())
+    name      String
+    type      LocationType
+    parentId  Int?         @map("parent_id")
+    createdAt DateTime     @default(now()) @map("created_at")
+    updatedAt DateTime     @updatedAt @map("updated_at")
+
+    parent      Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+    children    Location[] @relation("LocationHierarchy")
+    users       User[]
+    realEstates RealEstate[]
+    jobs        Job[]
+
+    @@index([parentId])
+    @@map("locations")
+}
+
+model Master {
+    id         Int      @id @default(autoincrement())
+    profileImg String?  @map("profile_img")
+    experience Int      @default(0)
+    bio        String?
+    salary     Decimal? @db.Decimal(15, 2)
+    workImgs   String[] @map("work_imgs")
+    isFree     Boolean  @default(true) @map("is_free")
+    userId     Int      @unique @map("user_id")
+    likeCount  Int      @default(0) @map("like_count")
+    viewCount  Int      @default(0) @map("view_count")
 
     createdAt DateTime @default(now()) @map("created_at")
     updatedAt DateTime @updatedAt @map("updated_at")
 
-    leads     Lead[]
-    complexes Complex[]
-    views     CompanyView[]
+    user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    skills  MasterSkills[]
+    socials Social[]
+    ratings Rating[]
+    likes   MasterLike[]
 
-    @@map("companies")
+    @@map("masters")
 }
 
-model Complex {
-    id                Int      @id @default(autoincrement())
-    companyId         Int
-    regionId          Int
-    name              String   @map("name_uz")
-    descriptionUz     String?  @map("description_uz")
-    descriptionUzCyrl String?  @map("description_uz_cyrl")
-    descriptionRu     String?  @map("description_ru")
-    address           String
-    latitude          Float?
-    longitude         Float?
-    images            String[]
+model SkillType {
+    id     Int         @id @default(autoincrement())
+    name   String      @unique
+    status SkillStatus @default(ACTIVE)
 
     createdAt DateTime @default(now()) @map("created_at")
     updatedAt DateTime @updatedAt @map("updated_at")
 
-    leads      Lead[]
-    apartments Apartment[]
-    layouts    ApartmentLayout[]
-    interests  ComplexInterest[]
+    skills Skills[]
+    jobs   Job[]
 
-    company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-    region  Region  @relation(fields: [regionId], references: [id], onDelete: Cascade)
-
-    @@map("complexes")
+    @@map("skill_types")
 }
 
-model ApartmentLayout {
-    id         Int          @id @default(autoincrement())
-    complexId  Int
-    roomCount  Int
-    area       Float
-    priceMin   Float?
-    priceMax   Float?
-    images     String[]
-    totalUnits Int          @default(1)
-    status     String       @default("AVAILABLE")
+model Skills {
+    id     Int         @id @default(autoincrement())
+    name   String      @unique
+    status SkillStatus @default(ACTIVE)
+    typeId Int         @map("type_id")
 
     createdAt DateTime @default(now()) @map("created_at")
     updatedAt DateTime @updatedAt @map("updated_at")
 
-    apartments Apartment[]
+    type         SkillType      @relation(fields: [typeId], references: [id], onDelete: Cascade)
+    masterSkills MasterSkills[]
+    jobSkills    JobSkills[]
 
-    complex Complex @relation(fields: [complexId], references: [id], onDelete: Cascade)
-
-    @@map("apartment_layouts")
+    @@map("skills")
 }
 
-model Apartment {
-    id                Int       @id @default(autoincrement())
-    titleUz           String    @map("title_uz")
-    titleUzCyrl       String    @map("title_uz_cyrl")
-    titleRu           String    @map("title_ru")
-    descriptionUz     String?   @map("description_uz")
-    descriptionUzCyrl String?   @map("description_uz_cyrl")
-    descriptionRu     String?   @map("description_ru")
-    price             Float
-    area              Float
-    roomCount         Int
-    floor             Int?
-    totalFloors       Int?
-    landArea          Float?
-    images            String[]
-    soldAt            DateTime? @map("sold_at")
-    isCottage         Boolean   @default(false)
-    regionId          Int
-    categoryId        Int
-    address           String
-    sellerId          Int?
-    complexId         Int?
-    layoutId          Int?
-    likeCount         Int       @default(0) @map("like_count")
-    viewCount         Int       @default(0) @map("view_count")
-    createdAt         DateTime  @default(now()) @map("created_at")
-    updatedAt         DateTime  @updatedAt @map("updated_at")
+model MasterSkills {
+    id       Int @id @default(autoincrement())
+    masterId Int @map("master_id")
+    skillId  Int @map("skill_id")
 
-    latitude    Float?
-    longitude   Float?
+    master Master @relation(fields: [masterId], references: [id], onDelete: Cascade)
+    skill  Skills @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
-    listingType String               @default("SOTISH")
-    dealStatus  ApartmentDealStatus  @default(ACTIVE)
-
-    leads     Lead[]
-    likes     ApartmentLike[]
-    views     ApartmentView[]
-    interests ComplexInterest[]
-
-    region   Region            @relation(fields: [regionId], references: [id], onDelete: Cascade)
-    category ApartmentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-    seller   User?             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-    complex  Complex?          @relation(fields: [complexId], references: [id], onDelete: Cascade)
-    layout   ApartmentLayout?  @relation(fields: [layoutId], references: [id], onDelete: Cascade)
-
-    @@map("apartments")
+    @@unique([masterId, skillId])
+    @@map("master_skills")
 }
 
-model ApartmentLike {
-    id          Int      @id @default(autoincrement())
-    userId      Int
-    apartmentId Int
-    createdAt   DateTime @default(now()) @map("created_at")
-
-    user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-    apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
-
-    @@unique([userId, apartmentId])
-    @@map("apartment_likes")
-}
-
-model ApartmentView {
-    id          Int      @id @default(autoincrement())
-    userId      Int?
-    apartmentId Int
-    createdAt   DateTime @default(now()) @map("created_at")
-
-    apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
-    user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@map("apartment_views")
-}
-
-model CompanyView {
-    id        Int      @id @default(autoincrement())
-    userId    Int?
-    companyId Int
+model Social {
+    id       Int            @id @default(autoincrement())
+    platform SocialPlatform
+    url      String
+    masterId Int?           @map("master_id")
     createdAt DateTime @default(now()) @map("created_at")
 
-    user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
-    company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+    master Master? @relation(fields: [masterId], references: [id], onDelete: Cascade)
 
-    @@map("company_views")
-}
-
-model ApartmentCategory {
-    id         Int       @id @default(autoincrement())
-    nameUz     String    @unique @map("name_uz")
-    nameUzCyrl String    @unique @map("name_uz_cyrl")
-    nameRu     String    @unique @map("name_ru")
-    isActive   Boolean   @default(true) @map("is_active")
-    isArchived Boolean   @default(false) @map("is_archived")
-    archivedAt DateTime? @map("archived_at")
-    createdAt  DateTime  @default(now()) @map("created_at")
-    updatedAt  DateTime  @updatedAt @map("updated_at")
-
-    apartments Apartment[]
-
-    @@map("apartment_categories")
-}
-
-model JobCategory {
-    id         Int       @id @default(autoincrement())
-    nameUz     String    @unique @map("name_uz")
-    nameUzCyrl String    @unique @map("name_uz_cyrl")
-    nameRu     String    @unique @map("name_ru")
-    isActive   Boolean   @default(true) @map("is_active")
-    isArchived Boolean   @default(false) @map("is_archived")
-    archivedAt DateTime? @map("archived_at")
-    createdAt  DateTime  @default(now()) @map("created_at")
-    updatedAt  DateTime  @updatedAt @map("updated_at")
-
-    masterProfileCategories MasterProfileJobCategory[]
-
-    @@map("job_categories")
-}
-
-model MasterProfile {
-    id           Int         @id @default(autoincrement())
-    userId       Int         @unique
-    bio          String?
-    experience   Int
-    skills       String[]
-    portfolios   String[]
-    telegramUrl  String?     @map("telegram_url")
-    instagramUrl String?     @map("instagram_url")
-    youtubeUrl   String?     @map("youtube_url")
-    facebookUrl  String?     @map("facebook_url")
-    tiktokUrl    String?     @map("tiktok_url")
-    websiteUrl   String?     @map("website_url")
-    isAvailable  Boolean     @default(true)
-    salary       Float?
-    rating       Float       @default(0)
-    savedCount   Int         @default(0) @map("saved_count")
-    viewCount    Int         @default(0) @map("view_count")
-    contactCount Int         @default(0) @map("contact_count")
-    createdAt    DateTime    @default(now()) @map("created_at")
-    updatedAt    DateTime    @updatedAt @map("updated_at")
-    salaryType   SalaryType? @map("salary_type")
-
-    leads      Lead[]
-    ratings    Rating[]
-    savedBy    MasterProfileSave[]
-    views      MasterProfileView[]
-    contacts   MasterProfileContact[]
-    categories MasterProfileJobCategory[]
-
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@map("master_profiles")
-}
-
-model MasterProfileJobCategory {
-    id              Int      @id @default(autoincrement())
-    masterProfileId Int      @map("master_profile_id")
-    jobCategoryId   Int      @map("job_category_id")
-    createdAt       DateTime @default(now()) @map("created_at")
-
-    masterProfile MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-    jobCategory   JobCategory   @relation(fields: [jobCategoryId], references: [id], onDelete: Cascade)
-
-    @@unique([masterProfileId, jobCategoryId])
-    @@map("master_profile_job_categories")
-}
-
-model MasterProfileSave {
-    id              Int      @id @default(autoincrement())
-    userId          Int
-    masterProfileId Int      @map("master_profile_id")
-    createdAt       DateTime @default(now()) @map("created_at")
-
-    user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-    masterProfile MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-
-    @@unique([userId, masterProfileId])
-    @@map("master_profile_saves")
-}
-
-model MasterProfileView {
-    id              Int      @id @default(autoincrement())
-    userId          Int?
-    masterProfileId Int      @map("master_profile_id")
-    createdAt       DateTime @default(now()) @map("created_at")
-
-    user          User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-    masterProfile MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-
-    @@map("master_profile_views")
-}
-
-model MasterProfileContact {
-    id              Int      @id @default(autoincrement())
-    userId          Int
-    masterProfileId Int      @map("master_profile_id")
-    createdAt       DateTime @default(now()) @map("created_at")
-
-    user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-    masterProfile MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
-
-    @@unique([userId, masterProfileId])
-    @@map("master_profile_contacts")
-}
-
-model Region {
-    id                Int     @id @default(autoincrement())
-    nameUz            String  @map("name_uz")
-    nameUzCyrl        String  @map("name_uz_cyrl")
-    nameRu            String  @map("name_ru")
-    countryNameUz     String? @default("O'zbekiston") @map("country_name_uz")
-    countryNameUzCyrl String? @default("Ўзбекистон") @map("country_name_uz_cyrl")
-    countryNameRu     String? @default("Узбекистан") @map("country_name_ru")
-    parentId          Int?    @map("parent_id")
-
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
-
-    users      User[]
-    complexes  Complex[]
-    apartments Apartment[]
-
-    children Region[] @relation("RegionHierarchy")
-    parent   Region?  @relation("RegionHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-
-    @@unique([nameUz, parentId], name: "nameUz_parentId")
-    @@map("regions")
+    @@map("socials")
 }
 
 model Rating {
-    id              Int       @id @default(autoincrement())
-    score           Int
-    comment         String?
-    isApproved      Boolean   @default(false) @map("is_approved")
-    moderationNote  String?   @map("moderation_note")
-    moderatedAt     DateTime? @map("moderated_at")
-    moderatedBy     Int?      @map("moderated_by")
-    userId          Int
-    masterProfileId Int
-    createdAt       DateTime  @default(now()) @map("created_at")
-    updatedAt       DateTime  @updatedAt @map("updated_at")
+    id       Int     @id @default(autoincrement())
+    rating   Int     @default(5)
+    comment  String?
+    userId   Int     @map("user_id")
+    masterId Int?    @map("master_id")
 
-    user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-    masterProfile MasterProfile @relation(fields: [masterProfileId], references: [id], onDelete: Cascade)
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
 
-    @@unique([userId, masterProfileId])
+    user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+    master Master? @relation(fields: [masterId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, masterId])
     @@map("ratings")
+}
+
+model RealEstate {
+    id           Int              @id @default(autoincrement())
+    title        String
+    description  String?
+    price        Decimal          @db.Decimal(15, 2)
+    propertyType PropertyType     @map("property_type")
+    dealType     DealType         @map("deal_type")
+    sellerType   SellerType       @map("seller_type")
+    userId       Int              @map("user_id")
+    locationId   Int              @map("location_id")
+    contactPhone String           @map("contact_phone")
+    companyName  String?          @map("company_name")
+    companyLogo  String?          @map("company_logo")
+    areaSize     Float            @map("area_size")
+    roomCount    Int              @map("room_count")
+    floor        Int?
+    totalFloors  Int?             @map("total_floors")
+    plotSize     Float?           @map("plot_size")
+    externalId   String?          @unique @map("external_id")
+    apiUrl       String?          @map("api_url")
+    syncStatus   Json?            @map("sync_status")
+    viewCount    Int              @default(0) @map("view_count")
+    likeCount    Int              @default(0) @map("like_count")
+    status       RealEstateStatus @default(ACTIVE)
+
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+    location Location              @relation(fields: [locationId], references: [id])
+    media    PropertyImgAndVideo[]
+
+    @@map("real_estates")
+}
+
+model PropertyImgAndVideo {
+    id         Int       @id @default(autoincrement())
+    url        String
+    isMain     Boolean   @default(false) @map("is_main")
+    mediaType  MediaType @default(IMAGE) @map("media_type")
+    propertyId Int       @map("property_id")
+
+    createdAt DateTime @default(now()) @map("created_at")
+
+    property RealEstate @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+    @@map("property_media")
+}
+
+model Job {
+    id           Int       @id @default(autoincrement())
+    title        String
+    description  String
+    price        Decimal?  @db.Decimal(15, 2)
+    contactPhone String    @map("contact_phone")
+    userId       Int       @map("user_id")
+    locationId   Int?      @map("location_id")
+    skillTypeId  Int       @map("skill_type_id")
+    status       JobStatus @default(OPEN)
+    viewCount    Int       @default(0) @map("view_count")
+    likeCount    Int       @default(0) @map("like_count")
+
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+    location  Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+    skillType SkillType   @relation(fields: [skillTypeId], references: [id])
+    skills    JobSkills[]
+    likes     JobLike[]
+    views     JobView[]
+
+    @@map("jobs")
+}
+
+model JobSkills {
+    id      Int @id @default(autoincrement())
+    jobId   Int @map("job_id")
+    skillId Int @map("skill_id")
+
+    job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+    skill Skills @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+    @@unique([jobId, skillId])
+    @@map("job_skills")
+}
+
+model JobLike {
+    id        Int      @id @default(autoincrement())
+    createdAt DateTime @default(now()) @map("created_at")
+    userId    Int      @map("user_id")
+    jobId     Int      @map("job_id")
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, jobId])
+    @@map("job_likes")
+}
+
+model JobView {
+    id        Int      @id @default(autoincrement())
+    count     Int      @default(1)
+    updatedAt DateTime @updatedAt @map("updated_at")
+    userId    Int      @map("user_id")
+    jobId     Int      @map("job_id")
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, jobId])
+    @@map("job_views")
+}
+
+model MasterLike {
+    id        Int      @id @default(autoincrement())
+    createdAt DateTime @default(now()) @map("created_at")
+    userId    Int      @map("user_id")
+    masterId  Int      @map("master_id")
+
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    master Master @relation(fields: [masterId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, masterId])
+    @@map("master_likes")
+}
+
+model SearchSubscription {
+    id       Int     @id @default(autoincrement())
+    query    String
+    isActive Boolean @default(true) @map("is_active")
+    userId   Int?    @map("user_id")
+
+    createdAt DateTime @default(now()) @map("created_at")
+
+    user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@map("search_subscriptions")
 }
 
 model Banner {
     id        Int            @id @default(autoincrement())
-    image     String
+    title     String?
+    mediaUrl  String         @map("media_url")
+    mediaType MediaType      @default(IMAGE) @map("media_type")
     link      String?
-    isActive  Boolean        @default(true)
-    createdAt DateTime       @default(now()) @map("created_at")
-    updatedAt DateTime       @updatedAt @map("updated_at")
+    isActive  Boolean        @default(true) @map("is_active")
     location  BannerLocation @default(OTHER)
-
-    @@map("banners")
-}
-
-model Lead {
-    id               Int        @id @default(autoincrement())
-    type             LeadType
-    status           LeadStatus @default(NEW)
-    source           String?
-    fullName         String     @map("full_name")
-    phone            String
-    address          String?
-    preferredAddress String?    @map("preferred_address")
-    budgetMin        Float?     @map("budget_min")
-    budgetMax        Float?     @map("budget_max")
-    downPayment      Float?     @map("down_payment")
-    message          String?
-    otherDetails     Json?      @map("other_details")
-    searchSnapshot   Json?      @map("search_snapshot")
-    isOpened         Boolean    @default(false) @map("is_opened")
-    openedAt         DateTime?  @map("opened_at")
-    openedBy         String?    @map("opened_by")
-    userId           Int?       @map("user_id")
-    companyId        Int?       @map("company_id")
-    complexId        Int?       @map("complex_id")
-    apartmentId      Int?       @map("apartment_id")
-    masterProfileId  Int?       @map("master_profile_id")
-    searchSessionId  Int?       @unique @map("search_session_id")
-    createdAt        DateTime   @default(now()) @map("created_at")
-    updatedAt        DateTime   @updatedAt @map("updated_at")
-
-    user          User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-    company       Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
-    complex       Complex?            @relation(fields: [complexId], references: [id], onDelete: SetNull)
-    apartment     Apartment?          @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
-    masterProfile MasterProfile?      @relation(fields: [masterProfileId], references: [id], onDelete: SetNull)
-    searchSession SearchSession?      @relation(fields: [searchSessionId], references: [id], onDelete: SetNull)
-    surveyStatus  SearchSurveyStatus?
-
-    @@map("leads")
-}
-
-model SearchSession {
-    id           Int     @id @default(autoincrement())
-    query        Json
-    resultsCount Int     @default(0) @map("results_count")
-    notes        String?
-    fullName     String? @map("full_name")
-    phone        String?
-    address      String?
-    userId       Int?    @map("user_id")
-
-    intentType   SearchIntentType    @map("intent_type")
-    surveyStatus SearchSurveyStatus?
+    order     Int            @default(0)
 
     createdAt DateTime @default(now()) @map("created_at")
     updatedAt DateTime @updatedAt @map("updated_at")
 
-    user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-    lead Lead?
-
-    @@map("search_sessions")
-}
-
-model ComplexInterest {
-    id          Int                 @id @default(autoincrement())
-    note        String?
-    userId      Int?                @map("user_id")
-    complexId   Int                 @map("complex_id")
-    apartmentId Int?                @map("apartment_id")
-    createdAt   DateTime            @default(now()) @map("created_at")
-    type        ComplexInterestType @default(VIEW)
-
-    user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
-    complex   Complex    @relation(fields: [complexId], references: [id], onDelete: Cascade)
-    apartment Apartment? @relation(fields: [apartmentId], references: [id], onDelete: SetNull)
-
-    @@map("complex_interests")
-}
-
-model DataAccessAudit {
-    id                Int      @id @default(autoincrement())
-    entityType        String   @map("entity_type")
-    entityId          Int      @map("entity_id")
-    action            String
-    actorType         String   @map("actor_type")
-    actorId           Int?     @map("actor_id")
-    actorLabel        String?  @map("actor_label")
-    description       String?
-    payload           Json?
-    telegramMessageId Int?     @map("telegram_message_id")
-    createdAt         DateTime @default(now()) @map("created_at")
-
-    @@map("data_access_audits")
-}
-
-model BackupLog {
-    id                Int      @id @default(autoincrement())
-    kind              String
-    telegramMessageId Int?     @map("telegram_message_id")
-    createdAt         DateTime @default(now()) @map("created_at")
-
-    @@map("backup_logs")
-}
-
-model UserDevice {
-    id         Int            @id @default(autoincrement())
-    userId     Int            @map("user_id")
-    deviceId   String         @map("device_id")
-    deviceName String?        @map("device_name")
-    fcmToken   String         @map("fcm_token")
-    isActive   Boolean        @default(true) @map("is_active")
-    lastSeenAt DateTime       @default(now()) @map("last_seen_at")
-    createdAt  DateTime       @default(now()) @map("created_at")
-    updatedAt  DateTime       @updatedAt @map("updated_at")
-    platform   DevicePlatform @default(UNKNOWN)
-
-    user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@unique([userId, deviceId])
-    @@map("user_devices")
-}
-
-model Notification {
-    id             Int       @id @default(autoincrement())
-    userId         Int       @map("user_id")
-    title          String
-    body           String
-    data           Json?
-    isRead         Boolean   @default(false) @map("is_read")
-    readAt         DateTime? @map("read_at")
-    deliveredCount Int       @default(0) @map("delivered_count")
-    failedCount    Int       @default(0) @map("failed_count")
-    createdAt      DateTime  @default(now()) @map("created_at")
-    updatedAt      DateTime  @updatedAt @map("updated_at")
-
-    user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@map("notifications")
+    @@map("banners")
 }
