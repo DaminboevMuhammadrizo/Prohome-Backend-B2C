@@ -35,17 +35,8 @@ export class DashboardController {
         return this.dashboardService.getHomeCategories();
     }
 
-    @Get('home/hero')
-    @ApiOperation({ summary: 'Hero sektsiya kontenti' })
-    getHomeHero() {
-        return this.dashboardService.getHomeHero();
-    }
+  
 
-    @Get('home/features')
-    @ApiOperation({ summary: 'Platforma imkoniyatlari bloki' })
-    getHomeFeatures() {
-        return this.dashboardService.getHomeFeatures();
-    }
 
     // ─── MASTERS ───────────────────────────────────────────────────────────
 
@@ -62,13 +53,7 @@ export class DashboardController {
         return this.dashboardService.getTopMasters(limit);
     }
 
-    // ─── REAL ESTATE ───────────────────────────────────────────────────────
-
-    @Get('real-estate/options')
-    @ApiOperation({ summary: 'Ko\'chmas mulk filter variantlari' })
-    getRealEstateOptions() {
-        return this.dashboardService.getRealEstateOptions();
-    }
+    
 
     @Get('real-estate/stats')
     @ApiOperation({ summary: 'Ko\'chmas mulk statistikasi (sotish/ijara, turlari, ko\'rishlar)' })
