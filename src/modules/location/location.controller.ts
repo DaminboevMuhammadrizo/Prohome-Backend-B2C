@@ -1,16 +1,20 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateLocationDto, UpdateLocationDto } from './dto/location.dto';
 import { GuardService } from 'src/common/guard/guard.service';
 import { Role } from 'src/common/decorators/role.decorator';
 import { LocationType, UserRole } from '@prisma/client';
+import { DashboardService } from 'src/modules/dashboard/dashboard.service';
 import { LocationService } from './location.service';
 
 @ApiTags('Locations')
 @Controller('locations')
 export class LocationController {
-  constructor(private readonly locationService: LocationService) {}
+  constructor(
+    private readonly locationService: LocationService,
+    private readonly dashboardService: DashboardService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Joylashuvlar ro\'yxati' })
@@ -29,6 +33,13 @@ export class LocationController {
   @ApiOperation({ summary: 'Joylashuvlar daraxti (Country→Region→City)' })
   getTree() {
     return this.locationService.getTree();
+  }
+
+  @Get('top')
+  @ApiOperation({ summary: 'Eng ko\'p e\'lonli shaharlar' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getTopLocations(@Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number) {
+    return this.dashboardService.getTopLocations(limit);
   }
 
   @Get(':id')

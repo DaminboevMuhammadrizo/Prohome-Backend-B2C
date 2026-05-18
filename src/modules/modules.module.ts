@@ -13,6 +13,10 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { Module } from '@nestjs/common';
 
 @Module({
-    imports: [AuthModule, UserModule, MasterModule, LocationModule, SkillTypeModule, SkillsModule, RealEstateModule, JobModule, BannerModule, RatingModule, SocialModule, DashboardModule]
+    imports: [
+        AuthModule, UserModule, MasterModule, LocationModule, SkillTypeModule,
+        SkillsModule, RealEstateModule, JobModule, BannerModule, RatingModule, SocialModule,
+        DashboardModule,
+    ]
 })
 export class ModulesModule { }

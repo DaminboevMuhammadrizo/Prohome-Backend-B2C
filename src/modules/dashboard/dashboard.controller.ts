@@ -8,8 +8,6 @@ import {
     Param,
     Req,
     UseGuards,
-    ParseIntPipe,
-    DefaultValuePipe,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
@@ -38,22 +36,6 @@ export class DashboardController {
   
 
 
-    // ─── MASTERS ───────────────────────────────────────────────────────────
-
-    @Get('masters/stats')
-    @ApiOperation({ summary: 'Ustalar umumiy statistikasi' })
-    getMastersStats() {
-        return this.dashboardService.getMastersStats();
-    }
-
-    @Get('masters/top')
-    @ApiOperation({ summary: 'Eng yaxshi ustalar (like va reyting bo\'yicha)' })
-    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nechta qaytarish (default: 10)' })
-    getTopMasters(@Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number) {
-        return this.dashboardService.getTopMasters(limit);
-    }
-
-    
 
     @Get('real-estate/stats')
     @ApiOperation({ summary: 'Ko\'chmas mulk statistikasi (sotish/ijara, turlari, ko\'rishlar)' })
@@ -84,15 +66,6 @@ export class DashboardController {
     @ApiOperation({ summary: 'Platforma to\'liq statistikasi (admin uchun)' })
     getPlatformOverview() {
         return this.dashboardService.getPlatformOverview();
-    }
-
-    // ─── TOP LOCATIONS ─────────────────────────────────────────────────────
-
-    @Get('locations/top')
-    @ApiOperation({ summary: 'Eng ko\'p e\'lonli shaharlar' })
-    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Nechta qaytarish (default: 10)' })
-    getTopLocations(@Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number) {
-        return this.dashboardService.getTopLocations(limit);
     }
 
     // ─── FAVORITES ─────────────────────────────────────────────────────────

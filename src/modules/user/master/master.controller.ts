@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -13,6 +13,7 @@ import { UserData } from 'src/common/decorators/auth.decorators';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import { DashboardService } from 'src/modules/dashboard/dashboard.service';
 import { CreateMasterByAdminDto, RegisterAsMasterDto, UpdateMasterDto } from './dto/create-master.dto';
 import { MasterService } from './master.service';
 
@@ -25,9 +26,7 @@ function ensureImgDir() {
 async function saveAsWebp(buffer: Buffer): Promise<string> {
   const filename = `${Date.now()}.webp`;
   const dest = ensureImgDir();
-  const webpBuffer = await sharp(buffer)
-    .webp({ quality: 88, effort: 4 })
-    .toBuffer();
+  const webpBuffer = await sharp(buffer).webp({ quality: 88, effort: 4 }).toBuffer();
   await writeFile(join(dest, filename), webpBuffer);
   return filename;
 }
@@ -38,6 +37,7 @@ export class MasterController {
   constructor(
     private readonly masterService: MasterService,
     private readonly jwtService: JwtService,
+    private readonly dashboardService: DashboardService,
   ) {}
 
   private extractUserId(req: any): number | undefined {
@@ -50,6 +50,8 @@ export class MasterController {
       return undefined;
     }
   }
+
+  // ── Statik route'lar — har doim /:id dan OLDIN bo'lishi shart ──────────
 
   @Get()
   @ApiOperation({ summary: "Ustalar ro'yxati" })
@@ -82,18 +84,51 @@ export class MasterController {
     return this.masterService.getByUserId(user.id);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Bitta usta (o\'xshash ustalar ham qaytadi)' })
-  getById(@Param('id', ParseIntPipe) id: number) {
-    return this.masterService.getById(id);
-  }
-
   @ApiBearerAuth()
   @UseGuards(GuardService)
   @Post('me/register')
   @ApiOperation({ summary: "Foydalanuvchi usta bo'lish (o'zi)" })
   registerAsMaster(@Body() dto: RegisterAsMasterDto, @UserData() user: JwtPayload) {
     return this.masterService.registerAsMaster(user.id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(GuardService, RoleGuardService)
+  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+  @Post()
+  @ApiOperation({ summary: 'Usta yaratish (admin) — user ham yaratiladi' })
+  createByAdmin(@Body() dto: CreateMasterByAdminDto) {
+    return this.masterService.createByAdmin(dto);
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Ustalar umumiy statistikasi' })
+  getMastersStats() {
+    return this.dashboardService.getMastersStats();
+  }
+
+  @Get('top')
+  @ApiOperation({ summary: 'Eng yaxshi ustalar (like va reyting bo\'yicha)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  getTopMasters(@Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number) {
+    return this.dashboardService.getTopMasters(limit);
+  }
+
+  // DELETE /masters/img — /:id dan OLDIN, aks holda "img" /:id ga tushadi
+  @ApiBearerAuth()
+  @UseGuards(GuardService)
+  @Delete('img')
+  @ApiOperation({ summary: "Usta rasmini o'chirish — profileImg yoki workImg (tokendan tekshiriladi)" })
+  deleteImg(@Query('imgname') imgname: string, @UserData() user: JwtPayload) {
+    return this.masterService.deleteImg(user.id, imgname);
+  }
+
+  // ── Parametrli route'lar — statik route'lardan KEYIN ───────────────────
+
+  @Get(':id')
+  @ApiOperation({ summary: "Bitta usta (o'xshash ustalar ham qaytadi)" })
+  getById(@Param('id', ParseIntPipe) id: number) {
+    return this.masterService.getById(id);
   }
 
   @Post(':id/view')
@@ -108,15 +143,6 @@ export class MasterController {
   @ApiOperation({ summary: 'Ustaga like bosish/olib tashlash' })
   toggleLike(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload) {
     return this.masterService.toggleLike(id, user.id);
-  }
-
-  @ApiBearerAuth()
-  @UseGuards(GuardService, RoleGuardService)
-  @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
-  @Post()
-  @ApiOperation({ summary: 'Usta yaratish (admin) — user ham yaratiladi' })
-  createByAdmin(@Body() dto: CreateMasterByAdminDto) {
-    return this.masterService.createByAdmin(dto);
   }
 
   @ApiBearerAuth()
@@ -161,14 +187,6 @@ export class MasterController {
   async uploadProfileImg(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
     const filename = await saveAsWebp(file.buffer);
     return this.masterService.uploadProfileImg(id, filename);
-  }
-
-  @ApiBearerAuth()
-  @UseGuards(GuardService)
-  @Delete('img')
-  @ApiOperation({ summary: "Usta rasmini o'chirish — profileImg yoki workImg (tokendan tekshiriladi)" })
-  deleteImg(@Query('imgname') imgname: string, @UserData() user: JwtPayload) {
-    return this.masterService.deleteImg(user.id, imgname);
   }
 
   @ApiBearerAuth()
