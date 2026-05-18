@@ -1,0 +1,40 @@
+ENDPOINT: GET /favorites
+AUTH: Bearer token (majburiy)
+
+LOGIKA:
+- Token ichidan userId olinadi
+- MasterLike jadvalidan foydalanuvchi like qilgan ustalar
+- JobLike jadvalidan foydalanuvchi like qilgan ish e'lonlari
+- Eng yangilari birinchi (createdAt desc)
+
+RESPONSE 200:
+{
+  "masters": [
+    {
+      "id": 1,
+      "profileImg": "image/abc.webp",
+      "experience": 5,
+      "isFree": true,
+      "likeCount": 23,
+      "user": { "id": 10, "firstName": "Ali", "lastName": "Valiyev", "phone": "+998901234567" },
+      "skills": [{ "skill": { "id": 1, "name": "Santexnik", "type": { "id": 1, "name": "Qurilish" } } }]
+    }
+  ],
+  "jobs": [
+    {
+      "id": 5,
+      "title": "Santexnik kerak",
+      "description": "...",
+      "price": "300000",
+      "contactPhone": "+998901234567",
+      "status": "OPEN",
+      "likeCount": 4,
+      "createdAt": "2026-05-16T...",
+      "skillType": { "id": 1, "name": "Qurilish" },
+      "location": { "id": 2, "name": "Toshkent" }
+    }
+  ]
+}
+
+ESLATMA: Real estate favorites uchun alohida MasterLike/JobLike kabi jadval sxemada yo'q.
+Hozircha faqat masters va jobs qaytadi.

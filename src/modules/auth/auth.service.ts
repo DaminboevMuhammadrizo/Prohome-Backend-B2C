@@ -202,6 +202,14 @@ export class AuthService {
         }
     }
 
+    async checkOtp(phone: string, otp: string, purpose: OtpPurpose) {
+        const normalized = this.normalizePhone(phone);
+        const saved = await this.redis.get(this.otpKey(normalized, purpose));
+        if (!saved) return { valid: false, reason: 'OTP topilmadi yoki muddati tugagan' };
+        if (saved !== otp) return { valid: false, reason: "OTP noto'g'ri" };
+        return { valid: true };
+    }
+
     async registerMaster(dto: MasterRegisterDto) {
         const phone = this.normalizePhone(dto.phone);
         await this.verifyOtp(phone, dto.otp, OtpPurpose.REGISTER);

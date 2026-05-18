@@ -1,10 +1,25 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, Length } from 'class-validator';
 import { AuthService } from './auth.service';
 import { LoginOtpDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { MasterRegisterDto, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
+import { MasterRegisterDto, OtpPurpose, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
+
+class VerifyOtpDto {
+  @ApiProperty({ example: '+998901234567' })
+  @IsString() @IsNotEmpty()
+  phone!: string;
+
+  @ApiProperty({ example: '123456' })
+  @IsString() @IsNotEmpty() @Length(6, 6)
+  otp!: string;
+
+  @ApiProperty({ enum: OtpPurpose, example: OtpPurpose.REGISTER })
+  @IsString() @IsNotEmpty()
+  purpose!: OtpPurpose;
+}
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -18,7 +33,7 @@ export class AuthController {
   }
 
   @Post('register')
-  @ApiOperation({ summary: 'Ro\'yxatdan o\'tish (telefon+OTP yoki email+parol)' })
+  @ApiOperation({ summary: 'Royxatdan otish (telefon+OTP yoki email+parol)' })
   register(@Body() dto: RegisterAuthDto) {
     return this.authService.register(dto);
   }
@@ -47,9 +62,15 @@ export class AuthController {
     return this.authService.refresh(dto);
   }
 
+  @Post('verify-otp')
+  @ApiOperation({ summary: 'OTP togri yoki notogriligini tekshirish (consume qilmaydi)' })
+  verifyOtp(@Body() dto: VerifyOtpDto) {
+    return this.authService.checkOtp(dto.phone, dto.otp, dto.purpose);
+  }
+
   @Post('master/register')
   @ApiOperation({
-    summary: 'Usta ro\'yxatdan o\'tish — faqat majburiy ma\'lumotlar: ism, familiya, tajriba, skill turi va skilllar',
+    summary: 'Usta royxatdan otish — faqat majburiy malumotlar: ism, familiya, tajriba, skill turi va skilllar',
   })
   registerMaster(@Body() dto: MasterRegisterDto) {
     return this.authService.registerMaster(dto);

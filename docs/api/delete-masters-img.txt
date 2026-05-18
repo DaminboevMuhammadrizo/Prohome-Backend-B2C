@@ -1,0 +1,18 @@
+ENDPOINT: DELETE /masters/img
+AUTH: Bearer token (majburiy)
+QUERY: imgname=1234567890.webp
+
+LOGIKA:
+- Token ichidan userId olinadi
+- userId bo'yicha master topiladi
+- Rasmning master profileImg yoki workImgs ga tegishli ekanligi tekshiriladi
+- Tegishli bo'lmasa 403 ForbiddenException
+- Diskdan fayl o'chiriladi (core/uploads/images/)
+- DB dan: profileImg null qilinadi YOKI workImgs array dan olib tashlanadi
+
+RESPONSE 200:
+{ "message": "Rasm o'chirildi" }
+
+ERRORS:
+404 - Usta topilmadi
+403 - Bu rasm sizga tegishli emas

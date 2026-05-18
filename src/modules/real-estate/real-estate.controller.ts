@@ -57,6 +57,12 @@ export class RealEstateController {
         }
     }
 
+    @Get('options')
+    @ApiOperation({ summary: 'Filter uchun enum opsiyalar: propertyType, dealType, sellerType' })
+    getOptions() {
+        return this.realEstateService.getOptions();
+    }
+
     @Get()
     @ApiOperation({ summary: "Ko'chmas mulklar ro'yxati (filtrlash bilan)" })
     getAll(

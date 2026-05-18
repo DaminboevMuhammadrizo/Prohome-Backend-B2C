@@ -1,0 +1,24 @@
+ENDPOINT: POST /auth/verify-otp
+AUTH: Yo'q (public)
+
+BODY:
+{
+  "phone": "+998901234567",
+  "otp": "123456",
+  "purpose": "REGISTER" | "LOGIN" | "RESET_PASSWORD"
+}
+
+LOGIKA:
+- Redis dan otp:PURPOSE:phone kalit bilan qiymat olinadi
+- OTP mos kelsa { valid: true } qaytadi
+- OTP o'CHIRILMAYDI (consume qilinmaydi) — faqat tekshiruv
+- Haqiqiy consume register/login/resetPassword endpointlarida bo'ladi
+
+RESPONSE 200 (to'g'ri):
+{ "valid": true }
+
+RESPONSE 200 (noto'g'ri):
+{ "valid": false, "reason": "OTP noto'g'ri" }
+{ "valid": false, "reason": "OTP topilmadi yoki muddati tugagan" }
+
+ESLATMA: Bu endpoint faqat frontend UI uchun — "Kodni tekshirishmoqda..." feedbacki uchun.

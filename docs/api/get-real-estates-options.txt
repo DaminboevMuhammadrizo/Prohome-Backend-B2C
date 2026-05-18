@@ -1,0 +1,14 @@
+ENDPOINT: GET /real-estates/options
+AUTH: Yo'q (public)
+
+LOGIKA:
+- Backend enum qiymatlarini qaytaradi
+- Frontend filter UI uchun ishlatadi
+
+RESPONSE 200:
+{
+  "propertyTypes": ["APARTMENT", "HOUSE", "OFFICE", "RETAIL"],
+  "dealTypes": ["SALE", "RENT"],
+  "sellerTypes": ["INDIVIDUAL", "COMPANY"],
+  "statuses": ["ACTIVE", "SOLD", "ARCHIVED"]
+}

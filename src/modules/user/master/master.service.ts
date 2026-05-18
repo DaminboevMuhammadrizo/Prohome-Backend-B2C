@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole, UserStatus } from '@prisma/client';
+import { unlink } from 'fs/promises';
+import { join } from 'path';
 import { hashPassword } from 'src/common/config/bcrypt';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { CreateMasterByAdminDto, RegisterAsMasterDto, UpdateMasterDto } from './dto/create-master.dto';
@@ -47,6 +49,21 @@ export class MasterService {
     socials: { select: { id: true, platform: true, url: true } },
     _count: { select: { ratings: true } },
   };
+
+  async getStats() {
+    const [total, free, avgRatingResult] = await Promise.all([
+      this.prisma.master.count(),
+      this.prisma.master.count({ where: { isFree: true } }),
+      this.prisma.rating.aggregate({ _avg: { rating: true } }),
+    ]);
+    return {
+      total,
+      free,
+      avgRating: avgRatingResult._avg.rating
+        ? Math.round(avgRatingResult._avg.rating * 10) / 10
+        : null,
+    };
+  }
 
   async getAll(page = 1, limit = 20, search?: string, isFree?: boolean, skillTypeId?: number, subscriberUserId?: number) {
     const skip = (page - 1) * limit;
@@ -272,5 +289,30 @@ export class MasterService {
       data: { workImgs: { push: `image/${filename}` } },
       select: this.masterDetailSelect,
     });
+  }
+
+  async deleteImg(userId: number, imgname: string) {
+    const master = await this.prisma.master.findUnique({ where: { userId } });
+    if (!master) throw new NotFoundException('Usta topilmadi');
+
+    const storedPath = `image/${imgname}`;
+    const isProfileImg = master.profileImg === storedPath;
+    const isWorkImg = master.workImgs.includes(storedPath);
+
+    if (!isProfileImg && !isWorkImg) throw new ForbiddenException('Bu rasm sizga tegishli emas');
+
+    const filePath = join(process.cwd(), 'core', 'uploads', 'images', imgname);
+    await unlink(filePath).catch(() => null);
+
+    if (isProfileImg) {
+      await this.prisma.master.update({ where: { id: master.id }, data: { profileImg: null } });
+    } else {
+      await this.prisma.master.update({
+        where: { id: master.id },
+        data: { workImgs: master.workImgs.filter((w) => w !== storedPath) },
+      });
+    }
+
+    return { message: 'Rasm o\'chirildi' };
   }
 }

@@ -1,0 +1,36 @@
+ENDPOINT: GET /home/stats
+AUTH: Yo'q (public)
+
+LOGIKA:
+- users: barcha foydalanuvchilar soni
+- masters: barcha ustalar soni
+- realEstates: ACTIVE holatdagi e'lonlar soni
+- jobs: OPEN holatdagi ish e'lonlari soni
+
+RESPONSE 200:
+{
+  "users": 12430,
+  "masters": 850,
+  "realEstates": 4200,
+  "jobs": 310
+}
+
+---
+
+ENDPOINT: GET /home/categories
+AUTH: Yo'q (public)
+
+LOGIKA:
+- Har bir propertyType bo'yicha ACTIVE e'lonlar soni
+- Ustalar umumiy soni
+
+RESPONSE 200:
+{
+  "realEstate": {
+    "apartment": 1420,
+    "house": 320,
+    "office": 210,
+    "retail": 90
+  },
+  "masters": 850
+}

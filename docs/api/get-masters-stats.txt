@@ -1,0 +1,16 @@
+ENDPOINT: GET /masters/stats
+AUTH: Yo'q (public)
+
+LOGIKA:
+- total: barcha ustalar soni
+- free: hozir bo'sh (isFree: true) ustalar soni
+- avgRating: barcha reytinglarning o'rtachasi (1 kasrga yaxlitlangan)
+
+RESPONSE 200:
+{
+  "total": 850,
+  "free": 412,
+  "avgRating": 4.8
+}
+
+ESLATMA: avgRating null bo'lishi mumkin — hech qanday reyting yo'q bo'lsa.

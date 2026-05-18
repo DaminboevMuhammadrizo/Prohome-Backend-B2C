@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -49,6 +49,12 @@ export class MasterController {
     } catch {
       return undefined;
     }
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Ustalar statistikasi: jami, bo\'sh, o\'rtacha reyting' })
+  getStats() {
+    return this.masterService.getStats();
   }
 
   @Get()
@@ -161,6 +167,14 @@ export class MasterController {
   async uploadProfileImg(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
     const filename = await saveAsWebp(file.buffer);
     return this.masterService.uploadProfileImg(id, filename);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(GuardService)
+  @Delete('img')
+  @ApiOperation({ summary: "Usta rasmini o'chirish — profileImg yoki workImg (tokendan tekshiriladi)" })
+  deleteImg(@Query('imgname') imgname: string, @UserData() user: JwtPayload) {
+    return this.masterService.deleteImg(user.id, imgname);
   }
 
   @ApiBearerAuth()

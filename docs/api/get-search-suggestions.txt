@@ -1,0 +1,33 @@
+ENDPOINT: GET /search/suggestions?q=santexnik
+AUTH: Yo'q (public)
+QUERY: q (string, kamida 2 ta belgi)
+
+LOGIKA:
+- q < 2 belgi bo'lsa bo'sh massivlar qaytadi
+- Parallel 4 ta qidiruv:
+  1. masters: ism yoki familiya bo'yicha (max 5)
+  2. realEstates: sarlavha bo'yicha, faqat ACTIVE (max 5)
+  3. jobs: sarlavha bo'yicha, faqat OPEN (max 5)
+  4. skills: nom bo'yicha, faqat ACTIVE (max 5)
+- Hamma qidiruvlar case-insensitive
+
+RESPONSE 200:
+{
+  "masters": [
+    {
+      "id": 1,
+      "profileImg": "image/abc.webp",
+      "user": { "firstName": "Ali", "lastName": "Valiyev" },
+      "skills": [{ "skill": { "name": "Santexnik" } }]
+    }
+  ],
+  "realEstates": [
+    { "id": 10, "title": "3 xonali kvartira", "price": "85000000", "propertyType": "APARTMENT", "dealType": "SALE" }
+  ],
+  "jobs": [
+    { "id": 5, "title": "Santexnik kerak", "skillType": { "name": "Qurilish" } }
+  ],
+  "skills": [
+    { "id": 1, "name": "Santexnik", "type": { "id": 1, "name": "Qurilish" } }
+  ]
+}
