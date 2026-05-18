@@ -23,6 +23,8 @@
     "@nestjs/common": "^11.0.1",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.21",
+    "@nestjs/websockets": "^11.1.21",
     "@prisma/adapter-pg": "6.19.2",
     "@prisma/client": "6.19.2",
     "class-transformer": "^0.5.1",

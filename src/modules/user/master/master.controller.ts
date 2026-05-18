@@ -51,12 +51,6 @@ export class MasterController {
     }
   }
 
-  @Get('stats')
-  @ApiOperation({ summary: 'Ustalar statistikasi: jami, bo\'sh, o\'rtacha reyting' })
-  getStats() {
-    return this.masterService.getStats();
-  }
-
   @Get()
   @ApiOperation({ summary: "Ustalar ro'yxati" })
   @ApiQuery({ name: 'page', required: false })

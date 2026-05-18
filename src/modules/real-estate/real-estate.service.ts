@@ -36,15 +36,6 @@ export class RealEstateService {
     media: { orderBy: { isMain: 'desc' as const } },
   };
 
-  getOptions() {
-    return {
-      propertyTypes: ['APARTMENT', 'HOUSE', 'OFFICE', 'RETAIL'],
-      dealTypes: ['SALE', 'RENT'],
-      sellerTypes: ['INDIVIDUAL', 'COMPANY'],
-      statuses: ['ACTIVE', 'SOLD', 'ARCHIVED'],
-    };
-  }
-
   async getAll(params: {
     page?: number;
     limit?: number;

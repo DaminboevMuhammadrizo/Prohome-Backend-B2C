@@ -9,16 +9,10 @@ import { BannerModule } from './banner/banner.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { JobModule } from './job/job.module';
-import { HomeModule } from './home/home.module';
-import { FavoritesModule } from './favorites/favorites.module';
-import { SearchModule } from './search/search.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { Module } from '@nestjs/common';
 
 @Module({
-    imports: [
-        AuthModule, UserModule, MasterModule, LocationModule, SkillTypeModule,
-        SkillsModule, RealEstateModule, JobModule, BannerModule, RatingModule,
-        SocialModule, HomeModule, FavoritesModule, SearchModule,
-    ]
+    imports: [AuthModule, UserModule, MasterModule, LocationModule, SkillTypeModule, SkillsModule, RealEstateModule, JobModule, BannerModule, RatingModule, SocialModule, DashboardModule]
 })
 export class ModulesModule { }

@@ -50,21 +50,6 @@ export class MasterService {
     _count: { select: { ratings: true } },
   };
 
-  async getStats() {
-    const [total, free, avgRatingResult] = await Promise.all([
-      this.prisma.master.count(),
-      this.prisma.master.count({ where: { isFree: true } }),
-      this.prisma.rating.aggregate({ _avg: { rating: true } }),
-    ]);
-    return {
-      total,
-      free,
-      avgRating: avgRatingResult._avg.rating
-        ? Math.round(avgRatingResult._avg.rating * 10) / 10
-        : null,
-    };
-  }
-
   async getAll(page = 1, limit = 20, search?: string, isFree?: boolean, skillTypeId?: number, subscriberUserId?: number) {
     const skip = (page - 1) * limit;
     const where: any = {};
