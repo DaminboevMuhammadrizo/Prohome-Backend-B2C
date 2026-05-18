@@ -4,6 +4,7 @@ import { PrismaService } from 'src/common/database/prisma.service';
 import {
   PropertyType,
   DealType,
+  SellerType,
   JobStatus,
   RealEstateStatus,
 } from '@prisma/client';
@@ -47,44 +48,43 @@ export class DashboardService {
   }
 
   async getHomeCategories() {
-    const [apartment, house, office, retail, masters, jobs] = await Promise.all(
-      [
+    const [apartment, house, office, rent, newBuilding, retail, masters, jobs] =
+      await Promise.all([
+        this.prisma.realEstate.count({
+          where: { propertyType: PropertyType.APARTMENT, status: RealEstateStatus.ACTIVE },
+        }),
+        this.prisma.realEstate.count({
+          where: { propertyType: PropertyType.HOUSE, status: RealEstateStatus.ACTIVE },
+        }),
+        this.prisma.realEstate.count({
+          where: { propertyType: PropertyType.OFFICE, status: RealEstateStatus.ACTIVE },
+        }),
+        this.prisma.realEstate.count({
+          where: { dealType: DealType.RENT, status: RealEstateStatus.ACTIVE },
+        }),
         this.prisma.realEstate.count({
           where: {
             propertyType: PropertyType.APARTMENT,
+            sellerType: SellerType.COMPANY,
             status: RealEstateStatus.ACTIVE,
           },
         }),
         this.prisma.realEstate.count({
-          where: {
-            propertyType: PropertyType.HOUSE,
-            status: RealEstateStatus.ACTIVE,
-          },
-        }),
-        this.prisma.realEstate.count({
-          where: {
-            propertyType: PropertyType.OFFICE,
-            status: RealEstateStatus.ACTIVE,
-          },
-        }),
-        this.prisma.realEstate.count({
-          where: {
-            propertyType: PropertyType.RETAIL,
-            status: RealEstateStatus.ACTIVE,
-          },
+          where: { propertyType: PropertyType.RETAIL, status: RealEstateStatus.ACTIVE },
         }),
         this.prisma.master.count(),
         this.prisma.job.count({ where: { status: JobStatus.OPEN } }),
-      ],
-    );
+      ]);
 
     return [
-      { key: 'APARTMENT', name: 'Kvartira', count: apartment },
-      { key: 'HOUSE', name: 'Hovli-uy', count: house },
-      { key: 'OFFICE', name: 'Ofis', count: office },
-      { key: 'RETAIL', name: "Do'kon", count: retail },
-      { key: 'MASTER', name: 'Ustalar', count: masters },
-      { key: 'JOB', name: 'Ishlar', count: jobs },
+      { key: 'APARTMENT',    name: 'Kvartira',    description: "Ko'p qavatli uylar",     count: apartment    },
+      { key: 'HOUSE',        name: 'Hovli-uy',    description: 'Yer bilan birga',         count: house        },
+      { key: 'OFFICE',       name: 'Ofis',        description: 'Biznes uchun',            count: office       },
+      { key: 'RENT',         name: 'Ijara',       description: 'Kunlik va uzoq muddat',   count: rent         },
+      { key: 'NEW_BUILDING', name: 'Yangi bino',  description: 'Yangi qurilgan',          count: newBuilding  },
+      { key: 'RETAIL',       name: 'Tijorat',     description: 'Magazin, savdo',          count: retail       },
+      { key: 'MASTER',       name: 'Ustalar',     description: 'Professional xizmat',     count: masters      },
+      { key: 'JOB',          name: 'Loyihalar',   description: 'Yangi qurilishlar',       count: jobs         },
     ];
   }
 
