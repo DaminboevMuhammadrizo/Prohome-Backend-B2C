@@ -39,7 +39,7 @@ export class SmsService {
         },
       );
     } catch (error) {
-      console.error('SMS xatolik:', error.response?.data || error.message);
+      console.error('SMS xatolik:', error || error.message);
       throw new HttpException('SMS yuborishda xatolik yuz berdi', 400);
     }
   }

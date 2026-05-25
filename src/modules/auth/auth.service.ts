@@ -54,17 +54,20 @@ export class AuthService {
 
     async sendOtp(dto: SendOtpDto) {
         const phone = this.normalizePhone(dto.phone);
-
+        console.log("1" + phone)
         if (dto.purpose === OtpPurpose.REGISTER) {
+            console.log("2" + phone)
             const existing = await this.prisma.user.findUnique({ where: { phone } });
             if (existing) throw new BadRequestException('Bu telefon raqam band');
         } else {
+            console.log("3" + phone)
             const user = await this.prisma.user.findUnique({ where: { phone } });
             if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
             this.ensureActive(user);
         }
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        console.log("4" + otp)
         await this.redis.set(this.otpKey(phone, dto.purpose), otp, 120);
 
         const text =
@@ -72,7 +75,9 @@ export class AuthService {
                 ? `"PROHOME" platformasi: parolni tiklash uchun tasdiqlash kodi ${otp}. Kodni hech kimga bermang.`
                 : `"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp}`;
 
+        console.log("5" + text)
         await this.sms.sendSMS(text, phone);
+        console.log("6")
         return { message: 'OTP yuborildi' };
     }
 
