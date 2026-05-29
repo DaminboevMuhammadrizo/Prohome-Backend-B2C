@@ -280,7 +280,7 @@ export class MasterService {
     const master = await this.prisma.master.findUnique({ where: { userId } });
     if (!master) throw new NotFoundException('Usta topilmadi');
 
-    const storedPath = `image/${imgname}`;
+    const storedPath = `${imgname}`;
     const isProfileImg = master.profileImg === storedPath;
     const isWorkImg = master.workImgs.includes(storedPath);
 

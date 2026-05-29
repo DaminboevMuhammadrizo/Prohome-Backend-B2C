@@ -237,7 +237,7 @@ export class AuthService {
         });
 
         const master = await this.prisma.master.create({
-            data: { userId: user.id, experience: dto.experience },
+            data: { userId: user.id, experience: dto.experience, bio: dto.bio },
         });
 
         await this.prisma.masterSkills.createMany({

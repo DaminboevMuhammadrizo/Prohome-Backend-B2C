@@ -104,6 +104,11 @@ export class MasterRegisterDto {
   @IsArray()
   @IsInt({ each: true })
   skillIds!: number[];
+
+  @ApiPropertyOptional({ example: 'Santexnik, elektrik ishlari bo\'yicha 5 yillik tajriba' })
+  @IsOptional()
+  @IsString()
+  bio?: string;
 }
 
 export class ResetPasswordDto {
