@@ -1,3 +1,4 @@
+import { BlogModule } from './blog/blog.module';
 import { RealEstateModule } from './real-estate/real-estate.module';
 import { SkillTypeModule } from './skill-type/skill-type.module';
 import { LocationModule } from './location/location.module';
@@ -16,7 +17,7 @@ import { Module } from '@nestjs/common';
     imports: [
         AuthModule, UserModule, MasterModule, LocationModule, SkillTypeModule,
         SkillsModule, RealEstateModule, JobModule, BannerModule, RatingModule, SocialModule,
-        DashboardModule,
+        DashboardModule, BlogModule,
     ]
 })
 export class ModulesModule { }

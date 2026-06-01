@@ -82,6 +82,12 @@ enum RealEstateStatus {
     ARCHIVED
 }
 
+enum ContentStatus {
+    DRAFT
+    PUBLISHED
+    ARCHIVED
+}
+
 model User {
     id         Int        @id @default(autoincrement())
     phone      String?    @unique
@@ -149,6 +155,8 @@ model Master {
     socials Social[]
     ratings Rating[]
     likes   MasterLike[]
+    news    News[]
+    reels   Reel[]
 
     @@map("masters")
 }
@@ -295,6 +303,8 @@ model Job {
     skills    JobSkills[]
     likes     JobLike[]
     views     JobView[]
+    news      News[]
+    reels     Reel[]
 
     @@map("jobs")
 }
@@ -378,4 +388,62 @@ model Banner {
     updatedAt DateTime @updatedAt @map("updated_at")
 
     @@map("banners")
+}
+
+model NewsCategory {
+    id   Int    @id @default(autoincrement())
+    name String @unique
+
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    news News[]
+
+    @@map("news_categories")
+}
+
+model News {
+    id          Int           @id @default(autoincrement())
+    title       String
+    slug        String        @unique
+    excerpt     String?
+    content     String
+    coverImage  String?       @map("cover_image")
+    categoryId  Int?          @map("category_id")
+    status      ContentStatus @default(DRAFT)
+    publishedAt DateTime?     @map("published_at")
+    viewCount   Int           @default(0) @map("view_count")
+    masterId    Int?          @map("master_id")
+    jobId       Int?          @map("job_id")
+
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    category NewsCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+    master   Master?       @relation(fields: [masterId], references: [id], onDelete: SetNull)
+    job      Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+    @@map("news")
+}
+
+model Reel {
+    id           Int           @id @default(autoincrement())
+    title        String
+    description  String?
+    videoUrl     String        @map("video_url")
+    thumbnailUrl String?       @map("thumbnail_url")
+    status       ContentStatus @default(DRAFT)
+    viewCount    Int           @default(0) @map("view_count")
+    order        Int           @default(0)
+    duration     Int?
+    masterId     Int?          @map("master_id")
+    jobId        Int?          @map("job_id")
+
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    master Master? @relation(fields: [masterId], references: [id], onDelete: SetNull)
+    job    Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+    @@map("reels")
 }
