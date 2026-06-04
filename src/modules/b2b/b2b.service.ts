@@ -26,18 +26,18 @@ export class B2bService {
   }
 
   getProjects() {
-    return this.get('/b2c/projects');
+    return this.get('/room/b2c/projects');
   }
 
   getRooms(query: Record<string, any>) {
-    return this.get('/b2c/rooms', query);
+    return this.get('/room/b2c/rooms', query);
   }
 
   getRoomDetail(id?: number, roomNumber?: string) {
-    return this.get('/b2c/room-detail', { id, roomNumber });
+    return this.get('/room/b2c/room-detail', { id, roomNumber });
   }
 
   getCompanies() {
-    return this.get<any[]>('/b2c/companies');
+    return this.get<any[]>('/company/b2c');
   }
 }
