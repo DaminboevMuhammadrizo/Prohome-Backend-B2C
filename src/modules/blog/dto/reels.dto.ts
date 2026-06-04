@@ -14,10 +14,10 @@ export class CreateReelDto {
   @IsString()
   description?: string;
 
-  @ApiProperty({ example: 'https://cdn.prohome.uz/reels/video-1.mp4' })
+  @ApiPropertyOptional({ example: 'https://cdn.prohome.uz/reels/video-1.mp4', description: 'Video URL (file yuklanmasa shart)' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  videoUrl!: string;
+  videoUrl?: string;
 
   @ApiPropertyOptional({ example: 'https://cdn.prohome.uz/reels/thumb-1.jpg' })
   @IsOptional()
@@ -56,6 +56,13 @@ export class CreateReelDto {
   @IsInt()
   @Min(1)
   jobId?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  companyId?: number;
 }
 
 export class UpdateReelDto {

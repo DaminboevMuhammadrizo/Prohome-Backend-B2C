@@ -4,7 +4,7 @@ import { AuthService } from './auth.service';
 import { LoginOtpDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { MasterRegisterDto, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
+import { CompanyLoginDto, MasterRegisterDto, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -53,5 +53,11 @@ export class AuthController {
   })
   registerMaster(@Body() dto: MasterRegisterDto) {
     return this.authService.registerMaster(dto);
+  }
+
+  @Post('company/login')
+  @ApiOperation({ summary: 'Kompaniya login — phone + password → accessToken' })
+  companyLogin(@Body() dto: CompanyLoginDto) {
+    return this.authService.companyLogin(dto);
   }
 }

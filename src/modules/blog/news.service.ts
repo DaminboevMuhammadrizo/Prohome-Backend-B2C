@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContentStatus } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { CreateNewsCategoryDto, CreateNewsDto, UpdateNewsCategoryDto, UpdateNewsDto } from './dto/news.dto';
@@ -65,7 +65,16 @@ export class NewsService {
     return news;
   }
 
+  private async checkCompanyWeeklyLimit(companyId: number) {
+    const company = await this.prisma.company.findUnique({ where: { id: companyId }, select: { newsWeeklyLimit: true } });
+    const limit = company?.newsWeeklyLimit ?? 2;
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const count = await this.prisma.news.count({ where: { companyId, createdAt: { gte: weekAgo } } });
+    if (count >= limit) throw new BadRequestException(`Kompaniya haftada ${limit} tadan ko'p yangilik qo'ya olmaydi`);
+  }
+
   async create(dto: CreateNewsDto) {
+    if (dto.companyId) await this.checkCompanyWeeklyLimit(dto.companyId);
     return this.prisma.news.create({
       data: {
         ...dto,

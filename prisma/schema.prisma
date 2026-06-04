@@ -390,6 +390,38 @@ model Banner {
     @@map("banners")
 }
 
+model Company {
+    id        Int      @id @default(autoincrement())
+    name      String
+    phone     String   @unique
+    password  String
+    logo      String?
+    isActive  Boolean  @default(true) @map("is_active")
+
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    b2bCompanyId     Int? @unique @map("b2b_company_id")
+    newsWeeklyLimit  Int  @default(2) @map("news_weekly_limit")
+    reelsWeeklyLimit Int  @default(2) @map("reels_weekly_limit")
+
+    reels Reel[]
+    news  News[]
+
+    @@map("companies")
+}
+
+// Global default limits — yangi kompaniya qo'shilganda shu qiymatlar ishlatiladi
+model ContentLimitConfig {
+    id               Int @id @default(1)
+    newsWeeklyLimit  Int @default(2) @map("news_weekly_limit")
+    reelsWeeklyLimit Int @default(2) @map("reels_weekly_limit")
+
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    @@map("content_limit_config")
+}
+
 model NewsCategory {
     id   Int    @id @default(autoincrement())
     name String @unique
@@ -415,6 +447,7 @@ model News {
     viewCount   Int           @default(0) @map("view_count")
     masterId    Int?          @map("master_id")
     jobId       Int?          @map("job_id")
+    companyId   Int?          @map("company_id")
 
     createdAt DateTime @default(now()) @map("created_at")
     updatedAt DateTime @updatedAt @map("updated_at")
@@ -422,6 +455,7 @@ model News {
     category NewsCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
     master   Master?       @relation(fields: [masterId], references: [id], onDelete: SetNull)
     job      Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+    company  Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
     @@map("news")
 }
@@ -438,12 +472,14 @@ model Reel {
     duration     Int?
     masterId     Int?          @map("master_id")
     jobId        Int?          @map("job_id")
+    companyId    Int?          @map("company_id")
 
     createdAt DateTime @default(now()) @map("created_at")
     updatedAt DateTime @updatedAt @map("updated_at")
 
-    master Master? @relation(fields: [masterId], references: [id], onDelete: SetNull)
-    job    Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+    master  Master?  @relation(fields: [masterId], references: [id], onDelete: SetNull)
+    job     Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+    company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
     @@map("reels")
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContentStatus } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { CreateReelDto, UpdateReelDto } from './dto/reels.dto';
@@ -10,6 +10,7 @@ export class ReelsService {
   private readonly include = {
     master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
     job: { select: { id: true, title: true } },
+    company: { select: { id: true, name: true, logo: true } },
   };
 
   async getAll(params: {
@@ -18,13 +19,15 @@ export class ReelsService {
     status?: ContentStatus;
     masterId?: number;
     jobId?: number;
+    companyId?: number;
   }) {
-    const { page = 1, limit = 10, status, masterId, jobId } = params;
+    const { page = 1, limit = 10, status, masterId, jobId, companyId } = params;
     const skip = (page - 1) * limit;
 
     const where: any = { status: status ?? ContentStatus.PUBLISHED };
     if (masterId !== undefined) where.masterId = masterId;
     if (jobId !== undefined) where.jobId = jobId;
+    if (companyId !== undefined) where.companyId = companyId;
 
     const [data, total] = await Promise.all([
       this.prisma.reel.findMany({
@@ -45,7 +48,16 @@ export class ReelsService {
     return reel;
   }
 
-  async create(dto: CreateReelDto) {
+  private async checkCompanyWeeklyLimit(companyId: number) {
+    const company = await this.prisma.company.findUnique({ where: { id: companyId }, select: { reelsWeeklyLimit: true } });
+    const limit = company?.reelsWeeklyLimit ?? 2;
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const count = await this.prisma.reel.count({ where: { companyId, createdAt: { gte: weekAgo } } });
+    if (count >= limit) throw new BadRequestException(`Kompaniya haftada ${limit} tadan ko'p reel qo'ya olmaydi`);
+  }
+
+  async create(dto: CreateReelDto & { videoUrl: string }) {
+    if (dto.companyId) await this.checkCompanyWeeklyLimit(dto.companyId);
     return this.prisma.reel.create({ data: dto, include: this.include });
   }
 

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { User, UserRole } from '@prisma/client';
-import { MasterRegisterDto, OtpPurpose, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
+import { CompanyLoginDto, MasterRegisterDto, OtpPurpose, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
 import { JwtPayload, JwtServices } from 'src/common/config/jwt/jwt.service';
 import { hashPassword, compirePassword } from 'src/common/config/bcrypt';
 import { RedisService } from 'src/common/config/redis/redis.service';
@@ -247,5 +247,23 @@ export class AuthService {
 
         const tokens = await this.genTokens(user);
         return { ...tokens, masterId: master.id };
+    }
+
+    async companyLogin(dto: CompanyLoginDto) {
+        const phone = this.normalizePhone(dto.phone);
+        const company = await this.prisma.company.findUnique({ where: { phone } });
+        if (!company || !company.isActive) throw new UnauthorizedException('Kompaniya topilmadi yoki bloklangan');
+
+        const valid = await compirePassword(dto.password, company.password);
+        if (!valid) throw new UnauthorizedException('Telefon yoki parol noto\'g\'ri');
+
+        const accessToken = await this.jwt.generateCompanyAccessToken({
+            companyId: company.id, name: company.name, type: 'company'
+        });
+
+        return {
+            accessToken,
+            company: { id: company.id, name: company.name, logo: company.logo },
+        };
     }
 }

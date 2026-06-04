@@ -111,6 +111,18 @@ export class MasterRegisterDto {
   bio?: string;
 }
 
+export class CompanyLoginDto {
+  @ApiProperty({ example: '+998901234567' })
+  @IsString()
+  @IsNotEmpty()
+  phone!: string;
+
+  @ApiProperty({ example: 'strong-password' })
+  @IsString()
+  @IsNotEmpty()
+  password!: string;
+}
+
 export class ResetPasswordDto {
   @ApiProperty({ example: '+998901234567' })
   @IsString()

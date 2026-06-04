@@ -73,6 +73,13 @@ export class CreateNewsDto {
   @IsInt()
   @Min(1)
   jobId?: number;
+
+  @ApiPropertyOptional({ example: 1, description: 'Tegishli kompaniya ID (ixtiyoriy)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  companyId?: number;
 }
 
 export class UpdateNewsDto {
