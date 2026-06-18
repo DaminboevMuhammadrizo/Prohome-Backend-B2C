@@ -79,6 +79,15 @@ export class CompanyService {
     });
   }
 
+  async updateLogo(id: number, logoPath: string) {
+    await this.findOne(id);
+    return this.prisma.company.update({
+      where: { id },
+      data: { logo: logoPath },
+      select: { id: true, name: true, logo: true },
+    });
+  }
+
   async toggleActive(id: number) {
     const company = await this.findOne(id);
     return this.prisma.company.update({

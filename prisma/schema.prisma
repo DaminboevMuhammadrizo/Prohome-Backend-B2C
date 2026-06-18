@@ -88,6 +88,13 @@ enum ContentStatus {
     ARCHIVED
 }
 
+enum MessageFileType {
+    TEXT
+    IMAGE
+    VIDEO
+    DOCUMENT
+}
+
 model User {
     id         Int        @id @default(autoincrement())
     phone      String?    @unique
@@ -113,6 +120,7 @@ model User {
     masterLikes         MasterLike[]
     searchSubscriptions SearchSubscription[]
     jobs                Job[]
+    chats               Chat[]
 
     @@map("users")
 }
@@ -157,6 +165,7 @@ model Master {
     likes   MasterLike[]
     news    News[]
     reels   Reel[]
+    chats   Chat[]
 
     @@map("masters")
 }
@@ -482,4 +491,37 @@ model Reel {
     company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
     @@map("reels")
+}
+
+model Chat {
+    id        Int      @id @default(autoincrement())
+    userId    Int      @map("user_id")
+    masterId  Int      @map("master_id")
+
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+    master   Master        @relation(fields: [masterId], references: [id], onDelete: Cascade)
+    messages ChatMessage[]
+
+    @@unique([userId, masterId])
+    @@map("chats")
+}
+
+model ChatMessage {
+    id         Int             @id @default(autoincrement())
+    chatId     Int             @map("chat_id")
+    senderId   Int             @map("sender_id")
+    senderType String          @map("sender_type")
+    content    String?
+    fileUrl    String?         @map("file_url")
+    fileType   MessageFileType @default(TEXT) @map("file_type")
+    isRead     Boolean         @default(false) @map("is_read")
+
+    createdAt DateTime @default(now()) @map("created_at")
+
+    chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+    @@map("chat_messages")
 }

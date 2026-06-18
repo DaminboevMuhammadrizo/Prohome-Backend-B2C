@@ -1,5 +1,6 @@
 import { B2bModule } from './b2b/b2b.module';
 import { BlogModule } from './blog/blog.module';
+import { ChatModule } from './chat/chat.module';
 import { CompanyModule } from './company/company.module';
 import { RealEstateModule } from './real-estate/real-estate.module';
 import { SkillTypeModule } from './skill-type/skill-type.module';
@@ -19,7 +20,7 @@ import { Module } from '@nestjs/common';
     imports: [
         AuthModule, UserModule, MasterModule, LocationModule, SkillTypeModule,
         SkillsModule, RealEstateModule, JobModule, BannerModule, RatingModule, SocialModule,
-        DashboardModule, BlogModule, B2bModule, CompanyModule,
+        DashboardModule, BlogModule, B2bModule, CompanyModule, ChatModule,
     ]
 })
 export class ModulesModule { }
