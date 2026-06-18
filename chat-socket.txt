@@ -1,0 +1,330 @@
+================================================================
+  PROHOME B2C — CHAT WebSocket + REST QO'LLANMA (Frontend)
+================================================================
+
+PRODUCTION URL : https://api-b2c.prohome.uz
+WS NAMESPACE   : /chat
+PAKET          : socket.io-client ^4.x
+
+
+----------------------------------------------------------------
+  1. O'RNATISH
+----------------------------------------------------------------
+
+npm install socket.io-client
+# yoki
+yarn add socket.io-client
+
+
+----------------------------------------------------------------
+  2. ULANISH (Autentifikatsiya)
+----------------------------------------------------------------
+
+Token — oddiy foydalanuvchi yoki usta JWT access tokeni.
+Kompaniya tokeni qabul qilinmaydi.
+
+import { io, Socket } from 'socket.io-client';
+
+const socket: Socket = io('https://api-b2c.prohome.uz/chat', {
+  auth: {
+    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'  // Bearer prefiksiz
+  },
+  transports: ['websocket'],   // polling ham ishlaydi, lekin ws tezroq
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 2000,
+});
+
+socket.on('connect', () => {
+  console.log('Ulandi:', socket.id);
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('Uzildi:', reason);
+});
+
+// Token noto'g'ri bo'lsa server 'error' chiqarib disconnect qiladi
+socket.on('error', (msg: string) => {
+  console.error('WS xato:', msg);
+});
+
+
+----------------------------------------------------------------
+  3. CHAT XONASIGA KIRISH (join_chat)
+----------------------------------------------------------------
+
+Xabarlarni olish uchun avval shu chatga qo'shilish shart.
+chatId — REST /chats dan olingan chat.id
+
+socket.emit('join_chat', chatId, (response) => {
+  // response: { event: 'joined', data: { chatId } }
+  console.log('Xonaga kirdim:', response);
+});
+
+
+----------------------------------------------------------------
+  4. CHAT XONASIDAN CHIQISH (leave_chat)
+----------------------------------------------------------------
+
+Foydalanuvchi boshqa chatga o'tganda yoki ekrandan chiqqanda:
+
+socket.emit('leave_chat', chatId);
+
+
+----------------------------------------------------------------
+  5. MATN XABAR YUBORISH (send_message)
+----------------------------------------------------------------
+
+Faqat matn xabarlar WebSocket orqali yuboriladi.
+Fayl (rasm/video/hujjat) uchun REST ishlatiladi — 8-bo'lim.
+
+socket.emit('send_message', {
+  chatId: 12,
+  content: 'Salom, yordam kerakmi?'
+}, (response) => {
+  // response: { event: 'sent', data: { id, chatId, senderId, senderType, content, ... } }
+  console.log('Yuborildi:', response.data);
+});
+
+
+----------------------------------------------------------------
+  6. YANGI XABAR QABUL QILISH (new_message)
+----------------------------------------------------------------
+
+Bir xonada turgan ikki tomon ham bu eventni oladi
+(o'zingiz yuborganingiz ham — optimistic UI uchun qulay).
+
+socket.on('new_message', (message) => {
+  /*
+    message: {
+      id          : number
+      chatId      : number
+      senderId    : number      // user.id (kim yuborganini aniqlash uchun)
+      senderType  : 'USER' | 'MASTER'
+      content     : string | null
+      fileUrl     : string | null   // fayl yo'li (null = matn xabar)
+      fileType    : 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'
+      isRead      : boolean
+      createdAt   : string (ISO 8601)
+    }
+  */
+  addMessageToUI(message);
+});
+
+
+----------------------------------------------------------------
+  7. YOZILMOQDA INDIKATORI (typing)
+----------------------------------------------------------------
+
+// Yuborish — foydalanuvchi input da yozayotganda
+socket.emit('typing', chatId);
+
+// Qabul qilish — ikkinchi tomonda ko'rsatish
+socket.on('typing', ({ chatId, senderId }) => {
+  showTypingIndicator(chatId, senderId);
+  // 3 soniyadan keyin yashirish tavsiya etiladi
+  setTimeout(() => hideTypingIndicator(chatId), 3000);
+});
+
+
+----------------------------------------------------------------
+  8. FAYL YUBORISH (REST — keyin WS orqali ham keladi)
+----------------------------------------------------------------
+
+Rasm, video, hujjat — multipart/form-data orqali yuboriladi.
+Server saqlagan keyin WS orqali 'new_message' chiqaradi.
+Max hajm: 50 MB.
+
+async function sendFile(chatId: number, file: File, content?: string) {
+  const form = new FormData();
+  form.append('file', file);
+  if (content) form.append('content', content);
+
+  const res = await fetch(`https://api-b2c.prohome.uz/chats/${chatId}/messages`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: form,
+  });
+
+  return res.json();
+  // WS 'new_message' eventi avtomatik chiqadi — UI ni ikki marta yangilamang!
+}
+
+
+----------------------------------------------------------------
+  9. REST ENDPOINTLAR (Tarix va boshqaruv)
+----------------------------------------------------------------
+
+Barcha REST so'rovlarda header:
+  Authorization: Bearer <accessToken>
+
+──────────────────────────────────────────────────────────────
+  9.1  Chat boshlash yoki mavjudini olish
+──────────────────────────────────────────────────────────────
+POST /chats
+Body (JSON): { "masterId": 5 }
+
+Response:
+{
+  "id": 12,
+  "userId": 3,
+  "masterId": 5,
+  "createdAt": "...",
+  "user":   { "id": 3, "firstName": "Ali", ... },
+  "master": { "id": 5, "profileImg": "...", "user": { "firstName": "Vali", ... } },
+  "messages": [ /* oxirgi 1 xabar */ ]
+}
+
+──────────────────────────────────────────────────────────────
+  9.2  O'z chatlarini olish (ro'yxat)
+──────────────────────────────────────────────────────────────
+GET /chats/my?page=1&limit=20
+
+USER bo'lsa   → o'zi boshlagan chatlar
+MASTER bo'lsa → unga kelgan chatlar
+
+Response:
+{
+  "data": [ { id, user, master, messages: [lastMessage] }, ... ],
+  "meta": { "page": 1, "limit": 20, "total": 45 }
+}
+
+──────────────────────────────────────────────────────────────
+  9.3  Xabarlar tarixi
+──────────────────────────────────────────────────────────────
+GET /chats/:id/messages?page=1&limit=20
+
+Xabarlar oxirgidan birinchiga keladi (desc).
+Boshqa tomonning o'qilmagan xabarlari avtomatik isRead=true bo'ladi.
+
+Response:
+{
+  "data": [ { id, chatId, senderId, senderType, content, fileUrl, fileType, isRead, createdAt }, ... ],
+  "meta": { "page": 1, "limit": 20, "total": 87 }
+}
+
+──────────────────────────────────────────────────────────────
+  9.4  Fayl xabari yuborish
+──────────────────────────────────────────────────────────────
+POST /chats/:id/messages
+Content-Type: multipart/form-data
+
+Fieldlar:
+  file    — fayl (rasm/video/hujjat, max 50MB) — ixtiyoriy
+  content — matn                                — ixtiyoriy
+  (kamida bittasi shart)
+
+Qabul qilinadigan MIME turlar:
+  image/*         → fileType: IMAGE
+  video/*         → fileType: VIDEO
+  application/*   → fileType: DOCUMENT
+  text/*          → fileType: DOCUMENT
+
+
+----------------------------------------------------------------
+  10. FAYL URL DAN RASMNI KO'RSATISH
+----------------------------------------------------------------
+
+fileUrl qiymati: "images/1718900000000.jpg"
+To'liq URL:      https://api-b2c.prohome.uz/images/1718900000000.jpg
+
+function getFileUrl(fileUrl: string): string {
+  return `https://api-b2c.prohome.uz/${fileUrl}`;
+}
+
+
+----------------------------------------------------------------
+  11. TO'LIQ MISOL (React / TypeScript)
+----------------------------------------------------------------
+
+import { io, Socket } from 'socket.io-client';
+
+const BASE_URL = 'https://api-b2c.prohome.uz';
+let socket: Socket | null = null;
+
+// Ulanish
+export function connectChat(accessToken: string) {
+  socket = io(`${BASE_URL}/chat`, {
+    auth: { token: accessToken },
+    transports: ['websocket'],
+  });
+
+  socket.on('connect', () => console.log('Chat ulandi'));
+  socket.on('error', (msg) => console.error('Xato:', msg));
+}
+
+// Chatni ochish
+export function openChat(chatId: number, onMessage: (msg: any) => void) {
+  if (!socket) return;
+
+  socket.emit('join_chat', chatId);
+
+  socket.off('new_message');
+  socket.on('new_message', (msg) => {
+    if (msg.chatId === chatId) onMessage(msg);
+  });
+}
+
+// Matn yuborish
+export function sendText(chatId: number, content: string) {
+  if (!socket) return;
+  socket.emit('send_message', { chatId, content });
+}
+
+// Fayl yuborish
+export async function sendFile(chatId: number, file: File, token: string) {
+  const form = new FormData();
+  form.append('file', file);
+  await fetch(`${BASE_URL}/chats/${chatId}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  // 'new_message' WS eventi avtomatik keladi
+}
+
+// Yozilmoqda
+export function sendTyping(chatId: number) {
+  socket?.emit('typing', chatId);
+}
+
+// Uzilish
+export function disconnectChat() {
+  socket?.disconnect();
+  socket = null;
+}
+
+
+----------------------------------------------------------------
+  12. XABAR TURI BO'YICHA UI
+----------------------------------------------------------------
+
+switch (message.fileType) {
+  case 'TEXT':
+    return <p>{message.content}</p>;
+
+  case 'IMAGE':
+    return <img src={getFileUrl(message.fileUrl)} alt="rasm" />;
+
+  case 'VIDEO':
+    return <video src={getFileUrl(message.fileUrl)} controls />;
+
+  case 'DOCUMENT':
+    return <a href={getFileUrl(message.fileUrl)} download>Hujjat</a>;
+}
+
+
+----------------------------------------------------------------
+  13. O'QILGANLIK BELGISI
+----------------------------------------------------------------
+
+GET /chats/:id/messages so'rovi yuborilganda server avtomatik
+boshqa tomonning isRead=false xabarlarini true qiladi.
+
+Agar real-time "o'qildi" kerak bo'lsa, alohida WS event
+keyinchalik qo'shilishi mumkin.
+
+
+================================================================

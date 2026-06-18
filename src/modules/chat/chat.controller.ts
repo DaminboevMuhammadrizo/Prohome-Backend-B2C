@@ -28,6 +28,7 @@ import { GuardService } from 'src/common/guard/guard.service';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { ChatQueryDto, SendMessageDto, StartChatDto } from './dto/chat.dto';
 import { ChatService } from './chat.service';
+import { ChatGateway } from './chat.gateway';
 
 const MAX_FILE_MB = 50;
 
@@ -54,26 +55,27 @@ function getSubDir(mimetype: string): string {
 @UseGuards(GuardService)
 @Controller('chats')
 export class ChatController {
-    constructor(private readonly chatService: ChatService) {}
+    constructor(
+        private readonly chatService: ChatService,
+        private readonly chatGateway: ChatGateway,
+    ) {}
 
-    // ─── Chatni boshlash (foydalanuvchi masterId bilan) ─────────────────────
+    // ─── Chatni boshlash ─────────────────────────────────────────────────────
     @Post()
     @ApiOperation({ summary: "Chat boshlash yoki mavjud chatni olish (USER → Usta)" })
     startChat(@UserData() user: JwtPayload, @Body() dto: StartChatDto) {
         return this.chatService.startChat(user, dto);
     }
 
-    // ─── Foydalanuvchi chatlarini olish ─────────────────────────────────────
+    // ─── O'z chatlarini olish ────────────────────────────────────────────────
     @Get('my')
-    @ApiOperation({ summary: "O'z chatlarim — USER yoki MASTER bo'lishi mumkin" })
+    @ApiOperation({ summary: "O'z chatlarim — USER: o'z chatlari, MASTER: unga kelgan chatlar" })
     getMyChats(@UserData() user: JwtPayload, @Query() query: ChatQueryDto) {
-        if (user.role === 'MASTER') {
-            return this.chatService.getMasterChats(user, query);
-        }
+        if (user.role === 'MASTER') return this.chatService.getMasterChats(user, query);
         return this.chatService.getUserChats(user, query);
     }
 
-    // ─── Xabarlar ro'yxati ───────────────────────────────────────────────────
+    // ─── Xabarlar tarixi ─────────────────────────────────────────────────────
     @Get(':id/messages')
     @ApiOperation({ summary: "Chat xabarlari (oxirgidan birinchiga — sahifalangan)" })
     getMessages(
@@ -84,7 +86,7 @@ export class ChatController {
         return this.chatService.getMessages(id, user, query);
     }
 
-    // ─── Xabar yuborish ──────────────────────────────────────────────────────
+    // ─── Fayl yuborish (REST) — keyin WS ga ham emit qiladi ──────────────────
     @Post(':id/messages')
     @UseInterceptors(FileInterceptor('file', {
         storage: memoryStorage(),
@@ -98,7 +100,7 @@ export class ChatController {
         },
     }))
     @ApiConsumes('multipart/form-data')
-    @ApiOperation({ summary: `Xabar yuborish — matn va/yoki fayl (rasm, video, hujjat, max ${MAX_FILE_MB}MB)` })
+    @ApiOperation({ summary: `Fayl yoki matn xabar yuborish (REST) — rasm/video/hujjat/matn, max ${MAX_FILE_MB}MB. Yuborilgandan keyin WS orqali ikkinchi tomonga ham yetkaziladi` })
     async sendMessage(
         @Param('id', ParseIntPipe) id: number,
         @UserData() user: JwtPayload,
@@ -117,6 +119,11 @@ export class ChatController {
             fileType = detectFileType(file.mimetype);
         }
 
-        return this.chatService.sendMessage(id, user, dto.content, fileUrl, fileType);
+        const message = await this.chatService.sendMessage(id, user, dto.content, fileUrl, fileType);
+
+        // WS orqali real-time xabardorlik
+        this.chatGateway.emitToChat(id, message);
+
+        return message;
     }
 }
