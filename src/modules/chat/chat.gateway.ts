@@ -48,9 +48,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // ─── Chat xonasiga qo'shilish ────────────────────────────────────────────
     @SubscribeMessage('join_chat')
-    async handleJoinChat(@ConnectedSocket() client: Socket, @MessageBody() chatId: number) {
+    async handleJoinChat(@ConnectedSocket() client: Socket, @MessageBody() body: any) {
         const user: JwtPayload = client.data.user;
         if (!user) throw new WsException('Autentifikatsiya xatosi');
+
+        const chatId = Number(Array.isArray(body) ? body[0] : body);
+        if (!chatId || isNaN(chatId)) throw new WsException('Noto\'g\'ri chatId');
 
         const chat = await this.prisma.chat.findUnique({
             where: { id: chatId },
@@ -67,7 +70,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // ─── Chat xonasidan chiqish ──────────────────────────────────────────────
     @SubscribeMessage('leave_chat')
-    handleLeaveChat(@ConnectedSocket() client: Socket, @MessageBody() chatId: number) {
+    handleLeaveChat(@ConnectedSocket() client: Socket, @MessageBody() body: any) {
+        const chatId = Number(Array.isArray(body) ? body[0] : body);
+        if (!chatId || isNaN(chatId)) return;
         client.leave(`chat:${chatId}`);
         return { event: 'left', data: { chatId } };
     }
@@ -80,22 +85,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     ) {
         const user: JwtPayload = client.data.user;
         if (!user) throw new WsException('Autentifikatsiya xatosi');
+
+        const chatId = Number(payload?.chatId);
+        if (!chatId || isNaN(chatId)) throw new WsException('Noto\'g\'ri chatId');
         if (!payload?.content?.trim()) throw new WsException('Xabar bo\'sh bo\'lishi mumkin emas');
 
         const message = await this.chatService.sendMessage(
-            payload.chatId,
+            chatId,
             user,
             payload.content.trim(),
         );
 
-        this.server.to(`chat:${payload.chatId}`).emit('new_message', message);
+        this.server.to(`chat:${chatId}`).emit('new_message', message);
         return { event: 'sent', data: message };
     }
 
     // ─── Yozilmoqda indikatori ───────────────────────────────────────────────
     @SubscribeMessage('typing')
-    handleTyping(@ConnectedSocket() client: Socket, @MessageBody() chatId: number) {
+    handleTyping(@ConnectedSocket() client: Socket, @MessageBody() body: any) {
         const user: JwtPayload = client.data.user;
+        const chatId = Number(Array.isArray(body) ? body[0] : body);
+        if (!chatId || isNaN(chatId)) return;
         client.to(`chat:${chatId}`).emit('typing', { chatId, senderId: user?.id });
     }
 

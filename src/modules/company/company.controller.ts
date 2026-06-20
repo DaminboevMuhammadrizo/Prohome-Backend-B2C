@@ -52,8 +52,6 @@ export class CompanyController {
         return this.companyService.create(dto);
     }
 
-    // ── Parametrli route'lar ────────────────────────────────────────────────
-
     @Patch(':id/toggle')
     @ApiOperation({ summary: 'Kompaniyani faollashtirish / bloklash' })
     toggleActive(@Param('id', ParseIntPipe) id: number) {
