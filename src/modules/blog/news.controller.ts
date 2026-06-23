@@ -1,11 +1,34 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ContentStatus, UserRole } from '@prisma/client';
+import { memoryStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import { writeFile } from 'fs/promises';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateNewsCategoryDto, CreateNewsDto, UpdateNewsCategoryDto, UpdateNewsDto } from './dto/news.dto';
 import { NewsService } from './news.service';
+
+const IMAGE_INTERCEPTOR = FileInterceptor('coverImage', {
+  storage: memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/'))
+      return cb(new BadRequestException('Faqat rasm yuklash mumkin'), false);
+    cb(null, true);
+  },
+});
+
+async function saveImage(file: Express.Multer.File): Promise<string> {
+  const dir = join(process.cwd(), 'core', 'uploads', 'images');
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  const filename = `${Date.now()}${extname(file.originalname)}`;
+  await writeFile(join(dir, filename), file.buffer);
+  return `image/${filename}`;
+}
 
 @ApiTags('News')
 @Controller('news')
@@ -75,8 +98,30 @@ export class NewsController {
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Post()
-  @ApiOperation({ summary: 'Yangilik yaratish (admin)' })
-  create(@Body() dto: CreateNewsDto) {
+  @UseInterceptors(IMAGE_INTERCEPTOR)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['title', 'slug', 'content'],
+      properties: {
+        title:       { type: 'string', example: "Ko'chmas mulk narxlari 2025-yilda" },
+        slug:        { type: 'string', example: 'kochmas-mulk-narxlari-2025' },
+        content:     { type: 'string', example: "To'liq maqola matni..." },
+        excerpt:     { type: 'string' },
+        coverImage:  { type: 'string', format: 'binary', description: 'Muqova rasmi (ixtiyoriy)' },
+        categoryId:  { type: 'integer' },
+        status:      { type: 'string', enum: Object.values(ContentStatus) },
+        publishedAt: { type: 'string', example: '2025-05-20T10:00:00.000Z' },
+        masterId:    { type: 'integer' },
+        jobId:       { type: 'integer' },
+        companyId:   { type: 'integer' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Yangilik yaratish (admin) — muqova rasmi yuklab yuboriladi' })
+  async create(@Body() dto: CreateNewsDto, @UploadedFile() file?: Express.Multer.File) {
+    if (file) dto.coverImage = await saveImage(file);
     return this.newsService.create(dto);
   }
 
@@ -98,8 +143,32 @@ export class NewsController {
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Patch(':id')
-  @ApiOperation({ summary: 'Yangilikni yangilash (admin)' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateNewsDto) {
+  @UseInterceptors(IMAGE_INTERCEPTOR)
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        title:       { type: 'string' },
+        slug:        { type: 'string' },
+        content:     { type: 'string' },
+        excerpt:     { type: 'string' },
+        coverImage:  { type: 'string', format: 'binary', description: 'Yangi muqova rasmi (ixtiyoriy)' },
+        categoryId:  { type: 'integer' },
+        status:      { type: 'string', enum: Object.values(ContentStatus) },
+        publishedAt: { type: 'string' },
+        masterId:    { type: 'integer' },
+        jobId:       { type: 'integer' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Yangilikni yangilash (admin) — muqova rasmini ham yangilash mumkin' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateNewsDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (file) dto.coverImage = await saveImage(file);
     return this.newsService.update(id, dto);
   }
 
