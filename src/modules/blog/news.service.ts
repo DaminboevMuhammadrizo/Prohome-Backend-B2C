@@ -1,7 +1,39 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ContentStatus } from '@prisma/client';
+import { ContentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { CreateNewsCategoryDto, CreateNewsDto, UpdateNewsCategoryDto, UpdateNewsDto } from './dto/news.dto';
+
+function toSlug(title: string): string {
+  const map: Record<string, string> = {
+    'а':'a','б':'b','в':'v','г':'g','д':'d',
+    'е':'e','ё':'yo','ж':'zh','з':'z','и':'i',
+    'й':'y','к':'k','л':'l','м':'m','н':'n',
+    'о':'o','п':'p','р':'r','с':'s','т':'t',
+    'у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch',
+    'ш':'sh','щ':'sh','ъ':'','ы':'i','ь':'',
+    'э':'e','ю':'yu','я':'ya',
+    'ʻ':'','ʼ':'',
+  };
+  return title
+    .toLowerCase()
+    .split('')
+    .map(c => map[c] ?? c)
+    .join('')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80);
+}
+
+async function uniqueSlug(base: string, check: (slug: string) => Promise<boolean>): Promise<string> {
+  if (await check(base)) return base;
+  for (let i = 2; i <= 99; i++) {
+    const candidate = `${base}-${i}`;
+    if (await check(candidate)) return candidate;
+  }
+  return `${base}-${Date.now()}`;
+}
 
 @Injectable()
 export class NewsService {
@@ -75,25 +107,57 @@ export class NewsService {
 
   async create(dto: CreateNewsDto) {
     if (dto.companyId) await this.checkCompanyWeeklyLimit(dto.companyId);
-    return this.prisma.news.create({
-      data: {
-        ...dto,
-        publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : dto.status === ContentStatus.PUBLISHED ? new Date() : null,
-      },
-      include: this.include,
+
+    // Slug kiritilmasa yoki bo'sh bo'lsa — sarlavhadan avtomatik generatsiya
+    const baseSlug = dto.slug?.trim() || toSlug(dto.title);
+    const slug = await uniqueSlug(baseSlug, async (s) => {
+      const exists = await this.prisma.news.findUnique({ where: { slug: s }, select: { id: true } });
+      return !exists;
     });
+
+    try {
+      return await this.prisma.news.create({
+        data: {
+          ...dto,
+          slug,
+          publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : dto.status === ContentStatus.PUBLISHED ? new Date() : null,
+        },
+        include: this.include,
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('Bu slug allaqachon mavjud, boshqa nom kiriting');
+      }
+      throw e;
+    }
   }
 
   async update(id: number, dto: UpdateNewsDto) {
     await this.getById(id);
-    return this.prisma.news.update({
-      where: { id },
-      data: {
-        ...dto,
-        publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : undefined,
-      },
-      include: this.include,
-    });
+
+    // Slug o'zgartirilayotgan bo'lsa — unique ekanini tekshir
+    if (dto.slug) {
+      const existing = await this.prisma.news.findUnique({ where: { slug: dto.slug }, select: { id: true } });
+      if (existing && existing.id !== id) {
+        throw new BadRequestException('Bu slug allaqachon boshqa yangilikda ishlatilgan');
+      }
+    }
+
+    try {
+      return await this.prisma.news.update({
+        where: { id },
+        data: {
+          ...dto,
+          publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : undefined,
+        },
+        include: this.include,
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('Bu slug allaqachon mavjud');
+      }
+      throw e;
+    }
   }
 
   async delete(id: number) {

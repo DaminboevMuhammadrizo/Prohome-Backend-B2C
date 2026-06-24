@@ -23,10 +23,10 @@ export class CreateNewsDto {
   @IsNotEmpty()
   title!: string;
 
-  @ApiProperty({ example: 'kochmas-mulk-narxlari-2025' })
+  @ApiPropertyOptional({ example: 'kochmas-mulk-narxlari-2025', description: "Kiritilmasa sarlavhadan avtomatik hosil bo'ladi" })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  slug!: string;
+  slug?: string;
 
   @ApiPropertyOptional({ example: 'Qisqa tavsif' })
   @IsOptional()
@@ -38,7 +38,7 @@ export class CreateNewsDto {
   @IsNotEmpty()
   content!: string;
 
-  @ApiPropertyOptional({ example: 'https://cdn.prohome.uz/news/cover-1.jpg' })
+  @ApiPropertyOptional({ example: 'image/cover-1.jpg', description: 'URL yoki fayl upload orqali beriladi — to\'g\'ridan-to\'g\'ri frontenddan yuborilmaydi' })
   @IsOptional()
   @IsString()
   coverImage?: string;
