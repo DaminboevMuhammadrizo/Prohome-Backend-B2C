@@ -5,11 +5,12 @@ import { LoginOtpDto } from './dto/login.dto';
 import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { CompanyLoginDto, MasterRegisterDto, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
+import { TelegramVerifyDto } from './dto/telegram-login.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('send-otp')
   @ApiOperation({ summary: 'Telefon raqamga OTP yuborish' })
@@ -59,5 +60,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Kompaniya login — phone + password → accessToken' })
   companyLogin(@Body() dto: CompanyLoginDto) {
     return this.authService.companyLogin(dto);
+  }
+
+  @Post('telegram/verify')
+  @ApiOperation({ summary: 'Bot bergan 6 xonali kodni tekshirish va login/register qilish' })
+  telegramVerify(@Body() dto: TelegramVerifyDto) {
+    return this.authService.telegramVerify(dto);
   }
 }
