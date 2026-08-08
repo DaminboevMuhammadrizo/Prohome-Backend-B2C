@@ -90,11 +90,25 @@ export class BotService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit() {
-    await this.bot.launch();
-    this.logger.log('Telegram bot ishga tushdi ✅');
+    const webhookUrl = this.config.get<string>('BOT_WEBHOOK_URL');
+    const webhookPath = this.config.get<string>('BOT_WEBHOOK_PATH') ?? '/bot/webhook';
+
+    if (!webhookUrl) {
+      this.logger.warn('BOT_WEBHOOK_URL topilmadi — bot ishga tushmadi');
+      return;
+    }
+
+    this.bot.telegram
+      .setWebhook(`${webhookUrl}${webhookPath}`)
+      .then(() => this.logger.log(`Telegram webhook o'rnatildi ✅ (${webhookUrl}${webhookPath})`))
+      .catch((err) => this.logger.error("❌ Webhook o'rnatilmadi: " + err.message));
   }
 
   onModuleDestroy() {
-    this.bot.stop('SIGTERM');
+    // Webhook rejimida to'xtatish shart emas
+  }
+
+  async handleUpdate(update: any) {
+    await this.bot.handleUpdate(update);
   }
 }
