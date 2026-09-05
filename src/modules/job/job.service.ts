@@ -1,11 +1,15 @@
 import { ChangeJobStatusDto, CreateJobDto, UpdateJobDto } from './dto/create-job.dto';
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
-import { JobStatus } from '@prisma/client';
+import { JobStatus, SearchType } from '@prisma/client';
+import { NotificationService } from 'src/modules/notification/notification.service';
 
 @Injectable()
 export class JobService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly notificationService: NotificationService,
+    ) { }
 
     private jobSelect = {
         id: true,
@@ -26,8 +30,8 @@ export class JobService {
         _count: { select: { likes: true, views: true } },
     };
 
-    async getAll(params: { page?: number; limit?: number; search?: string; status?: JobStatus; skillTypeId?: number; locationId?: number }) {
-        const { page = 1, limit = 20, search, status, skillTypeId, locationId } = params;
+    async getAll(params: { page?: number; limit?: number; search?: string; status?: JobStatus; skillTypeId?: number; locationId?: number; subscriberUserId?: number }) {
+        const { page = 1, limit = 20, search, status, skillTypeId, locationId, subscriberUserId } = params;
         const skip = (page - 1) * limit;
         const where: any = {};
 
@@ -44,6 +48,10 @@ export class JobService {
             this.prisma.job.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.jobSelect }),
             this.prisma.job.count({ where }),
         ]);
+
+        if (data.length === 0 && (search || skillTypeId || locationId)) {
+            this.notificationService.recordEmptySearch(SearchType.JOB, { search, skillTypeId, locationId }, locationId, subscriberUserId);
+        }
 
         return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
     }
@@ -83,7 +91,9 @@ export class JobService {
             });
         }
 
-        return this.getById(job.id);
+        const created = await this.getById(job.id);
+        this.notificationService.matchAndNotify(SearchType.JOB, created).catch(() => null);
+        return created;
     }
 
     async update(id: number, userId: number, isAdmin: boolean, dto: UpdateJobDto) {

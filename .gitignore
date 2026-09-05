@@ -62,3 +62,6 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 prisma/migrations
 .codex
 .gitignore
+
+# Firebase service account — maxfiy kalit, hech qachon commit qilinmasin
+firebase-service-account.json

@@ -6,6 +6,7 @@ import { RoleGuardModule } from "./role_guard/role_guard.module";
 import { CoreModule } from "./core/core.module";
 import { ConfigModule } from "./config/config.module";
 import { SeaderModule } from "./seeders/seader.module";
+import { FirebaseModule } from "./config/firebase/firebase.module";
 
 @Global()
 @Module({
@@ -17,6 +18,7 @@ import { SeaderModule } from "./seeders/seader.module";
         CoreModule,
         ConfigModule,
         SeaderModule,
+        FirebaseModule,
     ],
     providers: [],
     controllers: [],

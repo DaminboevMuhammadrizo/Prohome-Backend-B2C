@@ -18,6 +18,7 @@ export class SeederService implements OnModuleInit {
     await this.seedSuperAdmin();
     await this.seedLocations();
     await this.seedSkillTypes();
+    await this.seedNotificationTemplates();
   }
 
   private async seedSuperAdmin() {
@@ -121,6 +122,42 @@ export class SeederService implements OnModuleInit {
       this.logger.log('Skill turlari seed qilindi');
     } catch (e) {
       this.logger.error('SkillType seed xatoligi', e);
+    }
+  }
+
+  // Moslik topilganda avtomatik yuboriladigan bildirishnoma matnlari.
+  // Admin bularni keyin `PATCH /notifications/admin/templates/:key` orqali o'zgartira oladi.
+  private async seedNotificationTemplates() {
+    try {
+      const templates = [
+        {
+          key: 'search_match_real_estate',
+          title: "🏠 Siz qidirgan uy topildi!",
+          body: "Siz {location} hududida qidirgan uyingizga mos e'lon joylandi: \"{title}\". Balki ko'rarsiz!",
+        },
+        {
+          key: 'search_match_job',
+          title: '🛠 Mos ish e\'loni topildi!',
+          body: 'Siz qidirgan ishga mos yangi e\'lon bor: "{title}". Ko\'rib chiqing!',
+        },
+        {
+          key: 'search_match_master',
+          title: '👷 Siz qidirgan usta topildi!',
+          body: 'Siz qidirgan {skillType} ustasi ro\'yxatdan o\'tdi. Endi buyurtma berishingiz mumkin!',
+        },
+      ];
+
+      for (const t of templates) {
+        await this.prisma.notificationTemplate.upsert({
+          where: { key: t.key },
+          update: {},
+          create: t,
+        });
+      }
+
+      this.logger.log('Notification shablonlari seed qilindi');
+    } catch (e) {
+      this.logger.error('NotificationTemplate seed xatoligi', e);
     }
   }
 }

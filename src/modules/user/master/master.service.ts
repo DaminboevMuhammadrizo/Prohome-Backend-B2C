@@ -1,14 +1,18 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { UserRole, UserStatus } from '@prisma/client';
+import { SearchType, UserRole, UserStatus } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { hashPassword } from 'src/common/config/bcrypt';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { NotificationService } from 'src/modules/notification/notification.service';
 import { CreateMasterByAdminDto, RegisterAsMasterDto, UpdateMasterDto } from './dto/create-master.dto';
 
 @Injectable()
 export class MasterService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   private masterListSelect = {
     id: true,
@@ -76,8 +80,7 @@ export class MasterService {
     ]);
 
     if (data.length === 0 && (search || skillTypeId || isFree !== undefined)) {
-      const query = JSON.stringify({ type: 'master', search, skillTypeId, isFree });
-      this.prisma.searchSubscription.create({ data: { query, userId: subscriberUserId ?? null } }).catch(() => null);
+      this.notificationService.recordEmptySearch(SearchType.MASTER, { search, skillTypeId, isFree }, undefined, subscriberUserId);
     }
 
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -159,7 +162,9 @@ export class MasterService {
       });
     }
 
-    return this.getById(master.id);
+    const created = await this.getById(master.id);
+    this.notificationService.matchAndNotify(SearchType.MASTER, created).catch(() => null);
+    return created;
   }
 
   async registerAsMaster(userId: number, dto: RegisterAsMasterDto) {
@@ -183,7 +188,9 @@ export class MasterService {
     }
 
     await this.prisma.user.update({ where: { id: userId }, data: { role: UserRole.MASTER } });
-    return this.getById(master.id);
+    const created = await this.getById(master.id);
+    this.notificationService.matchAndNotify(SearchType.MASTER, created).catch(() => null);
+    return created;
   }
 
   async update(id: number, dto: UpdateMasterDto) {

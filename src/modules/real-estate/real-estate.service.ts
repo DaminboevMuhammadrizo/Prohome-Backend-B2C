@@ -1,13 +1,17 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { DealType, MediaType, PropertyType, RealEstateStatus, SellerType } from '@prisma/client';
+import { DealType, MediaType, PropertyType, RealEstateStatus, SearchType, SellerType } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { NotificationService } from 'src/modules/notification/notification.service';
 import { ChangeRealEstateStatusDto, CreateRealEstateDto, UpdateRealEstateDto } from './dto/real-estate.dto';
 
 @Injectable()
 export class RealEstateService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   private select = {
     id: true,
@@ -78,8 +82,12 @@ export class RealEstateService {
     ]);
 
     if (data.length === 0 && (search || propertyType || dealType || sellerType || locationId || roomCount || minPrice !== undefined || maxPrice !== undefined)) {
-      const query = JSON.stringify({ type: 'real-estate', search, propertyType, dealType, sellerType, locationId, roomCount, minPrice, maxPrice });
-      this.prisma.searchSubscription.create({ data: { query, userId: subscriberUserId ?? null } }).catch(() => null);
+      this.notificationService.recordEmptySearch(
+        SearchType.REAL_ESTATE,
+        { search, propertyType, dealType, sellerType, locationId, roomCount, minPrice, maxPrice },
+        locationId,
+        subscriberUserId,
+      );
     }
 
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
@@ -127,10 +135,15 @@ export class RealEstateService {
     const location = await this.prisma.location.findUnique({ where: { id: dto.locationId } });
     if (!location) throw new NotFoundException('Joylashuv topilmadi');
 
-    return this.prisma.realEstate.create({
+    const realEstate = await this.prisma.realEstate.create({
       data: { ...dto, userId, status: RealEstateStatus.ACTIVE },
       select: this.select,
     });
+
+    // Shu e'longa mos "topilmagan qidiruv"lar bo'lsa — egalariga bildirishnoma yuboriladi
+    this.notificationService.matchAndNotify(SearchType.REAL_ESTATE, realEstate).catch(() => null);
+
+    return realEstate;
   }
 
   async update(id: number, userId: number, isAdmin: boolean, dto: UpdateRealEstateDto) {

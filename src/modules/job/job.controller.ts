@@ -1,6 +1,7 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ChangeJobStatusDto, CreateJobDto, UpdateJobDto } from './dto/create-job.dto';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { GuardService } from 'src/common/guard/guard.service';
@@ -10,11 +11,26 @@ import { JobService } from './job.service';
 @ApiTags('Jobs')
 @Controller('jobs')
 export class JobController {
-    constructor(private readonly jobService: JobService) { }
+    constructor(
+        private readonly jobService: JobService,
+        private readonly jwtService: JwtService,
+    ) { }
+
+    private extractUserId(req: any): number | undefined {
+        try {
+            const token = req.headers.authorization?.split(' ')[1];
+            if (!token) return undefined;
+            const payload = this.jwtService.decode(token) as JwtPayload | null;
+            return payload?.id ?? undefined;
+        } catch {
+            return undefined;
+        }
+    }
 
     @Get()
     @ApiOperation({ summary: 'Ish e\'lonlar ro\'yxati' })
     getAll(
+        @Req() req: any,
         @Query('page') page = 1,
         @Query('limit') limit = 20,
         @Query('search') search?: string,
@@ -22,7 +38,12 @@ export class JobController {
         @Query('skillTypeId') skillTypeId?: string,
         @Query('locationId') locationId?: string,
     ) {
-        return this.jobService.getAll({ page: +page, limit: +limit, search, status, skillTypeId: skillTypeId ? +skillTypeId : undefined, locationId: locationId ? +locationId : undefined });
+        return this.jobService.getAll({
+            page: +page, limit: +limit, search, status,
+            skillTypeId: skillTypeId ? +skillTypeId : undefined,
+            locationId: locationId ? +locationId : undefined,
+            subscriberUserId: this.extractUserId(req),
+        });
     }
 
     @Get(':id')
