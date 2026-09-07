@@ -7,19 +7,24 @@ import { LocationType } from '@prisma/client';
 export class LocationService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAll(type?: LocationType, parentId?: number, search?: string) {
+  async getAll(params: { page?: number; limit?: number; id?: number; type?: LocationType; parentId?: number; search?: string } = {}) {
+    const { page = 1, limit = 200, id, type, parentId, search } = params;
+    const skip = (page - 1) * limit;
     const where: any = {};
+    if (id !== undefined) where.id = id;
     if (type) where.type = type;
     if (parentId !== undefined) where.parentId = parentId === 0 ? null : parentId;
     if (search) where.name = { contains: search, mode: 'insensitive' };
 
-    return this.prisma.location.findMany({
-      where,
-      orderBy: { name: 'asc' },
-      include: {
-        _count: { select: { children: true } },
-      },
-    });
+    const [data, total] = await Promise.all([
+      this.prisma.location.findMany({
+        where, skip, take: limit,
+        orderBy: { name: 'asc' },
+        include: { _count: { select: { children: true } } },
+      }),
+      this.prisma.location.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getTree() {

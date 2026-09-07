@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { DealType, MediaType, PropertyType, RealEstateStatus, SellerType, UserRole } from '@prisma/client';
 import { memoryStorage } from 'multer';
 import { join } from 'path';
@@ -58,11 +58,30 @@ export class RealEstateController {
     }
 
     @Get()
-    @ApiOperation({ summary: "Ko'chmas mulklar ro'yxati (filtrlash bilan)" })
+    @ApiOperation({
+        summary: "Ko'chmas mulklar ro'yxati (filtrlash bilan)",
+        description: '`status` va `userId` berilmasa faqat ACTIVE e\'lonlar qaytadi. Javob: `{ data: RealEstate[], meta: {page, limit, total, totalPages} }`.',
+    })
+    @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+    @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 20 })
+    @ApiQuery({ name: 'id', required: false, description: 'Aniq e\'lon ID si' })
+    @ApiQuery({ name: 'search', required: false, description: 'Sarlavha, tavsif, telefon yoki kompaniya nomi bo\'yicha umumiy qidiruv' })
+    @ApiQuery({ name: 'propertyType', required: false, enum: PropertyType })
+    @ApiQuery({ name: 'dealType', required: false, enum: DealType })
+    @ApiQuery({ name: 'sellerType', required: false, enum: SellerType })
+    @ApiQuery({ name: 'locationId', required: false, description: 'Joylashuv (shahar/viloyat) ID si' })
+    @ApiQuery({ name: 'minPrice', required: false, description: 'Narx — shundan boshlab' })
+    @ApiQuery({ name: 'maxPrice', required: false, description: 'Narx — shungacha' })
+    @ApiQuery({ name: 'roomCount', required: false, description: 'Xonalar soni (aniq mos)' })
+    @ApiQuery({ name: 'status', required: false, enum: RealEstateStatus, description: 'Berilmasa — faqat ACTIVE' })
+    @ApiQuery({ name: 'userId', required: false, description: 'Faqat shu foydalanuvchining e\'lonlari (berilsa status cheklovi olib tashlanadi)' })
+    @ApiQuery({ name: 'createdFrom', required: false, description: 'Joylangan sana — shundan boshlab', example: '2026-01-01' })
+    @ApiQuery({ name: 'createdTo', required: false, description: 'Joylangan sana — shungacha', example: '2026-12-31' })
     getAll(
         @Req() req: any,
         @Query('page') page = 1,
         @Query('limit') limit = 20,
+        @Query('id') id?: string,
         @Query('search') search?: string,
         @Query('propertyType') propertyType?: PropertyType,
         @Query('dealType') dealType?: DealType,
@@ -73,9 +92,12 @@ export class RealEstateController {
         @Query('roomCount') roomCount?: string,
         @Query('status') status?: RealEstateStatus,
         @Query('userId') userId?: string,
+        @Query('createdFrom') createdFrom?: string,
+        @Query('createdTo') createdTo?: string,
     ) {
         return this.realEstateService.getAll({
             page: +page, limit: +limit, search, propertyType, dealType, sellerType,
+            id: id ? +id : undefined,
             locationId: locationId ? +locationId : undefined,
             minPrice: minPrice ? +minPrice : undefined,
             maxPrice: maxPrice ? +maxPrice : undefined,
@@ -83,6 +105,7 @@ export class RealEstateController {
             status,
             userId: userId ? +userId : undefined,
             subscriberUserId: this.extractUserId(req),
+            createdFrom, createdTo,
         });
     }
 

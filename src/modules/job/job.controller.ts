@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ChangeJobStatusDto, CreateJobDto, UpdateJobDto } from './dto/create-job.dto';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
@@ -28,21 +28,47 @@ export class JobController {
     }
 
     @Get()
-    @ApiOperation({ summary: 'Ish e\'lonlar ro\'yxati' })
+    @ApiOperation({
+        summary: 'Ish e\'lonlar ro\'yxati (jadval uchun — har ustun bo\'yicha filtr)',
+        description: '`status` berilmasa faqat OPEN e\'lonlar qaytadi. Javob: `{ data: Job[], meta: {page, limit, total, totalPages} }`.',
+    })
+    @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+    @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 20 })
+    @ApiQuery({ name: 'id', required: false, description: 'Aniq e\'lon ID si' })
+    @ApiQuery({ name: 'search', required: false, description: 'Sarlavha, tavsif yoki telefon bo\'yicha umumiy qidiruv' })
+    @ApiQuery({ name: 'status', required: false, enum: JobStatus, description: 'Berilmasa — faqat OPEN' })
+    @ApiQuery({ name: 'skillTypeId', required: false, description: 'Kasb turi ID si (/skill-types dan)' })
+    @ApiQuery({ name: 'locationId', required: false, description: 'Joylashuv ID si' })
+    @ApiQuery({ name: 'userId', required: false, description: 'Faqat shu foydalanuvchi e\'lonlari' })
+    @ApiQuery({ name: 'minPrice', required: false, description: 'Narx — shundan boshlab' })
+    @ApiQuery({ name: 'maxPrice', required: false, description: 'Narx — shungacha' })
+    @ApiQuery({ name: 'createdFrom', required: false, description: 'Joylangan sana — shundan boshlab', example: '2026-01-01' })
+    @ApiQuery({ name: 'createdTo', required: false, description: 'Joylangan sana — shungacha', example: '2026-12-31' })
     getAll(
         @Req() req: any,
         @Query('page') page = 1,
         @Query('limit') limit = 20,
+        @Query('id') id?: string,
         @Query('search') search?: string,
         @Query('status') status?: JobStatus,
         @Query('skillTypeId') skillTypeId?: string,
         @Query('locationId') locationId?: string,
+        @Query('userId') userId?: string,
+        @Query('minPrice') minPrice?: string,
+        @Query('maxPrice') maxPrice?: string,
+        @Query('createdFrom') createdFrom?: string,
+        @Query('createdTo') createdTo?: string,
     ) {
         return this.jobService.getAll({
             page: +page, limit: +limit, search, status,
+            id: id ? +id : undefined,
             skillTypeId: skillTypeId ? +skillTypeId : undefined,
             locationId: locationId ? +locationId : undefined,
+            userId: userId ? +userId : undefined,
+            minPrice: minPrice ? +minPrice : undefined,
+            maxPrice: maxPrice ? +maxPrice : undefined,
             subscriberUserId: this.extractUserId(req),
+            createdFrom, createdTo,
         });
     }
 

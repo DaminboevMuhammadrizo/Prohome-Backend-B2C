@@ -10,12 +10,23 @@ export class CreateSkillTypeDto {
 export class SkillTypeService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAll(status?: SkillStatus) {
-    return this.prisma.skillType.findMany({
-      where: status ? { status } : undefined,
-      orderBy: { name: 'asc' },
-      include: { _count: { select: { skills: true, jobs: true } } },
-    });
+  async getAll(params: { page?: number; limit?: number; id?: number; search?: string; status?: SkillStatus } = {}) {
+    const { page = 1, limit = 50, id, search, status } = params;
+    const skip = (page - 1) * limit;
+    const where: any = {};
+    if (id !== undefined) where.id = id;
+    if (status) where.status = status;
+    if (search) where.name = { contains: search, mode: 'insensitive' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.skillType.findMany({
+        where, skip, take: limit,
+        orderBy: { name: 'asc' },
+        include: { _count: { select: { skills: true, jobs: true } } },
+      }),
+      this.prisma.skillType.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getById(id: number) {

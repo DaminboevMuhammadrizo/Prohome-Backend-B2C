@@ -29,11 +29,28 @@ export class BannerService {
     return this.prisma.banner.findMany({ where: { isActive: true }, orderBy: [{ order: 'asc' }, { createdAt: 'desc' }] });
   }
 
-  async getAdminAll(page = 1, limit = 20) {
+  async getAdminAll(params: {
+    page?: number; limit?: number; id?: number; search?: string;
+    isActive?: boolean; location?: BannerLocation; mediaType?: MediaType; createdFrom?: string; createdTo?: string;
+  }) {
+    const { page = 1, limit = 20, id, search, isActive, location, mediaType, createdFrom, createdTo } = params;
     const skip = (page - 1) * limit;
+    const where: any = {};
+
+    if (id !== undefined) where.id = id;
+    if (search) where.title = { contains: search, mode: 'insensitive' };
+    if (isActive !== undefined) where.isActive = isActive;
+    if (location) where.location = location;
+    if (mediaType) where.mediaType = mediaType;
+    if (createdFrom || createdTo) {
+      where.createdAt = {};
+      if (createdFrom) where.createdAt.gte = new Date(createdFrom);
+      if (createdTo) where.createdAt.lte = new Date(createdTo);
+    }
+
     const [data, total] = await Promise.all([
-      this.prisma.banner.findMany({ skip, take: limit, orderBy: [{ order: 'asc' }, { createdAt: 'desc' }] }),
-      this.prisma.banner.count(),
+      this.prisma.banner.findMany({ where, skip, take: limit, orderBy: [{ order: 'asc' }, { createdAt: 'desc' }] }),
+      this.prisma.banner.count({ where }),
     ]);
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }

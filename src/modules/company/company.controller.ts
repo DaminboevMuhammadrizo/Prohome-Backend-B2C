@@ -1,6 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { memoryStorage } from 'multer';
 import { extname, join } from 'path';
@@ -41,9 +41,33 @@ export class CompanyController {
     }
 
     @Get()
-    @ApiOperation({ summary: "B2C ga qo'shilgan kompaniyalar ro'yxati" })
-    getAll(@Query('page') page = 1, @Query('limit') limit = 20) {
-        return this.companyService.getAll(+page, +limit);
+    @ApiOperation({
+        summary: "B2C ga qo'shilgan kompaniyalar ro'yxati (jadval uchun)",
+        description: 'Javob: `{ data: Company[], meta: {page, limit, total, totalPages} }`.',
+    })
+    @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+    @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 20 })
+    @ApiQuery({ name: 'id', required: false, description: 'Aniq kompaniya ID si' })
+    @ApiQuery({ name: 'search', required: false, description: 'Nom yoki telefon bo\'yicha umumiy qidiruv' })
+    @ApiQuery({ name: 'isActive', required: false, description: 'true/false' })
+    @ApiQuery({ name: 'createdFrom', required: false, description: 'Qo\'shilgan sana — shundan boshlab', example: '2026-01-01' })
+    @ApiQuery({ name: 'createdTo', required: false, description: 'Qo\'shilgan sana — shungacha', example: '2026-12-31' })
+    getAll(
+        @Query('page') page = 1,
+        @Query('limit') limit = 20,
+        @Query('id') id?: string,
+        @Query('search') search?: string,
+        @Query('isActive') isActive?: string,
+        @Query('createdFrom') createdFrom?: string,
+        @Query('createdTo') createdTo?: string,
+    ) {
+        return this.companyService.getAll({
+            page: +page, limit: +limit,
+            id: id ? +id : undefined,
+            search,
+            isActive: isActive !== undefined ? isActive === 'true' : undefined,
+            createdFrom, createdTo,
+        });
     }
 
     @Post()

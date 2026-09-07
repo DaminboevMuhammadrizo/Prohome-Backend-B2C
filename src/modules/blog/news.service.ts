@@ -48,18 +48,35 @@ export class NewsService {
   async getAll(params: {
     page?: number;
     limit?: number;
+    id?: number;
+    search?: string;
     status?: ContentStatus;
     categoryId?: number;
     masterId?: number;
     jobId?: number;
+    companyId?: number;
+    createdFrom?: string;
+    createdTo?: string;
   }) {
-    const { page = 1, limit = 10, status, categoryId, masterId, jobId } = params;
+    const { page = 1, limit = 10, id, search, status, categoryId, masterId, jobId, companyId, createdFrom, createdTo } = params;
     const skip = (page - 1) * limit;
 
     const where: any = { status: status ?? ContentStatus.PUBLISHED };
+    if (id !== undefined) where.id = id;
+    if (search) where.OR = [
+      { title: { contains: search, mode: 'insensitive' } },
+      { excerpt: { contains: search, mode: 'insensitive' } },
+      { content: { contains: search, mode: 'insensitive' } },
+    ];
     if (categoryId) where.categoryId = categoryId;
     if (masterId !== undefined) where.masterId = masterId;
     if (jobId !== undefined) where.jobId = jobId;
+    if (companyId !== undefined) where.companyId = companyId;
+    if (createdFrom || createdTo) {
+      where.createdAt = {};
+      if (createdFrom) where.createdAt.gte = new Date(createdFrom);
+      if (createdTo) where.createdAt.lte = new Date(createdTo);
+    }
 
     const [data, total] = await Promise.all([
       this.prisma.news.findMany({

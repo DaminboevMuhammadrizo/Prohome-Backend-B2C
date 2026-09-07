@@ -114,8 +114,21 @@ export class NotificationService {
 
   // ───────────────────────── Admin: shablonlar (NotificationTemplate) ─────────────────────────
 
-  listTemplates() {
-    return this.prisma.notificationTemplate.findMany({ orderBy: { key: 'asc' } });
+  async listTemplates(params: { page?: number; limit?: number; id?: number; search?: string } = {}) {
+    const { page = 1, limit = 50, id, search } = params;
+    const skip = (page - 1) * limit;
+    const where: any = {};
+    if (id !== undefined) where.id = id;
+    if (search) where.OR = [
+      { key: { contains: search, mode: 'insensitive' } },
+      { title: { contains: search, mode: 'insensitive' } },
+    ];
+
+    const [data, total] = await Promise.all([
+      this.prisma.notificationTemplate.findMany({ where, skip, take: limit, orderBy: { key: 'asc' } }),
+      this.prisma.notificationTemplate.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async updateTemplate(key: string, dto: UpdateTemplateDto) {

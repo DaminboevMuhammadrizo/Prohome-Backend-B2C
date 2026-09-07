@@ -43,6 +43,7 @@ export class RealEstateService {
   async getAll(params: {
     page?: number;
     limit?: number;
+    id?: number;
     search?: string;
     propertyType?: PropertyType;
     dealType?: DealType;
@@ -54,16 +55,21 @@ export class RealEstateService {
     status?: RealEstateStatus;
     userId?: number;
     subscriberUserId?: number;
+    createdFrom?: string;
+    createdTo?: string;
   }) {
-    const { page = 1, limit = 20, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId } = params;
+    const { page = 1, limit = 20, id, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId, createdFrom, createdTo } = params;
     const skip = (page - 1) * limit;
 
     const where: any = userId ? {} : { status: status || RealEstateStatus.ACTIVE };
     if (userId) { where.userId = userId; if (status) where.status = status; }
 
+    if (id !== undefined) where.id = id;
     if (search) where.OR = [
       { title: { contains: search, mode: 'insensitive' } },
       { description: { contains: search, mode: 'insensitive' } },
+      { contactPhone: { contains: search, mode: 'insensitive' } },
+      { companyName: { contains: search, mode: 'insensitive' } },
     ];
     if (propertyType) where.propertyType = propertyType;
     if (dealType) where.dealType = dealType;
@@ -74,6 +80,11 @@ export class RealEstateService {
       where.price = {};
       if (minPrice !== undefined) where.price.gte = minPrice;
       if (maxPrice !== undefined) where.price.lte = maxPrice;
+    }
+    if (createdFrom || createdTo) {
+      where.createdAt = {};
+      if (createdFrom) where.createdAt.gte = new Date(createdFrom);
+      if (createdTo) where.createdAt.lte = new Date(createdTo);
     }
 
     const [data, total] = await Promise.all([

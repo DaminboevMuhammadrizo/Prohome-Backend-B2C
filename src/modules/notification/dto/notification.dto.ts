@@ -22,67 +22,67 @@ export class UnregisterDeviceDto {
 }
 
 export class NotificationQueryDto {
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({ default: 1, description: 'Sahifa raqami' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 20 })
+  @ApiPropertyOptional({ default: 20, description: 'Bir sahifadagi son' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   limit?: number = 20;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'true — faqat o\'qilganlar, false — faqat o\'qilmaganlar, berilmasa — hammasi' })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
   isRead?: boolean;
 }
 
-// Admin uchun — search_subscriptions jadvalini har qanday maydon bo'yicha filtrlash
+// Admin uchun — search_subscriptions (topilmagan qidiruvlar) jadvalini har qanday maydon bo'yicha filtrlash
 export class SearchSubscriptionQueryDto {
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({ default: 1, description: 'Sahifa raqami' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 20 })
+  @ApiPropertyOptional({ default: 20, description: 'Bir sahifadagi son' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   limit?: number = 20;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Aniq yozuv ID si' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   id?: number;
 
-  @ApiPropertyOptional({ enum: SearchType })
+  @ApiPropertyOptional({ enum: SearchType, description: 'Qidiruv qaysi bo\'limda bo\'lgan: uy (REAL_ESTATE), ish (JOB) yoki usta (MASTER)' })
   @IsOptional()
   @IsEnum(SearchType)
   type?: SearchType;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Qidirilgan joylashuv (shahar/viloyat) ID si' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   locationId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Qidirgan foydalanuvchi ID si' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   userId?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'false — moslik topilib yopilgan (endi kuzatilmaydigan) qidiruvlar ham ko\'rinadi. Berilmasa — hammasi' })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
@@ -106,17 +106,17 @@ export class SearchSubscriptionQueryDto {
 }
 
 export class UpdateTemplateDto {
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Bildirishnoma sarlavhasi. {location}/{title}/{price}/{skillType} kabi placeholder ishlatish mumkin' })
   @IsOptional()
   @IsString()
   title?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Bildirishnoma matni. Xuddi shu placeholder\'lar bilan' })
   @IsOptional()
   @IsString()
   body?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'false qilinsa — shu shablon bo\'yicha avtomatik xabar yuborilmaydi' })
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
@@ -158,21 +158,21 @@ export class CreateBroadcastDto {
 }
 
 export class BroadcastQueryDto {
-  @ApiPropertyOptional({ default: 1 })
+  @ApiPropertyOptional({ default: 1, description: 'Sahifa raqami' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page?: number = 1;
 
-  @ApiPropertyOptional({ default: 20 })
+  @ApiPropertyOptional({ default: 20, description: 'Bir sahifadagi son' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   limit?: number = 20;
 
-  @ApiPropertyOptional({ enum: NotificationStatus })
+  @ApiPropertyOptional({ enum: NotificationStatus, description: 'PENDING — hali yuborilmagan (rejalashtirilgan), SENT — yuborilgan, FAILED — xatolik' })
   @IsOptional()
   @IsEnum(NotificationStatus)
   status?: NotificationStatus;

@@ -29,26 +29,39 @@ export class ReelsController {
   constructor(private readonly reelsService: ReelsService) {}
 
   @Get()
-  @ApiOperation({ summary: "Reels ro'yxati (sahifalangan)" })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ContentStatus })
-  @ApiQuery({ name: 'masterId', required: false })
-  @ApiQuery({ name: 'jobId', required: false })
-  @ApiQuery({ name: 'companyId', required: false })
+  @ApiOperation({
+    summary: "Reels ro'yxati (jadval uchun)",
+    description: '`status` berilmasa faqat PUBLISHED qaytadi. Javob: `{ data: Reel[], meta: {page, limit, total, totalPages} }`.',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 10 })
+  @ApiQuery({ name: 'id', required: false, description: 'Aniq reel ID si' })
+  @ApiQuery({ name: 'search', required: false, description: 'Sarlavha yoki tavsif bo\'yicha umumiy qidiruv' })
+  @ApiQuery({ name: 'status', required: false, enum: ContentStatus, description: 'Berilmasa — faqat PUBLISHED' })
+  @ApiQuery({ name: 'masterId', required: false, description: 'Faqat shu usta reels\'lari' })
+  @ApiQuery({ name: 'jobId', required: false, description: 'Faqat shu ish e\'loni bilan bog\'liq reels' })
+  @ApiQuery({ name: 'companyId', required: false, description: 'Faqat shu kompaniya reels\'lari' })
+  @ApiQuery({ name: 'createdFrom', required: false, description: 'Yaratilgan sana — shundan boshlab', example: '2026-01-01' })
+  @ApiQuery({ name: 'createdTo', required: false, description: 'Yaratilgan sana — shungacha', example: '2026-12-31' })
   getAll(
     @Query('page') page = 1,
     @Query('limit') limit = 10,
+    @Query('id') id?: string,
+    @Query('search') search?: string,
     @Query('status') status?: ContentStatus,
     @Query('masterId') masterId?: string,
     @Query('jobId') jobId?: string,
     @Query('companyId') companyId?: string,
+    @Query('createdFrom') createdFrom?: string,
+    @Query('createdTo') createdTo?: string,
   ) {
     return this.reelsService.getAll({
-      page: +page, limit: +limit, status,
+      page: +page, limit: +limit, status, search,
+      id: id ? +id : undefined,
       masterId: masterId ? +masterId : undefined,
       jobId: jobId ? +jobId : undefined,
       companyId: companyId ? +companyId : undefined,
+      createdFrom, createdTo,
     });
   }
 

@@ -14,7 +14,10 @@ export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Mening bildirishnomalarim' })
+  @ApiOperation({
+    summary: 'Mening bildirishnomalarim',
+    description: 'Javob: `{ data: Notification[], meta: {page, limit, total, totalPages, unread} }` — `meta.unread` umumiy o\'qilmagan son.',
+  })
   getMy(@UserData() user: JwtPayload, @Query() query: NotificationQueryDto) {
     return this.notificationService.getMyNotifications(user.id, query.page, query.limit, query.isRead);
   }

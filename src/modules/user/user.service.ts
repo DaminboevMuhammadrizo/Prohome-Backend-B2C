@@ -45,10 +45,15 @@ export class UserService {
         return this.prisma.user.update({ where: { id: userId }, data, select: this.userSelect });
     }
 
-    async getAll(page = 1, limit = 20, search?: string, status?: UserStatus) {
+    async getAll(params: {
+        page?: number; limit?: number; search?: string; status?: UserStatus;
+        id?: number; role?: UserRole; locationId?: number; createdFrom?: string; createdTo?: string;
+    }) {
+        const { page = 1, limit = 20, search, status, id, role, locationId, createdFrom, createdTo } = params;
         const skip = (page - 1) * limit;
-        const where: Prisma.UserWhereInput = { role: UserRole.USER };
+        const where: Prisma.UserWhereInput = { role: role ?? UserRole.USER };
 
+        if (id !== undefined) where.id = id;
         if (search) {
             where.OR = [
                 { phone: { contains: search, mode: 'insensitive' } },
@@ -58,6 +63,12 @@ export class UserService {
             ];
         }
         if (status) where.status = status;
+        if (locationId !== undefined) where.locationId = locationId;
+        if (createdFrom || createdTo) {
+            where.createdAt = {};
+            if (createdFrom) where.createdAt.gte = new Date(createdFrom);
+            if (createdTo) where.createdAt.lte = new Date(createdTo);
+        }
 
         const [data, total] = await Promise.all([
             this.prisma.user.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.userSelect }),

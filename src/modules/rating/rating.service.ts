@@ -5,12 +5,34 @@ import { PrismaService } from 'src/common/database/prisma.service';
 export class RatingService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAll(page = 1, limit = 20) {
+  async getAll(params: {
+    page?: number; limit?: number; id?: number; userId?: number; masterId?: number;
+    rating?: number; minRating?: number; maxRating?: number; search?: string; createdFrom?: string; createdTo?: string;
+  } = {}) {
+    const { page = 1, limit = 20, id, userId, masterId, rating, minRating, maxRating, search, createdFrom, createdTo } = params;
     const skip = (page - 1) * limit;
+    const where: any = {};
+
+    if (id !== undefined) where.id = id;
+    if (userId !== undefined) where.userId = userId;
+    if (masterId !== undefined) where.masterId = masterId;
+    if (rating !== undefined) where.rating = rating;
+    else if (minRating !== undefined || maxRating !== undefined) {
+      where.rating = {};
+      if (minRating !== undefined) where.rating.gte = minRating;
+      if (maxRating !== undefined) where.rating.lte = maxRating;
+    }
+    if (search) where.comment = { contains: search, mode: 'insensitive' };
+    if (createdFrom || createdTo) {
+      where.createdAt = {};
+      if (createdFrom) where.createdAt.gte = new Date(createdFrom);
+      if (createdTo) where.createdAt.lte = new Date(createdTo);
+    }
+
     const [data, total] = await Promise.all([
-      this.prisma.rating.findMany({ skip, take: limit, orderBy: { createdAt: 'desc' },
+      this.prisma.rating.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' },
         include: { user: { select: { id: true, firstName: true, lastName: true } }, master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } } } }),
-      this.prisma.rating.count(),
+      this.prisma.rating.count({ where }),
     ]);
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }

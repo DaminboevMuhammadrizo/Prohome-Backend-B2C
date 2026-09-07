@@ -1,5 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
-import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { BannerLocation, MediaType, UserRole } from '@prisma/client';
 import { diskStorage } from 'multer';
@@ -35,9 +35,37 @@ export class BannerController {
   @ApiBearerAuth()
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
-  @ApiOperation({ summary: 'Barcha bannerlar (admin)' })
-  getAdminAll(@Query('page') page = 1, @Query('limit') limit = 20) {
-    return this.bannerService.getAdminAll(+page, +limit);
+  @ApiOperation({
+    summary: 'Barcha bannerlar (admin, jadval uchun)',
+    description: 'Filtrsiz — holatidan qat\'i nazar barcha bannerlar. Javob: `{ data: Banner[], meta: {page, limit, total, totalPages} }`.',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 20 })
+  @ApiQuery({ name: 'id', required: false, description: 'Aniq banner ID si' })
+  @ApiQuery({ name: 'search', required: false, description: 'Sarlavha bo\'yicha qidiruv' })
+  @ApiQuery({ name: 'isActive', required: false, description: 'true/false' })
+  @ApiQuery({ name: 'location', required: false, enum: BannerLocation, description: 'Banner qayerda ko\'rsatilishi' })
+  @ApiQuery({ name: 'mediaType', required: false, enum: MediaType })
+  @ApiQuery({ name: 'createdFrom', required: false, description: 'Yaratilgan sana — shundan boshlab', example: '2026-01-01' })
+  @ApiQuery({ name: 'createdTo', required: false, description: 'Yaratilgan sana — shungacha', example: '2026-12-31' })
+  getAdminAll(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('id') id?: string,
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: string,
+    @Query('location') location?: BannerLocation,
+    @Query('mediaType') mediaType?: MediaType,
+    @Query('createdFrom') createdFrom?: string,
+    @Query('createdTo') createdTo?: string,
+  ) {
+    return this.bannerService.getAdminAll({
+      page: +page, limit: +limit,
+      id: id ? +id : undefined,
+      search,
+      isActive: isActive !== undefined ? isActive === 'true' : undefined,
+      location, mediaType, createdFrom, createdTo,
+    });
   }
 
   @Get(':id')

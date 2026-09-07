@@ -30,19 +30,35 @@ export class JobService {
         _count: { select: { likes: true, views: true } },
     };
 
-    async getAll(params: { page?: number; limit?: number; search?: string; status?: JobStatus; skillTypeId?: number; locationId?: number; subscriberUserId?: number }) {
-        const { page = 1, limit = 20, search, status, skillTypeId, locationId, subscriberUserId } = params;
+    async getAll(params: {
+        page?: number; limit?: number; search?: string; status?: JobStatus; skillTypeId?: number; locationId?: number; subscriberUserId?: number;
+        id?: number; userId?: number; minPrice?: number; maxPrice?: number; createdFrom?: string; createdTo?: string;
+    }) {
+        const { page = 1, limit = 20, search, status, skillTypeId, locationId, subscriberUserId, id, userId, minPrice, maxPrice, createdFrom, createdTo } = params;
         const skip = (page - 1) * limit;
         const where: any = {};
 
+        if (id !== undefined) where.id = id;
+        if (userId !== undefined) where.userId = userId;
         if (search) where.OR = [
             { title: { contains: search, mode: 'insensitive' } },
             { description: { contains: search, mode: 'insensitive' } },
+            { contactPhone: { contains: search, mode: 'insensitive' } },
         ];
         if (status) where.status = status;
         else where.status = JobStatus.OPEN;
         if (skillTypeId) where.skillTypeId = skillTypeId;
         if (locationId) where.locationId = locationId;
+        if (minPrice !== undefined || maxPrice !== undefined) {
+            where.price = {};
+            if (minPrice !== undefined) where.price.gte = minPrice;
+            if (maxPrice !== undefined) where.price.lte = maxPrice;
+        }
+        if (createdFrom || createdTo) {
+            where.createdAt = {};
+            if (createdFrom) where.createdAt.gte = new Date(createdFrom);
+            if (createdTo) where.createdAt.lte = new Date(createdTo);
+        }
 
         const [data, total] = await Promise.all([
             this.prisma.job.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.jobSelect }),

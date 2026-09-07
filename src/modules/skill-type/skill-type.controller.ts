@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateSkillTypeDto, SkillTypeService } from './skill-type.service';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { GuardService } from 'src/common/guard/guard.service';
 import { Role } from 'src/common/decorators/role.decorator';
 import { SkillStatus, UserRole } from '@prisma/client';
@@ -12,9 +12,23 @@ export class SkillTypeController {
   constructor(private readonly skillTypeService: SkillTypeService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Skill turlari ro\'yxati' })
-  getAll(@Query('status') status?: SkillStatus) {
-    return this.skillTypeService.getAll(status);
+  @ApiOperation({
+    summary: 'Skill (kasb) turlari ro\'yxati',
+    description: 'Masalan "Qurilish ishlari", "Muhandislik". Diqqat: javob endi `{ data: SkillType[], meta: {...} }` ko\'rinishida (oddiy massiv emas).',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 50 })
+  @ApiQuery({ name: 'id', required: false, description: 'Aniq kasb turi ID si' })
+  @ApiQuery({ name: 'search', required: false, description: 'Nomi bo\'yicha qidiruv' })
+  @ApiQuery({ name: 'status', required: false, enum: SkillStatus })
+  getAll(
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+    @Query('id') id?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: SkillStatus,
+  ) {
+    return this.skillTypeService.getAll({ page: +page, limit: +limit, id: id ? +id : undefined, search, status });
   }
 
   @Get(':id')

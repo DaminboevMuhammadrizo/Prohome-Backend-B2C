@@ -45,19 +45,36 @@ export class UserController {
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
   @Get()
-  @ApiOperation({ summary: 'Foydalanuvchilar ro\'yxati' })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
-  @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: UserStatus })
-  @ApiQuery({ name: 'role', required: false, enum: UserRole })
+  @ApiOperation({
+    summary: 'Foydalanuvchilar ro\'yxati (jadval uchun — har ustun bo\'yicha filtr)',
+    description: 'Barcha parametrlar ixtiyoriy va bir-biri bilan birga ishlaydi (AND). Javob: `{ data: User[], meta: {page, limit, total, totalPages} }`.',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 20 })
+  @ApiQuery({ name: 'id', required: false, description: 'Aniq foydalanuvchi ID si', example: 5 })
+  @ApiQuery({ name: 'search', required: false, description: 'phone, email, ism yoki familiya bo\'yicha bitta umumiy qidiruv (qisman mos kelish, katta-kichik harf farqsiz)', example: '+99890' })
+  @ApiQuery({ name: 'status', required: false, enum: UserStatus, description: 'Foydalanuvchi holati' })
+  @ApiQuery({ name: 'role', required: false, enum: UserRole, description: 'Rol bo\'yicha filtr — berilmasa faqat oddiy (USER) foydalanuvchilar qaytadi' })
+  @ApiQuery({ name: 'locationId', required: false, description: 'Foydalanuvchi joylashuvi (shahar/viloyat) ID si — /locations dan olinadi' })
+  @ApiQuery({ name: 'createdFrom', required: false, description: 'Ro\'yxatdan o\'tgan sana — shundan boshlab', example: '2026-01-01' })
+  @ApiQuery({ name: 'createdTo', required: false, description: 'Ro\'yxatdan o\'tgan sana — shungacha', example: '2026-12-31' })
   getAll(
     @Query('page') page = 1,
     @Query('limit') limit = 20,
+    @Query('id') id?: string,
     @Query('search') search?: string,
-    @Query('status') status?: UserStatus
+    @Query('status') status?: UserStatus,
+    @Query('role') role?: UserRole,
+    @Query('locationId') locationId?: string,
+    @Query('createdFrom') createdFrom?: string,
+    @Query('createdTo') createdTo?: string,
   ) {
-    return this.userService.getAll(+page, +limit, search, status);
+    return this.userService.getAll({
+      page: +page, limit: +limit, search, status, role,
+      id: id ? +id : undefined,
+      locationId: locationId ? +locationId : undefined,
+      createdFrom, createdTo,
+    });
   }
 
   @ApiBearerAuth()

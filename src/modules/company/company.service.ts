@@ -29,15 +29,32 @@ export class CompanyService {
 
   // ── B2C company CRUD (admin) ─────────────────────────────────────────────
 
-  async getAll(page = 1, limit = 20) {
+  async getAll(params: {
+    page?: number; limit?: number; id?: number; search?: string; isActive?: boolean; createdFrom?: string; createdTo?: string;
+  } = {}) {
+    const { page = 1, limit = 20, id, search, isActive, createdFrom, createdTo } = params;
     const skip = (page - 1) * limit;
+    const where: any = {};
+
+    if (id !== undefined) where.id = id;
+    if (search) where.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { phone: { contains: search, mode: 'insensitive' } },
+    ];
+    if (isActive !== undefined) where.isActive = isActive;
+    if (createdFrom || createdTo) {
+      where.createdAt = {};
+      if (createdFrom) where.createdAt.gte = new Date(createdFrom);
+      if (createdTo) where.createdAt.lte = new Date(createdTo);
+    }
+
     const [data, total] = await Promise.all([
       this.prisma.company.findMany({
-        skip, take: limit,
+        where, skip, take: limit,
         orderBy: { createdAt: 'desc' },
         select: { id: true, name: true, phone: true, logo: true, isActive: true, b2bCompanyId: true, createdAt: true },
       }),
-      this.prisma.company.count(),
+      this.prisma.company.count({ where }),
     ]);
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }

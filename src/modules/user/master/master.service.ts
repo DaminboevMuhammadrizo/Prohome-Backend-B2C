@@ -54,11 +54,23 @@ export class MasterService {
     _count: { select: { ratings: true } },
   };
 
-  async getAll(page = 1, limit = 20, search?: string, isFree?: boolean, skillTypeId?: number, subscriberUserId?: number) {
+  async getAll(params: {
+    page?: number; limit?: number; search?: string; isFree?: boolean; skillTypeId?: number; subscriberUserId?: number;
+    id?: number; locationId?: number; status?: UserStatus; createdFrom?: string; createdTo?: string;
+  }) {
+    const { page = 1, limit = 20, search, isFree, skillTypeId, subscriberUserId, id, locationId, status, createdFrom, createdTo } = params;
     const skip = (page - 1) * limit;
     const where: any = {};
+    if (id !== undefined) where.id = id;
     if (skillTypeId) where.skills = { some: { skill: { typeId: skillTypeId } } };
     if (isFree !== undefined) where.isFree = isFree;
+    if (locationId !== undefined) where.user = { ...where.user, locationId };
+    if (status) where.user = { ...where.user, status };
+    if (createdFrom || createdTo) {
+      where.createdAt = {};
+      if (createdFrom) where.createdAt.gte = new Date(createdFrom);
+      if (createdTo) where.createdAt.lte = new Date(createdTo);
+    }
     if (search) {
       where.OR = [
         { user: { firstName: { contains: search, mode: 'insensitive' } } },

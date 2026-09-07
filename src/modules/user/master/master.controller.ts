@@ -54,26 +54,43 @@ export class MasterController {
   // ── Statik route'lar — har doim /:id dan OLDIN bo'lishi shart ──────────
 
   @Get()
-  @ApiOperation({ summary: "Ustalar ro'yxati" })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
-  @ApiQuery({ name: 'search', required: false })
-  @ApiQuery({ name: 'isFree', required: false })
-  @ApiQuery({ name: 'skillTypeId', required: false })
+  @ApiOperation({
+    summary: "Ustalar ro'yxati (jadval uchun — har ustun bo'yicha filtr)",
+    description: 'Javob: `{ data: Master[], meta: {page, limit, total, totalPages} }`.',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 20 })
+  @ApiQuery({ name: 'id', required: false, description: 'Aniq usta (Master) ID si' })
+  @ApiQuery({ name: 'search', required: false, description: 'Ism, familiya, telefon yoki bio bo\'yicha umumiy qidiruv' })
+  @ApiQuery({ name: 'isFree', required: false, description: 'true — faqat band bo\'lmagan (bo\'sh) ustalar' })
+  @ApiQuery({ name: 'skillTypeId', required: false, description: 'Kasb turi ID si (/skill-types dan)' })
+  @ApiQuery({ name: 'locationId', required: false, description: 'Usta profilidagi foydalanuvchining joylashuvi (shahar) ID si' })
+  @ApiQuery({ name: 'status', required: false, description: 'Usta profilidagi foydalanuvchi holati (ACTIVE/BLOCKED/ARCHIVED)' })
+  @ApiQuery({ name: 'createdFrom', required: false, description: 'Qo\'shilgan sana — shundan boshlab', example: '2026-01-01' })
+  @ApiQuery({ name: 'createdTo', required: false, description: 'Qo\'shilgan sana — shungacha', example: '2026-12-31' })
   getAll(
     @Req() req: any,
     @Query('page') page = 1,
     @Query('limit') limit = 20,
+    @Query('id') id?: string,
     @Query('search') search?: string,
     @Query('isFree') isFree?: string,
     @Query('skillTypeId') skillTypeId?: string,
+    @Query('locationId') locationId?: string,
+    @Query('status') status?: string,
+    @Query('createdFrom') createdFrom?: string,
+    @Query('createdTo') createdTo?: string,
   ) {
-    return this.masterService.getAll(
-      +page, +limit, search,
-      isFree !== undefined ? isFree === 'true' : undefined,
-      skillTypeId ? +skillTypeId : undefined,
-      this.extractUserId(req),
-    );
+    return this.masterService.getAll({
+      page: +page, limit: +limit, search,
+      isFree: isFree !== undefined ? isFree === 'true' : undefined,
+      skillTypeId: skillTypeId ? +skillTypeId : undefined,
+      subscriberUserId: this.extractUserId(req),
+      id: id ? +id : undefined,
+      locationId: locationId ? +locationId : undefined,
+      status: status as any,
+      createdFrom, createdTo,
+    });
   }
 
   @ApiBearerAuth()

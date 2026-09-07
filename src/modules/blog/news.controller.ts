@@ -38,26 +38,42 @@ export class NewsController {
   // ── Statik route'lar — /:id dan OLDIN ───────────────────────────────────
 
   @Get()
-  @ApiOperation({ summary: "Yangiliklar ro'yxati (sahifalangan)" })
-  @ApiQuery({ name: 'page', required: false })
-  @ApiQuery({ name: 'limit', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: ContentStatus })
-  @ApiQuery({ name: 'categoryId', required: false })
-  @ApiQuery({ name: 'masterId', required: false })
-  @ApiQuery({ name: 'jobId', required: false })
+  @ApiOperation({
+    summary: "Yangiliklar ro'yxati (jadval uchun)",
+    description: '`status` berilmasa faqat PUBLISHED qaytadi. Javob: `{ data: News[], meta: {page, limit, total, totalPages} }`.',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son', example: 10 })
+  @ApiQuery({ name: 'id', required: false, description: 'Aniq yangilik ID si' })
+  @ApiQuery({ name: 'search', required: false, description: 'Sarlavha, qisqacha mazmun yoki matn bo\'yicha umumiy qidiruv' })
+  @ApiQuery({ name: 'status', required: false, enum: ContentStatus, description: 'Berilmasa — faqat PUBLISHED' })
+  @ApiQuery({ name: 'categoryId', required: false, description: 'Yangilik kategoriyasi ID si' })
+  @ApiQuery({ name: 'masterId', required: false, description: 'Faqat shu usta bilan bog\'liq yangiliklar' })
+  @ApiQuery({ name: 'jobId', required: false, description: 'Faqat shu ish e\'loni bilan bog\'liq yangiliklar' })
+  @ApiQuery({ name: 'companyId', required: false, description: 'Faqat shu kompaniya yangiliklari' })
+  @ApiQuery({ name: 'createdFrom', required: false, description: 'Yaratilgan sana — shundan boshlab', example: '2026-01-01' })
+  @ApiQuery({ name: 'createdTo', required: false, description: 'Yaratilgan sana — shungacha', example: '2026-12-31' })
   getAll(
     @Query('page') page = 1,
     @Query('limit') limit = 10,
+    @Query('id') id?: string,
+    @Query('search') search?: string,
     @Query('status') status?: ContentStatus,
     @Query('categoryId') categoryId?: string,
     @Query('masterId') masterId?: string,
     @Query('jobId') jobId?: string,
+    @Query('companyId') companyId?: string,
+    @Query('createdFrom') createdFrom?: string,
+    @Query('createdTo') createdTo?: string,
   ) {
     return this.newsService.getAll({
-      page: +page, limit: +limit, status,
+      page: +page, limit: +limit, status, search,
+      id: id ? +id : undefined,
       categoryId: categoryId ? +categoryId : undefined,
       masterId: masterId ? +masterId : undefined,
       jobId: jobId ? +jobId : undefined,
+      companyId: companyId ? +companyId : undefined,
+      createdFrom, createdTo,
     });
   }
 

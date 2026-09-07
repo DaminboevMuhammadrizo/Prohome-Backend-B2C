@@ -19,43 +19,77 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('overview')
-  @ApiOperation({ summary: "Umumiy ko'rinish — barcha jadvallar bo'yicha asosiy sonlar" })
+  @ApiOperation({
+    summary: "Umumiy ko'rinish (dashboard uchun)",
+    description:
+      'Barcha jadvallar (users/masters/realEstates/jobs/companies/searchMisses/notifications) bo\'yicha ' +
+      'asosiy sonlarni bitta so\'rovda qaytaradi — har biri `{ total, ... }` ko\'rinishida qisqa obyekt. ' +
+      "Filtr yo'q, parametrsiz chaqiriladi.",
+  })
   getOverview() {
     return this.analyticsService.getOverview();
   }
 
   @Get('users')
-  @ApiOperation({ summary: "Foydalanuvchilar: geografiya (davlat/viloyat), rol, status, ro'yxatdan o'tish trendi" })
+  @ApiOperation({
+    summary: "Foydalanuvchilar statistikasi",
+    description:
+      "Javobda: `byRole`/`byStatus` (enum→son), `geography.byCountry` — har bir davlat `{name, count, regions: [{name, count}]}` " +
+      "ko'rinishida (front-end davlatni bosganda `regions`ni ochib ko'rsatadi), va `registrationTrend` — oxirgi 30 kunlik " +
+      "`[{date: 'YYYY-MM-DD', count}]` massivi (grafik chizish uchun tayyor).",
+  })
   getUsers() {
     return this.analyticsService.getUsersAnalytics();
   }
 
   @Get('masters')
-  @ApiOperation({ summary: 'Ustalar: geografiya, kasb turlari kesimi, band/bo\'sh, reyting' })
+  @ApiOperation({
+    summary: 'Ustalar statistikasi',
+    description:
+      "`geography` (users bilan bir xil format), `bySkillType` — kasb turlari bo'yicha sonlar, " +
+      "`free`/`busy`, `avgRating` — barcha ustalarning o'rtacha reytingi.",
+  })
   getMasters() {
     return this.analyticsService.getMastersAnalytics();
   }
 
   @Get('real-estates')
-  @ApiOperation({ summary: "Ko'chmas mulklar: geografiya, turlar, narx statistikasi, ko'rishlar, trend" })
+  @ApiOperation({
+    summary: "Ko'chmas mulklar statistikasi",
+    description:
+      "`geography`, `byPropertyType`/`byDealType`/`byStatus` (son bo'yicha kesim), `priceStats` — " +
+      "har bir dealType (SALE/RENT) uchun `{avg, min, max}` narx, `listingTrend` — oxirgi 30 kunlik e'lon soni.",
+  })
   getRealEstates() {
     return this.analyticsService.getRealEstatesAnalytics();
   }
 
   @Get('jobs')
-  @ApiOperation({ summary: "Ish e'lonlari: geografiya, kasb turlari, status, ko'rishlar, trend" })
+  @ApiOperation({
+    summary: "Ish e'lonlari statistikasi",
+    description: "`geography`, `bySkillType`, `byStatus`, `totalViews`/`avgViews`, `listingTrend` (oxirgi 30 kun).",
+  })
   getJobs() {
     return this.analyticsService.getJobsAnalytics();
   }
 
   @Get('search-misses')
-  @ApiOperation({ summary: "Topilmagan qidiruvlar: turi, geografiya, eng ko'p qidirilgan kriteriyalar, trend" })
+  @ApiOperation({
+    summary: "Topilmagan qidiruvlar statistikasi",
+    description:
+      "Foydalanuvchilar qidirib-topa olmagan so'rovlar bo'yicha: `byType` (REAL_ESTATE/JOB/MASTER), `geography`, " +
+      "`topCriteriaByType` — har bir tur uchun eng ko'p qidirilgan (lekin topilmagan) kriteriya qiymatlari " +
+      "(masalan `{field:'propertyType', value:'OFFICE', count:5}`), `unresolved` — hali hech kimga moslik topilib xabar berilmagan sonlar, `trend`.",
+  })
   getSearchMisses() {
     return this.analyticsService.getSearchMissesAnalytics();
   }
 
   @Get('notifications')
-  @ApiOperation({ summary: 'Bildirishnomalar: status/kategoriya kesimi, yetkazish foizi' })
+  @ApiOperation({
+    summary: 'Bildirishnomalar statistikasi',
+    description: "`byStatus` (PENDING/SENT/FAILED), `byCategory` (SEARCH_MATCH/ADMIN_BROADCAST/SYSTEM), `deliveryRate` — muvaffaqiyatli yuborilgan foizi (0-100).",
+  })
   getNotifications() {
     return this.analyticsService.getNotificationsAnalytics();
   }

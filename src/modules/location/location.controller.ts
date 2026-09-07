@@ -17,16 +17,34 @@ export class LocationController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Joylashuvlar ro\'yxati' })
-  @ApiQuery({ name: 'type', required: false, enum: LocationType })
-  @ApiQuery({ name: 'parentId', required: false })
-  @ApiQuery({ name: 'search', required: false })
+  @ApiOperation({
+    summary: 'Joylashuvlar ro\'yxati (davlat/viloyat/shahar)',
+    description:
+      'Daraxt shaklidagi joylashuvni tekis (flat) ro\'yxat sifatida qaytaradi. Bitta darajani olish uchun `type` + `parentId` ' +
+      'birga beriladi (masalan bitta viloyatning shaharlari: `type=CITY&parentId=<viloyat_id>`). To\'liq daraxt uchun `/locations/tree` ishlating. ' +
+      'Diqqat: javob endi `{ data: Location[], meta: {...} }` ko\'rinishida.',
+  })
+  @ApiQuery({ name: 'page', required: false, description: 'Sahifa raqami', example: 1 })
+  @ApiQuery({ name: 'limit', required: false, description: 'Bir sahifadagi son (default 200 — odatda bitta so\'rovda yetadi)', example: 200 })
+  @ApiQuery({ name: 'id', required: false, description: 'Aniq joylashuv ID si' })
+  @ApiQuery({ name: 'type', required: false, enum: LocationType, description: 'COUNTRY / REGION / CITY' })
+  @ApiQuery({ name: 'parentId', required: false, description: 'Ota joylashuv ID si (masalan viloyat ID si — uning shaharlarini olish uchun). 0 — ota-joylashuvsizlar (davlatlar)' })
+  @ApiQuery({ name: 'search', required: false, description: 'Nomi bo\'yicha qidiruv' })
   getAll(
+    @Query('page') page = 1,
+    @Query('limit') limit = 200,
+    @Query('id') id?: string,
     @Query('type') type?: LocationType,
     @Query('parentId') parentId?: string,
     @Query('search') search?: string,
   ) {
-    return this.locationService.getAll(type, parentId !== undefined ? +parentId : undefined, search);
+    return this.locationService.getAll({
+      page: +page, limit: +limit,
+      id: id ? +id : undefined,
+      type,
+      parentId: parentId !== undefined ? +parentId : undefined,
+      search,
+    });
   }
 
   @Get('tree')

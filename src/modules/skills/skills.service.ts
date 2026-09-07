@@ -6,15 +6,24 @@ import { SkillStatus } from '@prisma/client';
 export class SkillsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getAll(typeId?: number, status?: SkillStatus) {
-    return this.prisma.skills.findMany({
-      where: {
-        ...(typeId ? { typeId } : {}),
-        ...(status ? { status } : {}),
-      },
-      orderBy: { name: 'asc' },
-      include: { type: { select: { id: true, name: true } } },
-    });
+  async getAll(params: { page?: number; limit?: number; id?: number; search?: string; typeId?: number; status?: SkillStatus } = {}) {
+    const { page = 1, limit = 50, id, search, typeId, status } = params;
+    const skip = (page - 1) * limit;
+    const where: any = {};
+    if (id !== undefined) where.id = id;
+    if (typeId) where.typeId = typeId;
+    if (status) where.status = status;
+    if (search) where.name = { contains: search, mode: 'insensitive' };
+
+    const [data, total] = await Promise.all([
+      this.prisma.skills.findMany({
+        where, skip, take: limit,
+        orderBy: { name: 'asc' },
+        include: { type: { select: { id: true, name: true } } },
+      }),
+      this.prisma.skills.count({ where }),
+    ]);
+    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
   }
 
   async getById(id: number) {

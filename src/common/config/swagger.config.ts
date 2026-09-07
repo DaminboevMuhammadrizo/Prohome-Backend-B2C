@@ -1,16 +1,5 @@
 import { INestApplication, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AuthModule } from 'src/modules/auth/auth.module';
-import { BannerModule } from 'src/modules/banner/banner.module';
-import { JobModule } from 'src/modules/job/job.module';
-import { LocationModule } from 'src/modules/location/location.module';
-import { MasterModule } from 'src/modules/user/master/master.module';
-import { RatingModule } from 'src/modules/rating/rating.module';
-import { RealEstateModule } from 'src/modules/real-estate/real-estate.module';
-import { SkillTypeModule } from 'src/modules/skill-type/skill-type.module';
-import { SkillsModule } from 'src/modules/skills/skills.module';
-import { SocialModule } from 'src/modules/social/social.module';
-import { UserModule } from 'src/modules/user/user.module';
 
 export class SwaggerProhomeConfig {
     private logger = new Logger('Swagger Prohome');
@@ -31,13 +20,10 @@ export class SwaggerProhomeConfig {
             .setExternalDoc('OpenAPI JSON', '/prohome/swagger-json')
             .build();
 
-        const document = SwaggerModule.createDocument(this.app, config, {
-            include: [
-                AuthModule, UserModule, MasterModule, LocationModule,
-                SkillTypeModule, SkillsModule, RealEstateModule,
-                JobModule, BannerModule, RatingModule, SocialModule,
-            ],
-        });
+        // `include` ataylab qo'llanilmaydi — shu tufayli avval Company/Blog(News,Reels)/
+        // Notification/Analytics kabi modullar Swagger'da butunlay ko'rinmas edi. Endi
+        // butun ilova hujjatlanadi, yangi modul qo'shilganda ham bu yerni eslab yurish shart emas.
+        const document = SwaggerModule.createDocument(this.app, config);
 
         this.app.use('/prohome/swagger-json', (req, res) => {
             res.json(document);
