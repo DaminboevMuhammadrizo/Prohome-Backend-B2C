@@ -36,20 +36,28 @@ export class TelegramClientService implements OnModuleInit {
       return;
     }
 
+    this.client = new TelegramClient(new StringSession(session), parseInt(apiId, 10), apiHash, {
+      connectionRetries: Infinity,
+      retryDelay: 2000,
+      autoReconnect: true,
+    });
+
     try {
-      this.client = new TelegramClient(new StringSession(session), parseInt(apiId, 10), apiHash, {
-        connectionRetries: 5,
-      });
       await this.client.connect();
       this.logger.log('Telegram (userbot) ulandi ✅');
     } catch (e) {
-      this.logger.error('Telegram ulanishda xatolik', e as Error);
-      this.client = null;
+      // MUHIM: `this.client`ni null qilib qo'ymaymiz — vaqtinchalik uzilish
+      // bo'lsa ham GramJS orqada avtomatik qayta ulanadi (autoReconnect).
+      // Avval shu yerda `this.client = null` qilingani uchun bitta vaqtinchalik
+      // tarmoq uzilishida butun import butunlay "o'chib" qolar edi.
+      this.logger.warn(`Telegram ulanishda vaqtinchalik xatolik (avtomatik qayta urinadi): ${(e as Error).message}`);
     }
   }
 
+  // Obyekt mavjudligini emas, HOZIRGI ulanish holatini tekshiradi — shuning
+  // uchun vaqtinchalik uzilib, keyin o'zi tiklangan aloqa ham to'g'ri aniqlanadi.
   isEnabled(): boolean {
-    return !!this.client;
+    return !!this.client?.connected;
   }
 
   // `sinceDate` berilsa — shu sanadan keyingi barcha postlar (backfill).
@@ -58,7 +66,7 @@ export class TelegramClientService implements OnModuleInit {
     username: string,
     opts: { sinceDate?: Date | null; afterMessageId?: number | null; limit?: number },
   ): Promise<TelegramFetchedMessage[]> {
-    if (!this.client) return [];
+    if (!this.client?.connected) return [];
     const result: TelegramFetchedMessage[] = [];
 
     try {
