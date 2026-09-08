@@ -100,9 +100,17 @@ export class TelegramImportService {
 
   // ───────────────────────── Import jarayoni ─────────────────────────
 
+  // Ko'p postli kanalda geocoding (har biri ~1 soniya kutish bilan) daqiqalab
+  // cho'zilishi mumkin — HTTP so'rovni ochiq ushlab turmaslik uchun (aks holda
+  // nginx 504 beradi) fonda ishga tushirib, darhol javob qaytaramiz. Natija
+  // (nechta import qilingani) server logida va keyin
+  // GET /real-estates?status=PENDING_REVIEW orqali ko'rinadi.
   async runBackfill(id: number) {
     const channel = await this.getChannelOrThrow(id);
-    return this.importFromChannel(channel, true);
+    this.importFromChannel(channel, true).catch((e) =>
+      this.logger.error(`"${channel.username}" backfill xatosi`, e as Error),
+    );
+    return { message: "Backfill fonda boshlandi — natijani bir ozdan keyin GET /real-estates?status=PENDING_REVIEW orqali tekshiring", channelId: id };
   }
 
   // Har 10 daqiqada faol kanallardagi YANGI postlarni import qiladi. Sotilgan/
@@ -136,6 +144,7 @@ export class TelegramImportService {
       return { imported: 0, skipped: messages.length };
     }
     const systemUserId = await this.getOrCreateImportUser();
+    const cityCoordsCache = new Map<string, { latitude: number; longitude: number } | null>();
 
     let imported = 0;
     let skipped = 0;
@@ -172,7 +181,7 @@ export class TelegramImportService {
         this.logger.warn(`Manzil shahar bilan mos kelmadi ("${parsed.addressCandidate}") — zaxira sifatida "${resolvedCity.name}" qo'yildi`);
       }
 
-      const { coords, coordsSource } = await this.resolveCoordinates(parsed, resolvedCity.name);
+      const { coords, coordsSource } = await this.resolveCoordinates(parsed, resolvedCity.name, cityCoordsCache);
 
       try {
         await this.prisma.realEstate.create({
@@ -256,9 +265,18 @@ export class TelegramImportService {
   private async resolveCoordinates(
     parsed: ParsedListing,
     cityName: string,
+    cityCoordsCache: Map<string, { latitude: number; longitude: number } | null>,
   ): Promise<{ coords: { latitude: number; longitude: number } | null; coordsSource: string | null }> {
     const MAX_DISTANCE_FROM_CITY_KM = 40;
-    const cityCoords = await this.geocoding.geocode(`${cityName}, O'zbekiston`);
+
+    // Bir xil shahar butun backfill davomida qayta-qayta geocode qilinmasin —
+    // ko'p e'lonli kanalda bu sezilarli tezlik yutug'i beradi (throttling tufayli
+    // har bir geocoding so'rovi ~1 soniya oladi).
+    let cityCoords = cityCoordsCache.get(cityName);
+    if (cityCoords === undefined) {
+      cityCoords = await this.geocoding.geocode(`${cityName}, O'zbekiston`);
+      cityCoordsCache.set(cityName, cityCoords);
+    }
 
     const attempts: { query: string; source: string; usePhoton?: boolean }[] = [];
     if (parsed.addressCandidate) attempts.push({ query: `${parsed.addressCandidate}, O'zbekiston`, source: 'address' });

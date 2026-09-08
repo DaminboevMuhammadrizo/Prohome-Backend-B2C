@@ -50,7 +50,10 @@ export class TelegramImportController {
   @Post(':id/backfill')
   @ApiOperation({
     summary: 'Kanal uchun bir martalik backfill\'ni (qayta) ishga tushirish',
-    description: 'Kanalning `sinceDate` maydonidan (bo\'sh bo\'lsa — bor-yo\'g\'i) hozirgacha bo\'lgan barcha postlarni tekshiradi. Natija: { imported, skipped }.',
+    description:
+      'Kanalning `sinceDate` maydonidan (bo\'sh bo\'lsa — bor-yo\'g\'i) hozirgacha bo\'lgan barcha postlarni tekshiradi. ' +
+      'FONDA ishlaydi (darhol javob qaytadi, ko\'p post bo\'lsa geocoding tufayli bir necha daqiqa davom etishi mumkin) — ' +
+      'natijani `GET /real-estates?status=PENDING_REVIEW` orqali yoki server logidan tekshiring.',
   })
   backfill(@Param('id', ParseIntPipe) id: number) {
     return this.telegramImportService.runBackfill(id);
