@@ -1,10 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 
-// Nominatim (OpenStreetMap) orqali matn manzildan taxminiy lat/lng olish — bepul,
-// kalit kerak emas (mobil ilova ham shu xizmatni ishlatadi). Foydalanish siyosati
-// majburiy User-Agent va so'rovlar orasida kamida 1 soniya kutishni talab qiladi,
-// shuning uchun ichki navbat orqali ketma-ket (parallel emas) so'raladi.
+export type Coordinates = { latitude: number; longitude: number };
+
+// Ikkita bepul (kalitsiz) geocoding xizmatidan foydalanadi:
+//   1) Nominatim (OpenStreetMap) — asosiy, ko'p manzillar uchun yetarli
+//   2) Photon (Komoot, OSM asosida, lekin qidiruv algoritmi boshqacha) —
+//      Nominatim topolmagan mo'ljal/POI'larda ko'pincha muvaffaqiyatli bo'ladi
+// Ikkalasi ham foydalanish siyosati talab qiladigan User-Agent va so'rovlar
+// orasidagi kutish bilan, ichki navbat orqali ketma-ket so'raladi.
 @Injectable()
 export class GeocodingService {
   private readonly logger = new Logger(GeocodingService.name);
@@ -17,16 +21,23 @@ export class GeocodingService {
     this.lastRequestAt = Date.now();
   }
 
-  async geocode(address: string): Promise<{ latitude: number; longitude: number } | null> {
-    if (!address?.trim()) return null;
-
-    // Navbatga qo'yamiz — Nominatim'ga bir vaqtda bittadan so'rov ketishi shart
-    const task = this.queue.then(() => this.doGeocode(address));
-    this.queue = task.catch(() => null);
-    return task as Promise<{ latitude: number; longitude: number } | null>;
+  private enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const result = this.queue.then(task);
+    this.queue = result.catch(() => null);
+    return result;
   }
 
-  private async doGeocode(address: string): Promise<{ latitude: number; longitude: number } | null> {
+  async geocode(address: string): Promise<Coordinates | null> {
+    if (!address?.trim()) return null;
+    return this.enqueue(() => this.doGeocodeNominatim(address));
+  }
+
+  async geocodePhoton(address: string): Promise<Coordinates | null> {
+    if (!address?.trim()) return null;
+    return this.enqueue(() => this.doGeocodePhoton(address));
+  }
+
+  private async doGeocodeNominatim(address: string): Promise<Coordinates | null> {
     await this.throttle();
     try {
       const { data } = await axios.get('https://nominatim.openstreetmap.org/search', {
@@ -39,7 +50,26 @@ export class GeocodingService {
       const { lat, lon } = data[0];
       return { latitude: parseFloat(lat), longitude: parseFloat(lon) };
     } catch (e) {
-      this.logger.warn(`Geocoding xatosi ("${address}"): ${(e as Error).message}`);
+      this.logger.warn(`Nominatim xatosi ("${address}"): ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  private async doGeocodePhoton(address: string): Promise<Coordinates | null> {
+    await this.throttle();
+    try {
+      const { data } = await axios.get('https://photon.komoot.io/api/', {
+        params: { q: address, limit: 1, lang: 'en' },
+        headers: { 'User-Agent': 'ProhomeBackend/1.0 (contact: admin@prohome.uz)' },
+        timeout: 10_000,
+      });
+
+      const feature = data?.features?.[0];
+      const coords = feature?.geometry?.coordinates; // GeoJSON: [lon, lat]
+      if (!Array.isArray(coords) || coords.length < 2) return null;
+      return { latitude: coords[1], longitude: coords[0] };
+    } catch (e) {
+      this.logger.warn(`Photon xatosi ("${address}"): ${(e as Error).message}`);
       return null;
     }
   }

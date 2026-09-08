@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { DealType, PropertyType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsDateString, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsDateString, IsEnum, IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class AddChannelDto {
   @ApiPropertyOptional({ example: 'uyjoy_toshkent', description: '"@" belgisisiz kanal username\'i' })
@@ -12,6 +13,19 @@ export class AddChannelDto {
   @IsOptional()
   @IsDateString()
   sinceDate?: string;
+
+  @ApiPropertyOptional({
+    enum: DealType,
+    description: 'Postda "sotiladi"/"ijara" so\'zi bo\'lmasa shu ishlatiladi (masalan butun kanal faqat sotuv uchun bo\'lsa)',
+  })
+  @IsOptional()
+  @IsEnum(DealType)
+  defaultDealType?: DealType;
+
+  @ApiPropertyOptional({ enum: PropertyType, description: 'Postda mulk turi aniqlanmasa shu ishlatiladi' })
+  @IsOptional()
+  @IsEnum(PropertyType)
+  defaultPropertyType?: PropertyType;
 }
 
 export class UpdateChannelDto {
@@ -24,6 +38,16 @@ export class UpdateChannelDto {
   @IsOptional()
   @IsDateString()
   sinceDate?: string;
+
+  @ApiPropertyOptional({ enum: DealType })
+  @IsOptional()
+  @IsEnum(DealType)
+  defaultDealType?: DealType;
+
+  @ApiPropertyOptional({ enum: PropertyType })
+  @IsOptional()
+  @IsEnum(PropertyType)
+  defaultPropertyType?: PropertyType;
 }
 
 export class ChannelQueryDto {

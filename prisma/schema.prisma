@@ -339,6 +339,12 @@ model TelegramImportChannel {
   sinceDate     DateTime? @map("since_date") // backfill shu sanadan beri; bo'sh — hammasi
   lastMessageId Int?      @map("last_message_id") // davomiy sync uchun oxirgi ko'rilgan post
 
+  // Ko'p kanallar (masalan "...savdo" nomli kanal) har bir post ichida "sotiladi"
+  // deb yozib o'tirmaydi — butun kanal bitta bitim/mulk turiga bag'ishlangan bo'ladi.
+  // Matndan aniqlanmasa, shu default ishlatiladi.
+  defaultDealType     DealType?     @map("default_deal_type")
+  defaultPropertyType PropertyType? @map("default_property_type")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
