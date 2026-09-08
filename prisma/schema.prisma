@@ -1,630 +1,677 @@
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserStatus {
-    ACTIVE
-    BLOCKED
-    ARCHIVED
+  ACTIVE
+  BLOCKED
+  ARCHIVED
 }
 
 enum UserRole {
-    USER
-    ADMIN
-    SUPERADMIN
-    MASTER
+  USER
+  ADMIN
+  SUPERADMIN
+  MASTER
 }
 
 enum LocationType {
-    COUNTRY
-    REGION
-    CITY
+  COUNTRY
+  REGION
+  CITY
 }
 
 enum SocialPlatform {
-    TELEGRAM
-    INSTAGRAM
-    YOUTUBE
-    LINKEDIN
-    GITHUB
-    WEBSITE
+  TELEGRAM
+  INSTAGRAM
+  YOUTUBE
+  LINKEDIN
+  GITHUB
+  WEBSITE
 }
 
 enum PropertyType {
-    APARTMENT
-    HOUSE
-    OFFICE
-    RETAIL
+  APARTMENT
+  HOUSE
+  OFFICE
+  RETAIL
 }
 
 enum DealType {
-    SALE
-    RENT
+  SALE
+  RENT
 }
 
 enum SellerType {
-    INDIVIDUAL
-    COMPANY
+  INDIVIDUAL
+  COMPANY
 }
 
 enum JobStatus {
-    OPEN
-    IN_PROGRESS
-    COMPLETED
-    CANCELLED
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
 }
 
 enum SkillStatus {
-    ACTIVE
-    INACTIVE
+  ACTIVE
+  INACTIVE
 }
 
 enum BannerLocation {
-    HOME_TOP
-    HOME_MIDDLE
-    HOME_BOTTOM
-    OTHER
+  HOME_TOP
+  HOME_MIDDLE
+  HOME_BOTTOM
+  OTHER
 }
 
 enum MediaType {
-    IMAGE
-    VIDEO
+  IMAGE
+  VIDEO
 }
 
 enum RealEstateStatus {
-    ACTIVE
-    SOLD
-    ARCHIVED
+  ACTIVE
+  SOLD
+  ARCHIVED
+  PENDING_REVIEW
 }
 
 enum ContentStatus {
-    DRAFT
-    PUBLISHED
-    ARCHIVED
+  DRAFT
+  PUBLISHED
+  ARCHIVED
 }
 
 enum MessageFileType {
-    TEXT
-    IMAGE
-    VIDEO
-    DOCUMENT
+  TEXT
+  IMAGE
+  VIDEO
+  DOCUMENT
 }
 
 enum SearchType {
-    REAL_ESTATE
-    JOB
-    MASTER
+  REAL_ESTATE
+  JOB
+  MASTER
 }
 
 enum NotificationCategory {
-    SEARCH_MATCH
-    ADMIN_BROADCAST
-    SYSTEM
+  SEARCH_MATCH
+  ADMIN_BROADCAST
+  CHAT_MESSAGE
+  SYSTEM
 }
 
 enum NotificationStatus {
-    PENDING
-    SENT
-    FAILED
+  PENDING
+  SENT
+  FAILED
 }
 
 enum DevicePlatform {
-    ANDROID
-    IOS
-    WEB
+  ANDROID
+  IOS
+  WEB
 }
 
 model User {
-    id         Int     @id @default(autoincrement())
-    phone      String? @unique
-    email      String? @unique
-    telegramId String? @unique
+  id         Int     @id @default(autoincrement())
+  phone      String? @unique
+  email      String? @unique
+  telegramId String? @unique
 
-    password   String?
-    age        Int?
-    firstName  String?    @map("first_name")
-    lastName   String?    @map("last_name")
-    status     UserStatus @default(ACTIVE)
-    statusAt   DateTime   @default(now()) @map("status_at")
-    role       UserRole   @default(USER)
-    locationId Int?       @map("location_id")
+  password   String?
+  age        Int?
+  firstName  String?    @map("first_name")
+  lastName   String?    @map("last_name")
+  status     UserStatus @default(ACTIVE)
+  statusAt   DateTime   @default(now()) @map("status_at")
+  role       UserRole   @default(USER)
+  locationId Int?       @map("location_id")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    location            Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
-    master              Master?
-    ratings             Rating[]
-    realEstates         RealEstate[]
-    jobLikes            JobLike[]
-    jobViews            JobView[]
-    masterLikes         MasterLike[]
-    searchSubscriptions SearchSubscription[]
-    jobs                Job[]
-    chats               Chat[]
-    devices             UserDevice[]
-    notifications       Notification[]
+  location            Location?            @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  master              Master?
+  ratings             Rating[]
+  realEstates         RealEstate[]
+  jobLikes            JobLike[]
+  jobViews            JobView[]
+  masterLikes         MasterLike[]
+  searchSubscriptions SearchSubscription[]
+  jobs                Job[]
+  chats               Chat[]
+  devices             UserDevice[]
+  notifications       Notification[]
 
-    @@map("users")
+  @@map("users")
 }
 
 model Location {
-    id        Int          @id @default(autoincrement())
-    name      String
-    type      LocationType
-    parentId  Int?         @map("parent_id")
-    createdAt DateTime     @default(now()) @map("created_at")
-    updatedAt DateTime     @updatedAt @map("updated_at")
+  id        Int          @id @default(autoincrement())
+  name      String
+  type      LocationType
+  parentId  Int?         @map("parent_id")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
 
-    parent      Location?    @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-    children    Location[]   @relation("LocationHierarchy")
-    users       User[]
-    realEstates RealEstate[]
-    jobs        Job[]
+  parent      Location?    @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Location[]   @relation("LocationHierarchy")
+  users       User[]
+  realEstates RealEstate[]
+  jobs        Job[]
 
-    @@index([parentId])
-    @@map("locations")
+  @@index([parentId])
+  @@map("locations")
 }
 
 model Master {
-    id         Int      @id @default(autoincrement())
-    profileImg String?  @map("profile_img")
-    experience Int      @default(0)
-    bio        String?
-    salary     Decimal? @db.Decimal(15, 2)
-    workImgs   String[] @map("work_imgs")
-    isFree     Boolean  @default(true) @map("is_free")
-    userId     Int      @unique @map("user_id")
-    likeCount  Int      @default(0) @map("like_count")
-    viewCount  Int      @default(0) @map("view_count")
+  id         Int      @id @default(autoincrement())
+  profileImg String?  @map("profile_img")
+  experience Int      @default(0)
+  bio        String?
+  salary     Decimal? @db.Decimal(15, 2)
+  workImgs   String[] @map("work_imgs")
+  isFree     Boolean  @default(true) @map("is_free")
+  userId     Int      @unique @map("user_id")
+  likeCount  Int      @default(0) @map("like_count")
+  viewCount  Int      @default(0) @map("view_count")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-    skills  MasterSkills[]
-    socials Social[]
-    ratings Rating[]
-    likes   MasterLike[]
-    news    News[]
-    reels   Reel[]
-    chats   Chat[]
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skills  MasterSkills[]
+  socials Social[]
+  ratings Rating[]
+  likes   MasterLike[]
+  news    News[]
+  reels   Reel[]
+  chats   Chat[]
 
-    @@map("masters")
+  @@map("masters")
 }
 
 model SkillType {
-    id     Int         @id @default(autoincrement())
-    name   String      @unique
-    status SkillStatus @default(ACTIVE)
+  id     Int         @id @default(autoincrement())
+  name   String      @unique
+  status SkillStatus @default(ACTIVE)
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    skills Skills[]
-    jobs   Job[]
+  skills Skills[]
+  jobs   Job[]
 
-    @@map("skill_types")
+  @@map("skill_types")
 }
 
 model Skills {
-    id     Int         @id @default(autoincrement())
-    name   String      @unique
-    status SkillStatus @default(ACTIVE)
-    typeId Int         @map("type_id")
+  id     Int         @id @default(autoincrement())
+  name   String      @unique
+  status SkillStatus @default(ACTIVE)
+  typeId Int         @map("type_id")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    type         SkillType      @relation(fields: [typeId], references: [id], onDelete: Cascade)
-    masterSkills MasterSkills[]
-    jobSkills    JobSkills[]
+  type         SkillType      @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  masterSkills MasterSkills[]
+  jobSkills    JobSkills[]
 
-    @@map("skills")
+  @@map("skills")
 }
 
 model MasterSkills {
-    id       Int @id @default(autoincrement())
-    masterId Int @map("master_id")
-    skillId  Int @map("skill_id")
+  id       Int @id @default(autoincrement())
+  masterId Int @map("master_id")
+  skillId  Int @map("skill_id")
 
-    master Master @relation(fields: [masterId], references: [id], onDelete: Cascade)
-    skill  Skills @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  master Master @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  skill  Skills @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
-    @@unique([masterId, skillId])
-    @@map("master_skills")
+  @@unique([masterId, skillId])
+  @@map("master_skills")
 }
 
 model Social {
-    id        Int            @id @default(autoincrement())
-    platform  SocialPlatform
-    url       String
-    masterId  Int?           @map("master_id")
-    createdAt DateTime       @default(now()) @map("created_at")
+  id        Int            @id @default(autoincrement())
+  platform  SocialPlatform
+  url       String
+  masterId  Int?           @map("master_id")
+  createdAt DateTime       @default(now()) @map("created_at")
 
-    master Master? @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  master Master? @relation(fields: [masterId], references: [id], onDelete: Cascade)
 
-    @@map("socials")
+  @@map("socials")
 }
 
 model Rating {
-    id       Int     @id @default(autoincrement())
-    rating   Int     @default(5)
-    comment  String?
-    userId   Int     @map("user_id")
-    masterId Int?    @map("master_id")
+  id       Int     @id @default(autoincrement())
+  rating   Int     @default(5)
+  comment  String?
+  userId   Int     @map("user_id")
+  masterId Int?    @map("master_id")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-    master Master? @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  master Master? @relation(fields: [masterId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, masterId])
-    @@map("ratings")
+  @@unique([userId, masterId])
+  @@map("ratings")
 }
 
 model RealEstate {
-    id           Int              @id @default(autoincrement())
-    title        String
-    description  String?
-    price        Decimal          @db.Decimal(15, 2)
-    propertyType PropertyType     @map("property_type")
-    dealType     DealType         @map("deal_type")
-    sellerType   SellerType       @map("seller_type")
-    userId       Int              @map("user_id")
-    locationId   Int              @map("location_id")
-    contactPhone String           @map("contact_phone")
-    companyName  String?          @map("company_name")
-    companyLogo  String?          @map("company_logo")
-    areaSize     Float            @map("area_size")
-    roomCount    Int              @map("room_count")
-    floor        Int?
-    totalFloors  Int?             @map("total_floors")
-    plotSize     Float?           @map("plot_size")
-    externalId   String?          @unique @map("external_id")
-    apiUrl       String?          @map("api_url")
-    syncStatus   Json?            @map("sync_status")
-    viewCount    Int              @default(0) @map("view_count")
-    likeCount    Int              @default(0) @map("like_count")
-    status       RealEstateStatus @default(ACTIVE)
+  id           Int              @id @default(autoincrement())
+  title        String
+  description  String?
+  price        Decimal          @db.Decimal(15, 2)
+  propertyType PropertyType     @map("property_type")
+  dealType     DealType         @map("deal_type")
+  sellerType   SellerType       @map("seller_type")
+  userId       Int              @map("user_id")
+  locationId   Int              @map("location_id")
+  contactPhone String           @map("contact_phone")
+  companyName  String?          @map("company_name")
+  companyLogo  String?          @map("company_logo")
+  areaSize     Float            @map("area_size")
+  roomCount    Int              @map("room_count")
+  floor        Int?
+  totalFloors  Int?             @map("total_floors")
+  plotSize     Float?           @map("plot_size")
+  externalId   String?          @unique @map("external_id")
+  apiUrl       String?          @map("api_url")
+  syncStatus   Json?            @map("sync_status")
+  viewCount    Int              @default(0) @map("view_count")
+  likeCount    Int              @default(0) @map("like_count")
+  status       RealEstateStatus @default(ACTIVE)
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  // Xaritada aniq nuqta (masalan Yandex/OSM xarita tanlagichidan) — address matn ko'rinishi,
+  // latitude/longitude esa bounding-box (xarita hududi) bo'yicha qidirish uchun ishlatiladi.
+  address   String?
+  latitude  Float?
+  longitude Float?
 
-    user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-    location Location              @relation(fields: [locationId], references: [id])
-    media    PropertyImgAndVideo[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    @@map("real_estates")
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location Location              @relation(fields: [locationId], references: [id])
+  media    PropertyImgAndVideo[]
+
+  @@index([latitude, longitude])
+  @@map("real_estates")
 }
 
 model PropertyImgAndVideo {
-    id         Int       @id @default(autoincrement())
-    url        String
-    isMain     Boolean   @default(false) @map("is_main")
-    mediaType  MediaType @default(IMAGE) @map("media_type")
-    propertyId Int       @map("property_id")
+  id         Int       @id @default(autoincrement())
+  url        String
+  isMain     Boolean   @default(false) @map("is_main")
+  mediaType  MediaType @default(IMAGE) @map("media_type")
+  propertyId Int       @map("property_id")
 
-    createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-    property RealEstate @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  property RealEstate @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-    @@map("property_media")
+  @@map("property_media")
+}
+
+// Foydalanuvchiga tegishli bo'lmagan (ochiq) Telegram kanallardan e'lonlarni
+// avtomatik import qilish uchun kuzatiladigan kanallar ro'yxati.
+// Import qilingan RealEstate'da: externalId="telegram:{username}:{messageId}"
+// (takroriy importning oldini oladi), apiUrl=asl post havolasi,
+// syncStatus={rawText, parsedFields, missingFields, channel, importedAt}.
+model TelegramImportChannel {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique // "@" belgisisiz, masalan "uyjoy_toshkent"
+  isActive      Boolean   @default(true) @map("is_active")
+  sinceDate     DateTime? @map("since_date") // backfill shu sanadan beri; bo'sh — hammasi
+  lastMessageId Int?      @map("last_message_id") // davomiy sync uchun oxirgi ko'rilgan post
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("telegram_import_channels")
 }
 
 model Job {
-    id           Int       @id @default(autoincrement())
-    title        String
-    description  String
-    price        Decimal?  @db.Decimal(15, 2)
-    contactPhone String    @map("contact_phone")
-    userId       Int       @map("user_id")
-    locationId   Int?      @map("location_id")
-    skillTypeId  Int       @map("skill_type_id")
-    status       JobStatus @default(OPEN)
-    viewCount    Int       @default(0) @map("view_count")
-    likeCount    Int       @default(0) @map("like_count")
+  id           Int       @id @default(autoincrement())
+  title        String
+  description  String
+  price        Decimal?  @db.Decimal(15, 2)
+  contactPhone String    @map("contact_phone")
+  userId       Int       @map("user_id")
+  locationId   Int?      @map("location_id")
+  skillTypeId  Int       @map("skill_type_id")
+  status       JobStatus @default(OPEN)
+  viewCount    Int       @default(0) @map("view_count")
+  likeCount    Int       @default(0) @map("like_count")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  // Masofaviy (remote) ish uchun manzil shart emas — joyida ishlash uchun aniq nuqta kerak.
+  isRemote  Boolean @default(false) @map("is_remote")
+  address   String?
+  latitude  Float?
+  longitude Float?
 
-    user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-    location  Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
-    skillType SkillType   @relation(fields: [skillTypeId], references: [id])
-    skills    JobSkills[]
-    likes     JobLike[]
-    views     JobView[]
-    news      News[]
-    reels     Reel[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    @@map("jobs")
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location  Location?   @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  skillType SkillType   @relation(fields: [skillTypeId], references: [id])
+  skills    JobSkills[]
+  likes     JobLike[]
+  views     JobView[]
+  news      News[]
+  reels     Reel[]
+
+  @@index([latitude, longitude])
+  @@map("jobs")
 }
 
 model JobSkills {
-    id      Int @id @default(autoincrement())
-    jobId   Int @map("job_id")
-    skillId Int @map("skill_id")
+  id      Int @id @default(autoincrement())
+  jobId   Int @map("job_id")
+  skillId Int @map("skill_id")
 
-    job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
-    skill Skills @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skill Skills @relation(fields: [skillId], references: [id], onDelete: Cascade)
 
-    @@unique([jobId, skillId])
-    @@map("job_skills")
+  @@unique([jobId, skillId])
+  @@map("job_skills")
 }
 
 model JobLike {
-    id        Int      @id @default(autoincrement())
-    createdAt DateTime @default(now()) @map("created_at")
-    userId    Int      @map("user_id")
-    jobId     Int      @map("job_id")
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  userId    Int      @map("user_id")
+  jobId     Int      @map("job_id")
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-    job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, jobId])
-    @@map("job_likes")
+  @@unique([userId, jobId])
+  @@map("job_likes")
 }
 
 model JobView {
-    id        Int      @id @default(autoincrement())
-    count     Int      @default(1)
-    updatedAt DateTime @updatedAt @map("updated_at")
-    userId    Int      @map("user_id")
-    jobId     Int      @map("job_id")
+  id        Int      @id @default(autoincrement())
+  count     Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  userId    Int      @map("user_id")
+  jobId     Int      @map("job_id")
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-    job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, jobId])
-    @@map("job_views")
+  @@unique([userId, jobId])
+  @@map("job_views")
 }
 
 model MasterLike {
-    id        Int      @id @default(autoincrement())
-    createdAt DateTime @default(now()) @map("created_at")
-    userId    Int      @map("user_id")
-    masterId  Int      @map("master_id")
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  userId    Int      @map("user_id")
+  masterId  Int      @map("master_id")
 
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-    master Master @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  master Master @relation(fields: [masterId], references: [id], onDelete: Cascade)
 
-    @@unique([userId, masterId])
-    @@map("master_likes")
+  @@unique([userId, masterId])
+  @@map("master_likes")
 }
 
 model SearchSubscription {
-    id         Int        @id @default(autoincrement())
-    type       SearchType
-    criteria   Json
-    locationId Int?       @map("location_id")
-    isActive   Boolean    @default(true) @map("is_active")
-    userId     Int?       @map("user_id")
-    notifiedAt DateTime?  @map("notified_at")
+  id         Int        @id @default(autoincrement())
+  type       SearchType
+  criteria   Json
+  locationId Int?       @map("location_id")
+  isActive   Boolean    @default(true) @map("is_active")
+  userId     Int?       @map("user_id")
+  notifiedAt DateTime?  @map("notified_at")
 
-    createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-    user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([type, isActive, locationId])
-    @@map("search_subscriptions")
+  @@index([type, isActive, locationId])
+  @@map("search_subscriptions")
 }
 
 // Bitta qurilmaga (mobil/veb) tegishli FCM push-token — bir user bir nechta qurilmaga ega bo'lishi mumkin.
 model UserDevice {
-    id        Int            @id @default(autoincrement())
-    userId    Int            @map("user_id")
-    token     String         @unique
-    platform  DevicePlatform @default(ANDROID)
-    createdAt DateTime       @default(now()) @map("created_at")
+  id        Int            @id @default(autoincrement())
+  userId    Int            @map("user_id")
+  token     String         @unique
+  platform  DevicePlatform @default(ANDROID)
+  createdAt DateTime       @default(now()) @map("created_at")
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([userId])
-    @@map("user_devices")
+  @@index([userId])
+  @@map("user_devices")
 }
 
 // Admin tomonidan tahrirlanadigan dinamik bildirishnoma shablonlari (seed orqali kiritiladi).
 // Matnda {location}, {title}, {price}, {skillType} kabi placeholder'lar ishlatiladi.
 model NotificationTemplate {
-    id        Int      @id @default(autoincrement())
-    key       String   @unique
-    title     String
-    body      String
-    isActive  Boolean  @default(true) @map("is_active")
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  title     String
+  body      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    @@map("notification_templates")
+  @@map("notification_templates")
 }
 
 // Admin filtr bilan yozadigan ommaviy xabar (masalan "Farg'onada uy qidirganlar"ga).
 model AdminBroadcast {
-    id               Int                @id @default(autoincrement())
-    title            String
-    body             String
-    filters          Json
-    scheduledAt      DateTime?          @map("scheduled_at")
-    status           NotificationStatus @default(PENDING)
-    targetCount      Int?               @map("target_count")
-    createdByAdminId Int?               @map("created_by_admin_id")
-    sentAt           DateTime?          @map("sent_at")
+  id               Int                @id @default(autoincrement())
+  title            String
+  body             String
+  filters          Json
+  scheduledAt      DateTime?          @map("scheduled_at")
+  status           NotificationStatus @default(PENDING)
+  targetCount      Int?               @map("target_count")
+  createdByAdminId Int?               @map("created_by_admin_id")
+  sentAt           DateTime?          @map("sent_at")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    notifications Notification[]
+  notifications Notification[]
 
-    @@map("admin_broadcasts")
+  @@map("admin_broadcasts")
 }
 
 // Foydalanuvchiga yuborilgan/yuborilishi rejalashtirilgan aniq bildirishnoma yozuvi.
 model Notification {
-    id          Int                  @id @default(autoincrement())
-    userId      Int                  @map("user_id")
-    title       String
-    body        String
-    category    NotificationCategory
-    data        Json?
-    isRead      Boolean              @default(false) @map("is_read")
-    scheduledAt DateTime?            @map("scheduled_at")
-    status      NotificationStatus   @default(PENDING)
-    broadcastId Int?                 @map("broadcast_id")
+  id          Int                  @id @default(autoincrement())
+  userId      Int                  @map("user_id")
+  title       String
+  body        String
+  category    NotificationCategory
+  data        Json?
+  isRead      Boolean              @default(false) @map("is_read")
+  scheduledAt DateTime?            @map("scheduled_at")
+  status      NotificationStatus   @default(PENDING)
+  broadcastId Int?                 @map("broadcast_id")
 
-    createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-    user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-    broadcast AdminBroadcast? @relation(fields: [broadcastId], references: [id], onDelete: SetNull)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broadcast AdminBroadcast? @relation(fields: [broadcastId], references: [id], onDelete: SetNull)
 
-    @@index([userId, isRead])
-    @@index([status, scheduledAt])
-    @@map("notifications")
+  @@index([userId, isRead])
+  @@index([status, scheduledAt])
+  @@map("notifications")
 }
 
 model Banner {
-    id        Int            @id @default(autoincrement())
-    title     String?
-    mediaUrl  String         @map("media_url")
-    mediaType MediaType      @default(IMAGE) @map("media_type")
-    link      String?
-    isActive  Boolean        @default(true) @map("is_active")
-    location  BannerLocation @default(OTHER)
-    order     Int            @default(0)
+  id        Int            @id @default(autoincrement())
+  title     String?
+  mediaUrl  String         @map("media_url")
+  mediaType MediaType      @default(IMAGE) @map("media_type")
+  link      String?
+  isActive  Boolean        @default(true) @map("is_active")
+  location  BannerLocation @default(OTHER)
+  order     Int            @default(0)
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    @@map("banners")
+  @@map("banners")
 }
 
 model Company {
-    id       Int     @id @default(autoincrement())
-    name     String
-    phone    String  @unique
-    password String
-    logo     String?
-    isActive Boolean @default(true) @map("is_active")
+  id       Int     @id @default(autoincrement())
+  name     String
+  phone    String  @unique
+  password String
+  logo     String?
+  isActive Boolean @default(true) @map("is_active")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    b2bCompanyId     Int? @unique @map("b2b_company_id")
-    newsWeeklyLimit  Int  @default(2) @map("news_weekly_limit")
-    reelsWeeklyLimit Int  @default(2) @map("reels_weekly_limit")
+  b2bCompanyId     Int? @unique @map("b2b_company_id")
+  newsWeeklyLimit  Int  @default(2) @map("news_weekly_limit")
+  reelsWeeklyLimit Int  @default(2) @map("reels_weekly_limit")
 
-    reels Reel[]
-    news  News[]
+  reels Reel[]
+  news  News[]
 
-    @@map("companies")
+  @@map("companies")
 }
 
 // Global default limits — yangi kompaniya qo'shilganda shu qiymatlar ishlatiladi
 model ContentLimitConfig {
-    id               Int @id @default(1)
-    newsWeeklyLimit  Int @default(2) @map("news_weekly_limit")
-    reelsWeeklyLimit Int @default(2) @map("reels_weekly_limit")
+  id               Int @id @default(1)
+  newsWeeklyLimit  Int @default(2) @map("news_weekly_limit")
+  reelsWeeklyLimit Int @default(2) @map("reels_weekly_limit")
 
-    updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    @@map("content_limit_config")
+  @@map("content_limit_config")
+}
+
+// Har 3 kunda Telegram guruhga yuboriladigan baza zaxira nusxasi (pg_dump) haqida
+// holat — faqat bitta qator (singleton), oxirgi yuborilgan xabarni o'chirib,
+// guruhda doim FAQAT eng oxirgi backup qolishi uchun message_id saqlanadi.
+model BackupState {
+  id            Int       @id @default(1)
+  lastMessageId Int?      @map("last_message_id")
+  lastBackupAt  DateTime? @map("last_backup_at")
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("backup_state")
 }
 
 model NewsCategory {
-    id   Int    @id @default(autoincrement())
-    name String @unique
+  id   Int    @id @default(autoincrement())
+  name String @unique
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    news News[]
+  news News[]
 
-    @@map("news_categories")
+  @@map("news_categories")
 }
 
 model News {
-    id          Int           @id @default(autoincrement())
-    title       String
-    slug        String        @unique
-    excerpt     String?
-    content     String
-    coverImage  String?       @map("cover_image")
-    categoryId  Int?          @map("category_id")
-    status      ContentStatus @default(DRAFT)
-    publishedAt DateTime?     @map("published_at")
-    viewCount   Int           @default(0) @map("view_count")
-    masterId    Int?          @map("master_id")
-    jobId       Int?          @map("job_id")
-    companyId   Int?          @map("company_id")
+  id          Int           @id @default(autoincrement())
+  title       String
+  slug        String        @unique
+  excerpt     String?
+  content     String
+  coverImage  String?       @map("cover_image")
+  categoryId  Int?          @map("category_id")
+  status      ContentStatus @default(DRAFT)
+  publishedAt DateTime?     @map("published_at")
+  viewCount   Int           @default(0) @map("view_count")
+  masterId    Int?          @map("master_id")
+  jobId       Int?          @map("job_id")
+  companyId   Int?          @map("company_id")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    category NewsCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-    master   Master?       @relation(fields: [masterId], references: [id], onDelete: SetNull)
-    job      Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
-    company  Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  category NewsCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  master   Master?       @relation(fields: [masterId], references: [id], onDelete: SetNull)
+  job      Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  company  Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
-    @@map("news")
+  @@map("news")
 }
 
 model Reel {
-    id           Int           @id @default(autoincrement())
-    title        String
-    description  String?
-    videoUrl     String        @map("video_url")
-    thumbnailUrl String?       @map("thumbnail_url")
-    status       ContentStatus @default(DRAFT)
-    viewCount    Int           @default(0) @map("view_count")
-    order        Int           @default(0)
-    duration     Int?
-    masterId     Int?          @map("master_id")
-    jobId        Int?          @map("job_id")
-    companyId    Int?          @map("company_id")
+  id           Int           @id @default(autoincrement())
+  title        String
+  description  String?
+  videoUrl     String        @map("video_url")
+  thumbnailUrl String?       @map("thumbnail_url")
+  status       ContentStatus @default(DRAFT)
+  viewCount    Int           @default(0) @map("view_count")
+  order        Int           @default(0)
+  duration     Int?
+  masterId     Int?          @map("master_id")
+  jobId        Int?          @map("job_id")
+  companyId    Int?          @map("company_id")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    master  Master?  @relation(fields: [masterId], references: [id], onDelete: SetNull)
-    job     Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
-    company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  master  Master?  @relation(fields: [masterId], references: [id], onDelete: SetNull)
+  job     Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
-    @@map("reels")
+  @@map("reels")
 }
 
 model Chat {
-    id       Int @id @default(autoincrement())
-    userId   Int @map("user_id")
-    masterId Int @map("master_id")
+  id       Int @id @default(autoincrement())
+  userId   Int @map("user_id")
+  masterId Int @map("master_id")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-    master   Master        @relation(fields: [masterId], references: [id], onDelete: Cascade)
-    messages ChatMessage[]
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  master   Master        @relation(fields: [masterId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
 
-    @@unique([userId, masterId])
-    @@map("chats")
+  @@unique([userId, masterId])
+  @@map("chats")
 }
 
 model ChatMessage {
-    id         Int             @id @default(autoincrement())
-    chatId     Int             @map("chat_id")
-    senderId   Int             @map("sender_id")
-    senderType String          @map("sender_type")
-    content    String?
-    fileUrl    String?         @map("file_url")
-    fileType   MessageFileType @default(TEXT) @map("file_type")
-    isRead     Boolean         @default(false) @map("is_read")
+  id         Int             @id @default(autoincrement())
+  chatId     Int             @map("chat_id")
+  senderId   Int             @map("sender_id")
+  senderType String          @map("sender_type")
+  content    String?
+  fileUrl    String?         @map("file_url")
+  fileType   MessageFileType @default(TEXT) @map("file_type")
+  isRead     Boolean         @default(false) @map("is_read")
 
-    createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
-    chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
-    @@map("chat_messages")
+  @@map("chat_messages")
 }

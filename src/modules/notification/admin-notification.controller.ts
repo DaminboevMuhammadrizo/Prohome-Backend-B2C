@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
@@ -26,6 +26,12 @@ export class AdminNotificationController {
   })
   listSearchSubscriptions(@Query() query: SearchSubscriptionQueryDto) {
     return this.notificationService.listSearchSubscriptions(query);
+  }
+
+  @Delete('search-subscriptions/:id')
+  @ApiOperation({ summary: "Bitta 'topilmagan qidiruv' yozuvini o'chirish" })
+  deleteSearchSubscription(@Param('id', ParseIntPipe) id: number) {
+    return this.notificationService.deleteSearchSubscription(id);
   }
 
   @Get('templates')

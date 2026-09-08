@@ -18,11 +18,15 @@ import { MasterModule } from './user/master/master.module';
 import { UserModule } from './user/user.module';
 import { NotificationModule } from './notification/notification.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { TelegramImportModule } from './telegram-import/telegram-import.module';
+import { BackupModule } from './backup/backup.module';
 
 @Module({
   imports: [
     NotificationModule,
     AnalyticsModule,
+    TelegramImportModule,
+    BackupModule,
     AuthModule,
     UserModule,
     MasterModule,

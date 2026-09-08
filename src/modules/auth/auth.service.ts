@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { User, UserRole } from '@prisma/client';
 import { compirePassword, hashPassword } from 'src/common/config/bcrypt';
 import { JwtPayload, JwtServices } from 'src/common/config/jwt/jwt.service';
@@ -11,6 +12,7 @@ import { Login2Dto } from './dto/login2.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { CompanyLoginDto, MasterRegisterDto, OtpPurpose, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
 import { TelegramVerifyDto } from './dto/telegram-login.dto';
+import { TEST_OTP_BYPASS_PHONES, TEST_OTP_CODE } from './test-accounts.constants';
 
 @Injectable()
 export class AuthService {
@@ -19,7 +21,13 @@ export class AuthService {
     private readonly jwt: JwtServices,
     private readonly redis: RedisService,
     private readonly sms: SmsService,
+    private readonly config: ConfigService,
   ) { }
+
+  // Faqat ENABLE_TEST_ACCOUNTS=true bo'lganda ishlaydi — production'da bu .env'da bo'lmasin
+  private testAccountsEnabled(): boolean {
+    return this.config.get<string>('ENABLE_TEST_ACCOUNTS') === 'true';
+  }
 
   private otpKey(phone: string, purpose: OtpPurpose) {
     return `otp:${purpose}:${phone}`;
@@ -56,20 +64,22 @@ export class AuthService {
 
   async sendOtp(dto: SendOtpDto) {
     const phone = this.normalizePhone(dto.phone);
-    console.log("1" + phone)
     if (dto.purpose === OtpPurpose.REGISTER) {
-      console.log("2" + phone)
       const existing = await this.prisma.user.findUnique({ where: { phone } });
       if (existing) throw new BadRequestException('Bu telefon raqam band');
     } else {
-      console.log("3" + phone)
       const user = await this.prisma.user.findUnique({ where: { phone } });
       if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
       this.ensureActive(user);
     }
 
+    // Sinov (QA/Flutter) raqamlari — haqiqiy SMS o'rniga doimiy kod, faqat ENABLE_TEST_ACCOUNTS=true bo'lsa
+    if (this.testAccountsEnabled() && TEST_OTP_BYPASS_PHONES.has(phone)) {
+      await this.redis.set(this.otpKey(phone, dto.purpose), TEST_OTP_CODE, 120);
+      return { message: 'OTP yuborildi (sinov rejimi — SMS yuborilmadi)' };
+    }
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("4" + otp)
     await this.redis.set(this.otpKey(phone, dto.purpose), otp, 120);
 
     const text =
@@ -77,9 +87,7 @@ export class AuthService {
         ? `"PROHOME" platformasi: parolni tiklash uchun tasdiqlash kodi ${otp}. Kodni hech kimga bermang.`
         : `"PROHOME" platformasida ro'yxatdan o'tish uchun kod: ${otp}`;
 
-    console.log("5" + text)
     await this.sms.sendSMS(text, phone);
-    console.log("6")
     return { message: 'OTP yuborildi' };
   }
 

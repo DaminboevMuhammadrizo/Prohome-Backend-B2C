@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { DevicePlatform, LocationType, NotificationCategory, NotificationStatus, SearchType } from '@prisma/client';
+import { DevicePlatform, LocationType, NotificationCategory, NotificationStatus, SearchType, UserRole } from '@prisma/client';
 import { FirebaseService } from 'src/common/config/firebase/firebase.service';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { CreateBroadcastDto, SearchSubscriptionQueryDto, UpdateTemplateDto } from './dto/notification.dto';
@@ -35,6 +35,24 @@ export class NotificationService {
     return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit), unread } };
   }
 
+  // Chatga yangi xabar kelganda ikkinchi tomonga bildirishnoma (in-app + online bo'lsa WS + FCM push)
+  async notifyChatMessage(recipientUserId: number, senderName: string, preview: string, chatId: number) {
+    try {
+      const notification = await this.prisma.notification.create({
+        data: {
+          userId: recipientUserId,
+          title: `💬 ${senderName}`,
+          body: preview,
+          category: NotificationCategory.CHAT_MESSAGE,
+          data: { entityType: 'chat', entityId: chatId },
+        },
+      });
+      await this.dispatch(notification);
+    } catch (e) {
+      this.logger.warn(`notifyChatMessage xatosi: ${(e as Error).message}`);
+    }
+  }
+
   async unreadCount(userId: number) {
     const count = await this.prisma.notification.count({ where: { userId, isRead: false } });
     return { count };
@@ -66,17 +84,33 @@ export class NotificationService {
 
   // ───────────────────────── Bo'sh qidiruvlarni saqlash ─────────────────────────
 
+  // Faqat LOGIN QILGAN, oddiy (ADMIN/SUPERADMIN bo'lmagan) foydalanuvchilarning
+  // "hech narsa topilmadi" holatlari saqlanadi — anonim so'rovlar va
+  // admin/superadmin o'zi sinab ko'rgan qidiruvlar bu yerga yozilmaydi.
   async recordEmptySearch(type: SearchType, criteria: Record<string, any>, locationId?: number | null, userId?: number | null) {
     try {
+      if (!userId) return;
+
+      const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+      if (!user || user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN) return;
+
       const cleanCriteria = Object.fromEntries(Object.entries(criteria).filter(([, v]) => v !== undefined && v !== null && v !== ''));
       if (Object.keys(cleanCriteria).length === 0) return; // hech qanday filtr berilmagan bo'lsa saqlashning ma'nosi yo'q
 
       await this.prisma.searchSubscription.create({
-        data: { type, criteria: cleanCriteria, locationId: locationId ?? undefined, userId: userId ?? undefined },
+        data: { type, criteria: cleanCriteria, locationId: locationId ?? undefined, userId },
       });
     } catch (e) {
       this.logger.warn(`recordEmptySearch xatosi: ${(e as Error).message}`);
     }
+  }
+
+  // Admin uchun — bitta "topilmagan qidiruv" yozuvini o'chirish
+  async deleteSearchSubscription(id: number) {
+    const existing = await this.prisma.searchSubscription.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException("Yozuv topilmadi");
+    await this.prisma.searchSubscription.delete({ where: { id } });
+    return { message: "O'chirildi" };
   }
 
   // ───────────────────────── Admin: search-subscription ro'yxati ─────────────────────────

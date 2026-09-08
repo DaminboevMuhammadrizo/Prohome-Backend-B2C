@@ -21,6 +21,10 @@ export class JobService {
         viewCount: true,
         likeCount: true,
         locationId: true,
+        isRemote: true,
+        address: true,
+        latitude: true,
+        longitude: true,
         createdAt: true,
         updatedAt: true,
         user: { select: { id: true, firstName: true, lastName: true, phone: true } },
@@ -33,8 +37,9 @@ export class JobService {
     async getAll(params: {
         page?: number; limit?: number; search?: string; status?: JobStatus; skillTypeId?: number; locationId?: number; subscriberUserId?: number;
         id?: number; userId?: number; minPrice?: number; maxPrice?: number; createdFrom?: string; createdTo?: string;
+        isRemote?: boolean; swLat?: number; swLng?: number; neLat?: number; neLng?: number;
     }) {
-        const { page = 1, limit = 20, search, status, skillTypeId, locationId, subscriberUserId, id, userId, minPrice, maxPrice, createdFrom, createdTo } = params;
+        const { page = 1, limit = 20, search, status, skillTypeId, locationId, subscriberUserId, id, userId, minPrice, maxPrice, createdFrom, createdTo, isRemote, swLat, swLng, neLat, neLng } = params;
         const skip = (page - 1) * limit;
         const where: any = {};
 
@@ -58,6 +63,11 @@ export class JobService {
             where.createdAt = {};
             if (createdFrom) where.createdAt.gte = new Date(createdFrom);
             if (createdTo) where.createdAt.lte = new Date(createdTo);
+        }
+        if (isRemote !== undefined) where.isRemote = isRemote;
+        if (swLat !== undefined && swLng !== undefined && neLat !== undefined && neLng !== undefined) {
+            where.latitude = { gte: swLat, lte: neLat };
+            where.longitude = { gte: swLng, lte: neLng };
         }
 
         const [data, total] = await Promise.all([
@@ -97,6 +107,10 @@ export class JobService {
                 userId,
                 locationId: dto.locationId,
                 skillTypeId: dto.skillTypeId,
+                isRemote: dto.isRemote ?? false,
+                address: dto.isRemote ? undefined : dto.address,
+                latitude: dto.isRemote ? undefined : dto.latitude,
+                longitude: dto.isRemote ? undefined : dto.longitude,
             },
         });
 

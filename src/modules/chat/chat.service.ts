@@ -7,11 +7,15 @@ import {
 import { MessageFileType } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
+import { NotificationService } from 'src/modules/notification/notification.service';
 import { ChatQueryDto, StartChatDto } from './dto/chat.dto';
 
 @Injectable()
 export class ChatService {
-    constructor(private readonly prisma: PrismaService) {}
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly notificationService: NotificationService,
+    ) {}
 
     // Chat boshlash yoki mavjudini qaytarish
     async startChat(user: JwtPayload, dto: StartChatDto) {
@@ -118,6 +122,19 @@ export class ChatService {
         // Chat updatedAt ni yangilash (oxirgi xabar vaqti)
         await this.prisma.chat.update({ where: { id: chatId }, data: { updatedAt: new Date() } });
 
+        // Ikkinchi tomonga bildirishnoma (in-app + online bo'lsa WebSocket + FCM push)
+        const recipientUserId = user.id === chat.userId ? chat.master.userId : chat.userId;
+        const senderName = user.id === chat.userId
+            ? [chat.user.firstName, chat.user.lastName].filter(Boolean).join(' ') || 'Foydalanuvchi'
+            : [chat.master.user.firstName, chat.master.user.lastName].filter(Boolean).join(' ') || 'Usta';
+        const preview = content?.trim() || {
+            [MessageFileType.IMAGE]: '📷 Rasm yubordi',
+            [MessageFileType.VIDEO]: '🎥 Video yubordi',
+            [MessageFileType.DOCUMENT]: '📄 Fayl yubordi',
+            [MessageFileType.TEXT]: 'Yangi xabar',
+        }[fileType ?? MessageFileType.TEXT];
+        this.notificationService.notifyChatMessage(recipientUserId, senderName, preview, chatId).catch(() => null);
+
         return message;
     }
 
@@ -125,7 +142,10 @@ export class ChatService {
     private async findChatAndCheckAccess(chatId: number, user: JwtPayload) {
         const chat = await this.prisma.chat.findUnique({
             where: { id: chatId },
-            include: { master: { select: { id: true, userId: true } } },
+            include: {
+                user: { select: { id: true, firstName: true, lastName: true } },
+                master: { select: { id: true, userId: true, user: { select: { firstName: true, lastName: true } } } },
+            },
         });
         if (!chat) throw new NotFoundException('Chat topilmadi');
 

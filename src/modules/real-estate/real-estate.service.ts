@@ -33,6 +33,12 @@ export class RealEstateService {
     likeCount: true,
     status: true,
     locationId: true,
+    address: true,
+    latitude: true,
+    longitude: true,
+    externalId: true,
+    apiUrl: true,
+    syncStatus: true,
     createdAt: true,
     updatedAt: true,
     location: { select: { id: true, name: true, type: true, parent: { select: { id: true, name: true } } } },
@@ -57,8 +63,12 @@ export class RealEstateService {
     subscriberUserId?: number;
     createdFrom?: string;
     createdTo?: string;
+    swLat?: number;
+    swLng?: number;
+    neLat?: number;
+    neLng?: number;
   }) {
-    const { page = 1, limit = 20, id, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId, createdFrom, createdTo } = params;
+    const { page = 1, limit = 20, id, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId, createdFrom, createdTo, swLat, swLng, neLat, neLng } = params;
     const skip = (page - 1) * limit;
 
     const where: any = userId ? {} : { status: status || RealEstateStatus.ACTIVE };
@@ -85,6 +95,12 @@ export class RealEstateService {
       where.createdAt = {};
       if (createdFrom) where.createdAt.gte = new Date(createdFrom);
       if (createdTo) where.createdAt.lte = new Date(createdTo);
+    }
+    // Xarita hududi (bounding box) bo'yicha qidirish — frontend xarita view'i ko'rsatib
+    // turgan hudud chegaralarini (janubi-g'arbiy va shimoli-sharqiy burchak) yuboradi
+    if (swLat !== undefined && swLng !== undefined && neLat !== undefined && neLng !== undefined) {
+      where.latitude = { gte: swLat, lte: neLat };
+      where.longitude = { gte: swLng, lte: neLng };
     }
 
     const [data, total] = await Promise.all([

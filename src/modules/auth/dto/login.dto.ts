@@ -7,10 +7,10 @@ export class LoginOtpDto {
   @IsNotEmpty()
   phone: string;
 
-  @ApiProperty({ example: '123456' })
+  @ApiProperty({ example: '123456', description: 'Haqiqiy kod 6 xonali; sinov raqamlari uchun "1617" ham qabul qilinadi' })
   @IsString()
   @IsNotEmpty()
-  @Length(6, 6)
+  @Length(4, 6)
   otp: string;
 }
 

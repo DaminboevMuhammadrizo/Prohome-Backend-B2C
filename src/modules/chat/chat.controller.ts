@@ -100,7 +100,13 @@ export class ChatController {
         },
     }))
     @ApiConsumes('multipart/form-data')
-    @ApiOperation({ summary: `Fayl yoki matn xabar yuborish (REST) — rasm/video/hujjat/matn, max ${MAX_FILE_MB}MB. Yuborilgandan keyin WS orqali ikkinchi tomonga ham yetkaziladi` })
+    @ApiOperation({
+        summary: `Fayl yoki matn xabar yuborish (REST) — rasm/video/hujjat/matn, max ${MAX_FILE_MB}MB`,
+        description:
+            'Yuborilgandan keyin ikkinchi tomonga: (1) WS orqali `chat` xonasida bo\'lsa darhol, ' +
+            '(2) shu bilan bir qatorda `Notification` yozuvi ham yaratiladi (in-app ro\'yxat + agar ilova yopiq bo\'lsa FCM push) — ' +
+            'ya\'ni foydalanuvchi chatni ochmagan bo\'lsa ham xabardor bo\'ladi.',
+    })
     async sendMessage(
         @Param('id', ParseIntPipe) id: number,
         @UserData() user: JwtPayload,

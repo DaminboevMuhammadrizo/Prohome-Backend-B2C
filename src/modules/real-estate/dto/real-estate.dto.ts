@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DealType, PropertyType, RealEstateStatus, SellerType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 
 export class CreateRealEstateDto {
   @ApiProperty({ example: '3 xonali kvartira Yunusobodda' })
@@ -75,6 +75,25 @@ export class CreateRealEstateDto {
   @Type(() => Number)
   @IsNumber()
   plotSize?: number;
+
+  @ApiPropertyOptional({ example: "Chilonzor tumani, Bunyodkor ko'chasi 12-uy", description: 'Xarita orqali tanlangan aniq manzil (matn ko\'rinishida)' })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiProperty({ example: 41.311081, description: 'Xaritadan tanlangan nuqtaning kengligi (latitude)' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude: number;
+
+  @ApiProperty({ example: 69.240562, description: 'Xaritadan tanlangan nuqtaning uzunligi (longitude)' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude: number;
 }
 
 export class UpdateRealEstateDto {
@@ -154,6 +173,27 @@ export class UpdateRealEstateDto {
   @Type(() => Number)
   @IsNumber()
   plotSize?: number;
+
+  @ApiPropertyOptional({ example: "Chilonzor tumani, Bunyodkor ko'chasi 12-uy" })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiPropertyOptional({ example: 41.311081 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 69.240562 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 }
 
 export class ChangeRealEstateStatusDto {

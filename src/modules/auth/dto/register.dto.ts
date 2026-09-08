@@ -56,7 +56,7 @@ export class RegisterAuthDto {
   @ApiPropertyOptional({ example: '123456', description: 'Telefon bilan ro\'yxatdan o\'tishda kerak' })
   @IsOptional()
   @IsString()
-  @Length(6, 6)
+  @Length(4, 6)
   otp?: string;
 
   @ApiPropertyOptional({ example: 1 })
@@ -76,7 +76,7 @@ export class MasterRegisterDto {
   @ApiProperty({ example: '123456' })
   @IsString()
   @IsNotEmpty()
-  @Length(6, 6)
+  @Length(4, 6)
   otp!: string;
 
   @ApiProperty({ example: 'Ali' })
@@ -132,7 +132,7 @@ export class ResetPasswordDto {
   @ApiProperty({ example: '123456' })
   @IsString()
   @IsNotEmpty()
-  @Length(6, 6)
+  @Length(4, 6)
   otp!: string;
 
   @ApiProperty({ example: 'new-strong-password' })

@@ -4,6 +4,7 @@ import { LocationType, SkillStatus, UserRole, UserStatus } from '@prisma/client'
 import { hashPassword } from '../config/bcrypt';
 import { PrismaService } from '../database/prisma.service';
 import { CENTRAL_ASIA_LOCATIONS, RUSSIA_LOCATIONS } from './location.seed';
+import { TEST_CLIENT_PHONE, TEST_COMPANY_PHONE, TEST_MASTER_PHONE, TEST_PASSWORD } from '../../modules/auth/test-accounts.constants';
 
 @Injectable()
 export class SeederService implements OnModuleInit {
@@ -19,6 +20,7 @@ export class SeederService implements OnModuleInit {
     await this.seedLocations();
     await this.seedSkillTypes();
     await this.seedNotificationTemplates();
+    await this.seedTestAccounts();
   }
 
   private async seedSuperAdmin() {
@@ -158,6 +160,65 @@ export class SeederService implements OnModuleInit {
       this.logger.log('Notification shablonlari seed qilindi');
     } catch (e) {
       this.logger.error('NotificationTemplate seed xatoligi', e);
+    }
+  }
+
+  // QA/Flutter uchun standart sinov akkauntlari (mijoz, usta, kompaniya).
+  // Faqat ENABLE_TEST_ACCOUNTS=true bo'lganda ishlaydi — production'ga tegmasin.
+  private async seedTestAccounts() {
+    if (this.config.get<string>('ENABLE_TEST_ACCOUNTS') !== 'true') {
+      this.logger.log('Test akkauntlar o\'chirilgan (ENABLE_TEST_ACCOUNTS != true)');
+      return;
+    }
+
+    try {
+      const existing = await this.prisma.user.findUnique({ where: { phone: TEST_CLIENT_PHONE } });
+      if (existing) {
+        this.logger.log('Test akkauntlar allaqachon mavjud');
+        return;
+      }
+
+      const location = await this.prisma.location.findFirst({ where: { type: LocationType.CITY } });
+      const skill = await this.prisma.skills.findFirst();
+      const password = await hashPassword(TEST_PASSWORD);
+
+      await this.prisma.user.create({
+        data: {
+          phone: TEST_CLIENT_PHONE,
+          firstName: 'Test',
+          lastName: 'Mijoz',
+          role: UserRole.USER,
+          status: UserStatus.ACTIVE,
+          password,
+          locationId: location?.id,
+        },
+      });
+
+      const masterUser = await this.prisma.user.create({
+        data: {
+          phone: TEST_MASTER_PHONE,
+          firstName: 'Test',
+          lastName: 'Usta',
+          role: UserRole.MASTER,
+          status: UserStatus.ACTIVE,
+          password,
+          locationId: location?.id,
+        },
+      });
+      const master = await this.prisma.master.create({
+        data: { userId: masterUser.id, experience: 3, bio: 'Test usta profili', isFree: true },
+      });
+      if (skill) {
+        await this.prisma.masterSkills.create({ data: { masterId: master.id, skillId: skill.id } });
+      }
+
+      await this.prisma.company.create({
+        data: { name: 'Test Kompaniya', phone: TEST_COMPANY_PHONE, password, isActive: true },
+      });
+
+      this.logger.log('Test akkauntlar (mijoz/usta/kompaniya) seed qilindi');
+    } catch (e) {
+      this.logger.error('Test akkauntlar seed xatoligi', e);
     }
   }
 }

@@ -44,6 +44,11 @@ export class JobController {
     @ApiQuery({ name: 'maxPrice', required: false, description: 'Narx — shungacha' })
     @ApiQuery({ name: 'createdFrom', required: false, description: 'Joylangan sana — shundan boshlab', example: '2026-01-01' })
     @ApiQuery({ name: 'createdTo', required: false, description: 'Joylangan sana — shungacha', example: '2026-12-31' })
+    @ApiQuery({ name: 'isRemote', required: false, description: 'true — faqat masofaviy ishlar, false — faqat joyida' })
+    @ApiQuery({ name: 'swLat', required: false, description: 'Xarita hududi — janubi-g\'arbiy burchak kengligi. To\'rttasi birga berilsa xarita view\'idagi ishlar qaytadi' })
+    @ApiQuery({ name: 'swLng', required: false, description: 'Xarita hududi — janubi-g\'arbiy burchak uzunligi' })
+    @ApiQuery({ name: 'neLat', required: false, description: 'Xarita hududi — shimoli-sharqiy burchak kengligi' })
+    @ApiQuery({ name: 'neLng', required: false, description: 'Xarita hududi — shimoli-sharqiy burchak uzunligi' })
     getAll(
         @Req() req: any,
         @Query('page') page = 1,
@@ -58,6 +63,11 @@ export class JobController {
         @Query('maxPrice') maxPrice?: string,
         @Query('createdFrom') createdFrom?: string,
         @Query('createdTo') createdTo?: string,
+        @Query('isRemote') isRemote?: string,
+        @Query('swLat') swLat?: string,
+        @Query('swLng') swLng?: string,
+        @Query('neLat') neLat?: string,
+        @Query('neLng') neLng?: string,
     ) {
         return this.jobService.getAll({
             page: +page, limit: +limit, search, status,
@@ -69,6 +79,11 @@ export class JobController {
             maxPrice: maxPrice ? +maxPrice : undefined,
             subscriberUserId: this.extractUserId(req),
             createdFrom, createdTo,
+            isRemote: isRemote !== undefined ? isRemote === 'true' : undefined,
+            swLat: swLat ? +swLat : undefined,
+            swLng: swLng ? +swLng : undefined,
+            neLat: neLat ? +neLat : undefined,
+            neLng: neLng ? +neLng : undefined,
         });
     }
 

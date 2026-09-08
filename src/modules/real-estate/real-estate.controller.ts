@@ -77,6 +77,10 @@ export class RealEstateController {
     @ApiQuery({ name: 'userId', required: false, description: 'Faqat shu foydalanuvchining e\'lonlari (berilsa status cheklovi olib tashlanadi)' })
     @ApiQuery({ name: 'createdFrom', required: false, description: 'Joylangan sana — shundan boshlab', example: '2026-01-01' })
     @ApiQuery({ name: 'createdTo', required: false, description: 'Joylangan sana — shungacha', example: '2026-12-31' })
+    @ApiQuery({ name: 'swLat', required: false, description: 'Xarita hududi (bounding box) — janubi-g\'arbiy burchak kengligi. To\'rttasi birga berilsa xarita view\'idagi e\'lonlar qaytadi' })
+    @ApiQuery({ name: 'swLng', required: false, description: 'Xarita hududi — janubi-g\'arbiy burchak uzunligi' })
+    @ApiQuery({ name: 'neLat', required: false, description: 'Xarita hududi — shimoli-sharqiy burchak kengligi' })
+    @ApiQuery({ name: 'neLng', required: false, description: 'Xarita hududi — shimoli-sharqiy burchak uzunligi' })
     getAll(
         @Req() req: any,
         @Query('page') page = 1,
@@ -94,6 +98,10 @@ export class RealEstateController {
         @Query('userId') userId?: string,
         @Query('createdFrom') createdFrom?: string,
         @Query('createdTo') createdTo?: string,
+        @Query('swLat') swLat?: string,
+        @Query('swLng') swLng?: string,
+        @Query('neLat') neLat?: string,
+        @Query('neLng') neLng?: string,
     ) {
         return this.realEstateService.getAll({
             page: +page, limit: +limit, search, propertyType, dealType, sellerType,
@@ -106,6 +114,10 @@ export class RealEstateController {
             userId: userId ? +userId : undefined,
             subscriberUserId: this.extractUserId(req),
             createdFrom, createdTo,
+            swLat: swLat ? +swLat : undefined,
+            swLng: swLng ? +swLng : undefined,
+            neLat: neLat ? +neLat : undefined,
+            neLng: neLng ? +neLng : undefined,
         });
     }
 
