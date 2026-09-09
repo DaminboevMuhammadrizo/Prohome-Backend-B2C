@@ -18,6 +18,7 @@ export class RealEstateService {
     title: true,
     description: true,
     price: true,
+    priceDesc: true,
     propertyType: true,
     dealType: true,
     sellerType: true,

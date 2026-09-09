@@ -94,6 +94,11 @@ export class CreateRealEstateDto {
   @Min(-180)
   @Max(180)
   longitude: number;
+
+  @ApiPropertyOptional({ example: 'Kelishiladi', description: 'Narx haqida qo\'shimcha izoh (masalan "Kelishiladi", "1 m² narxi")' })
+  @IsOptional()
+  @IsString()
+  priceDesc?: string;
 }
 
 export class UpdateRealEstateDto {
@@ -194,6 +199,11 @@ export class UpdateRealEstateDto {
   @Min(-180)
   @Max(180)
   longitude?: number;
+
+  @ApiPropertyOptional({ example: 'Kelishiladi', description: 'Narx haqida qo\'shimcha izoh (masalan "Kelishiladi", "1 m² narxi")' })
+  @IsOptional()
+  @IsString()
+  priceDesc?: string;
 }
 
 export class ChangeRealEstateStatusDto {

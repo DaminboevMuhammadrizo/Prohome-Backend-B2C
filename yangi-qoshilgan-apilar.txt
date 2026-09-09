@@ -1,0 +1,402 @@
+================================================================================
+BACKEND'GA YANGI QO'SHILGAN API'LAR — FRONTEND UCHUN TO'LIQ QO'LLANMA
+================================================================================
+Sana       : 2026-09-09
+Maqsad     : Shu hujjatda oxirgi ishlar davomida backendga qo'shilgan BARCHA yangi
+             narsalar — endpoint, nima yuborish kerak, nima qaytadi. Eskisi
+             (mavjud bo'lgan API'lar) bu yerda YO'Q, faqat YANGI/O'ZGARGANLARI.
+
+Umumiy qoida — hammasida bir xil:
+  - Auth kerak bo'lgan joylarda: `Authorization: Bearer <accessToken>` header
+  - Ro'yxat qaytaradigan deyarli hamma joyda javob:
+      { "data": [...], "meta": { "page", "limit", "total", "totalPages" } }
+  - Sana formatlari: ISO 8601 ("2026-03-01" yoki "2026-03-01T00:00:00.000Z")
+
+
+================================================================================
+1-BO'LIM: KO'CHMAS MULK (RealEstate) — YANGI MAYDONLAR + XARITA
+================================================================================
+
+1.1) YANGI MAYDONLAR — POST/PATCH /real-estates
+--------------------------------------------------------------------------------
+E'lon qo'shish/tahrirlashda endi quyidagi yangi maydonlar bor:
+
+  address    (string, ixtiyoriy)  — matn ko'rinishidagi manzil, masalan
+                                    "Chilonzor tumani, Bunyodkor ko'chasi 12"
+  latitude   (number, MAJBURIY)   — xaritadan tanlangan nuqtaning kengligi
+  longitude  (number, MAJBURIY)   — xaritadan tanlangan nuqtaning uzunligi
+
+  DIQQAT: yangi e'lon yaratishda (`POST /real-estates`) `latitude`/`longitude`
+  MAJBURIY — foydalanuvchi xaritada nuqta belgilamasdan e'lon qo'sha olmaydi.
+  Tahrirlashda (`PATCH /real-estates/:id`) esa ikkalasi ham ixtiyoriy.
+
+  Misol (POST /real-estates):
+  {
+    "title": "3 xonali kvartira",
+    "price": 85000,
+    "propertyType": "APARTMENT",
+    "dealType": "SALE",
+    "sellerType": "INDIVIDUAL",
+    "locationId": 5,
+    "contactPhone": "+998901234567",
+    "areaSize": 75.5,
+    "roomCount": 3,
+    "address": "Chilonzor tumani, Bunyodkor ko'chasi 12",
+    "latitude": 41.311081,
+    "longitude": 69.240562
+  }
+
+1.1b) YANGI MAYDON — priceDesc (narx izohi) + narx m² bo'yicha to'g'irlash
+--------------------------------------------------------------------------------
+  priceDesc (string, ixtiyoriy) — narx haqida qo'shimcha izoh, masalan
+  "Kelishiladi" yoki "1 m² narxi". POST/PATCH /real-estates'da yuborish mumkin,
+  GET javobida ham qaytadi.
+
+  Telegram import bilan bog'liq tuzatish: ba'zi Telegram postlarida narx UMUMIY
+  emas, balki 1 m² UCHUN yozilgan bo'ladi (masalan "400$/m2"). Ilgari bunday
+  hollarda parser xato ravishda "400"ni umumiy narx deb yozib qo'yardi (75 m²
+  uy uchun 400$ deb chiqib ketardi). Endi bunday holat avtomatik aniqlanadi:
+  umumiy narx = (m² narxi × maydon) deb hisoblanadi, `priceDesc`ga esa
+  "Import: asl e'londa narx 1 m² uchun ko'rsatilgan (400$/m²) — umumiy narx
+  75 m² ga ko'paytirib hisoblangan. Tekshiring." kabi izoh avtomatik yoziladi —
+  bu orqali admin PENDING_REVIEW'da narxni tekshirib, xato bo'lsa qo'lda
+  to'g'irlashi mumkin (pastga, 1.1c-bandga qarang).
+
+1.1c) TO'LIQ TAHRIRLASH VA O'CHIRISH — Telegram'dan import qilingan e'lonlar UCHUN HAM
+--------------------------------------------------------------------------------
+  MUHIM: buning uchun YANGI endpoint YO'Q — mavjud
+  `PATCH /real-estates/:id` va `DELETE /real-estates/:id` ADMIN/SUPERADMIN
+  tokeni bilan chaqirilganda ALLAQACHON istalgan e'lon ustida ishlaydi — u
+  qaysi foydalanuvchiga tegishli bo'lishidan qat'iy nazar (shu jumladan
+  Telegram'dan import qilingan, egasi "Telegram Import" tizim-hisobi bo'lgan
+  e'lonlar ham). Ya'ni:
+
+  - Narx, nom (title), tavsif (description), koordinata (latitude/longitude),
+    manzil (address), priceDesc — BARCHASINI admin PATCH orqali to'g'irlashi
+    mumkin — parser noto'g'ri o'qib olgan har qanday maydon qo'lda tuzatiladi:
+      PATCH /real-estates/:id
+      Body: { "price": 32000, "priceDesc": "Kelishiladi", "latitude": 41.31, ... }
+      (faqat o'zgartirilishi kerak bo'lgan maydonlarni yuborish kifoya)
+
+  - Umuman noto'g'ri/keraksiz import qilingan (masalan reklama post xato
+    o'tib ketgan, yoki ko'p maydoni "topilmagan" bo'lgani uchun foydasiz)
+    yozuvni butunlay o'chirish uchun:
+      DELETE /real-estates/:id
+    — bu ham allaqachon ishlaydi, admin har qanday PENDING_REVIEW (yoki
+    boshqa) e'lonni o'chira oladi.
+
+  Qaysi maydonlar "shubhali" ekanini bilish uchun
+  `GET /real-estates?status=PENDING_REVIEW` javobidagi har bir elementning
+  `syncStatus.missingFields` (parser topolmagan maydonlar) va
+  `syncStatus.parsedFields.priceIsPerSqm` (narx m² bo'yicha hisoblanganmi)
+  maydonlariga qarang — shu asosida admin panelida "tekshirish kerak"
+  belgisini ko'rsatsa bo'ladi.
+
+1.2) XARITADA QIDIRISH (bounding box) — GET /real-estates
+--------------------------------------------------------------------------------
+Xarita view'ida ko'rinib turgan hudud ichidagi e'lonlarni olish uchun mavjud
+`GET /real-estates` endpointiga 4 ta yangi (ixtiyoriy) query parametr qo'shildi:
+
+  swLat, swLng   — xarita hududining janubi-g'arbiy burchagi (pastki-chap)
+  neLat, neLng   — xarita hududining shimoli-sharqiy burchagi (yuqori-o'ng)
+
+To'rttasi birga berilsa, faqat shu to'rtburchak ichidagi (lat/lng bor)
+e'lonlar qaytadi — narx-belgili xarita ko'rinishi (masalan Yandex/Google
+map bounds'i) uchun ishlatiladi. Boshqa barcha eski filtrlar
+(propertyType, dealType, minPrice va h.k.) bilan BIRGA ham ishlatsa bo'ladi.
+
+  Misol: GET /real-estates?swLat=41.20&swLng=69.10&neLat=41.35&neLng=69.30
+
+Javobdagi har bir elementda endi `latitude`, `longitude`, `address` maydonlari
+bor (agar qo'yilgan bo'lsa).
+
+1.3) YANGI STATUS — PENDING_REVIEW (tasdiqlash oqimi)
+--------------------------------------------------------------------------------
+`RealEstateStatus` enumiga yangi qiymat qo'shildi: **PENDING_REVIEW**.
+
+Bu qiymat FAQAT Telegram kanaldan avtomatik import qilingan e'lonlarda
+ishlatiladi (pastga, 3-bo'limga qarang) — oddiy foydalanuvchi o'zi
+`POST /real-estates` orqali yaratgan e'lon HAMISHA darhol **ACTIVE** bo'lib
+chiqadi, hech qanday tasdiqlash kerak emas (bu o'zgarmagan).
+
+TASDIQLASH ISH JARAYONI (yangi endpoint SHART EMAS — mavjudlar ishlatiladi):
+
+  a) Tasdiqlanishi kerak bo'lgan e'lonlar ro'yxati (admin panel uchun):
+       GET /real-estates?status=PENDING_REVIEW&page=1&limit=20
+
+     Har bir elementda qo'shimcha:
+       "externalId" — "telegram:{kanal}:{postId}" (qayerdan kelgani)
+       "apiUrl"     — asl Telegram post havolasi (masalan
+                      "https://t.me/uyjoy_kanal/1792") — admin shu yerga
+                      bosib, asl postni ochib tekshirishi mumkin
+       "syncStatus" — { rawText, parsedFields, missingFields, channel,
+                        importedAt, locationMatched, resolvedCityName,
+                        coordsSource } — parslashda nima aniqlangan/aniqlanmagan
+                        (masalan narx topilmagan bo'lsa "missingFields": ["price"])
+
+  b) TASDIQLASH (jonli qilish):
+       PATCH /real-estates/:id/status
+       Body: { "status": "ACTIVE" }
+
+  c) RAD ETISH:
+       PATCH /real-estates/:id/status
+       Body: { "status": "ARCHIVED" }
+
+  Ikkalasi ham eski, allaqachon mavjud bo'lgan endpoint — hech narsa yangi
+  qo'shilmagan, faqat "status" qiymatlari orasida PENDING_REVIEW paydo bo'ldi.
+
+
+================================================================================
+2-BO'LIM: ISH E'LONLARI (Job) — YANGI MAYDONLAR + XARITA
+================================================================================
+
+2.1) YANGI MAYDONLAR — POST/PATCH /jobs
+--------------------------------------------------------------------------------
+  isRemote   (boolean, ixtiyoriy, default: false) — true bo'lsa masofaviy ish
+  address    (string, ixtiyoriy)
+  latitude   (number) — isRemote=false (yoki berilmagan) bo'lsa MAJBURIY
+  longitude  (number) — isRemote=false (yoki berilmagan) bo'lsa MAJBURIY
+
+  Qoida: agar ish MASOFAVIY (isRemote: true) bo'lsa, manzil/koordinata umuman
+  kerak emas. Agar ISH JOYIDA bo'lsa (isRemote: false yoki berilmagan),
+  latitude/longitude MAJBURIY — xuddi RealEstate'dagidek.
+
+  Misol (masofaviy ish):
+  { "title": "Frontend dasturchi", "description": "...", "contactPhone": "+998...",
+    "skillTypeId": 3, "isRemote": true }
+
+  Misol (joyida ish):
+  { "title": "Santexnik kerak", "description": "...", "contactPhone": "+998...",
+    "skillTypeId": 2, "latitude": 41.30, "longitude": 69.24, "address": "..." }
+
+2.2) XARITADA QIDIRISH — GET /jobs
+--------------------------------------------------------------------------------
+RealEstate bilan bir xil: `swLat`, `swLng`, `neLat`, `neLng` query
+parametrlari qo'shildi, xuddi shunday ishlaydi (1.2-bandga qarang).
+
+
+================================================================================
+3-BO'LIM: TELEGRAM KANALDAN E'LON IMPORT QILISH (yangi modul — Admin)
+================================================================================
+Foydalanuvchiga tegishli bo'lmagan (ochiq) Telegram kanallardagi ko'chmas mulk
+postlarini avtomatik o'qib, RealEstate sifatida qo'shadigan yangi tizim.
+Import qilingan har bir e'lon avval **PENDING_REVIEW** holatida tushadi (yuqoriga,
+1.3-bandga qarang) — admin tasdiqlamaguncha oddiy foydalanuvchilarga ko'rinmaydi.
+
+Barcha endpointlar: faqat ADMIN/SUPERADMIN, `Authorization` header shart.
+
+3.1) KANAL QO'SHISH (kuzatishni boshlash)
+--------------------------------------------------------------------------------
+  POST /telegram-import/channels
+  Body:
+  {
+    "username": "uyjoy_toshkent",       // "@" belgisisiz, kanal public bo'lishi shart
+    "sinceDate": "2026-08-01",           // ixtiyoriy — shu sanadan beri import qiladi.
+                                          // bo'sh qoldirilsa — bor-yo'g'i hammasi
+    "defaultDealType": "SALE",           // ixtiyoriy: "SALE" | "RENT" — agar postda
+                                          // "sotiladi/ijara" so'zi bo'lmasa shu ishlatiladi
+    "defaultPropertyType": "APARTMENT"   // ixtiyoriy: APARTMENT|HOUSE|OFFICE|RETAIL
+  }
+  Javob: yaratilgan kanal obyekti { id, username, isActive, sinceDate,
+         lastMessageId, defaultDealType, defaultPropertyType, createdAt, updatedAt }
+
+  MUHIM: qo'shilgandan keyin darhol import BOSHLANMAYDI — pastdagi backfill'ni
+  alohida chaqirish kerak (3.4-band).
+
+3.2) KANALLAR RO'YXATI
+--------------------------------------------------------------------------------
+  GET /telegram-import/channels?page=1&limit=20
+  Javob: { data: [...kanal obyektlari...], meta: {...} }
+
+3.3) KANAL SOZLAMALARINI YANGILASH
+--------------------------------------------------------------------------------
+  PATCH /telegram-import/channels/:id
+  Body (hammasi ixtiyoriy): { "isActive": false, "sinceDate": "...",
+                               "defaultDealType": "RENT", "defaultPropertyType": "..." }
+  "isActive": false qilinsa — davomiy (avtomatik) kuzatish to'xtaydi, lekin
+  kanal ro'yxatda qoladi (butunlay o'chirilmaydi).
+
+3.4) IMPORTNI ISHGA TUSHIRISH (backfill)
+--------------------------------------------------------------------------------
+  POST /telegram-import/channels/:id/backfill
+
+  FONDA (background) ishlaydi — SO'ROV DARHOL JAVOB QAYTARADI:
+    { "message": "Backfill fonda boshlandi — natijani bir ozdan keyin
+                   GET /real-estates?status=PENDING_REVIEW orqali tekshiring",
+      "channelId": 1 }
+
+  Haqiqiy natija (nechta import qilingani) DARHOL qaytmaydi — chunki ko'p
+  postli kanalda geocoding (xaritadagi koordinata topish) bir necha daqiqa
+  davom etishi mumkin. Import tugagach, yangi qatorlarni
+  `GET /real-estates?status=PENDING_REVIEW` orqali ko'rasiz.
+
+3.5) KANALNI O'CHIRISH (kuzatishdan olib tashlash)
+--------------------------------------------------------------------------------
+  DELETE /telegram-import/channels/:id
+  Javob: { "message": "Kanal kuzatishdan olib tashlandi" }
+
+  Bu faqat "kuzatish ro'yxati"dan o'chiradi — o'sha kanaldan OLDIN import
+  qilingan RealEstate yozuvlari (agar tasdiqlangan/ACTIVE bo'lsa) o'chmaydi,
+  saqlanib qoladi. Ularni o'chirish kerak bo'lsa alohida
+  `DELETE /real-estates/:id` chaqiriladi (mavjud, eski endpoint).
+
+3.6) AVTOMATIK DAVOMIY ISH (frontend chaqirmaydi, faqat bilib qo'yish uchun)
+--------------------------------------------------------------------------------
+Har 10 daqiqada barcha `isActive: true` kanallar avtomatik tekshiriladi —
+yangi post chiqqan bo'lsa, o'zi import qiladi (yana PENDING_REVIEW bilan).
+Buning uchun frontend'dan hech narsa chaqirish shart emas.
+
+Eslatma: sotilgan/o'chirilgan Telegram postlarini avtomatik aniqlash ATAYLAB
+YO'Q — agar bir e'lon haqiqatda sotilgan bo'lsa, admin uni oddiy
+`PATCH /real-estates/:id/status` bilan `SOLD`/`ARCHIVED` qiladi (1.3-bandga
+o'xshab, qo'lda).
+
+
+================================================================================
+4-BO'LIM: BILDIRISHNOMALAR (Notifications)
+================================================================================
+
+4.1) FOYDALANUVCHI UCHUN (auth kerak)
+--------------------------------------------------------------------------------
+  GET /notifications?page=1&limit=20&isRead=false
+    Javob: { data: [...], meta: { page, limit, total, totalPages, unread } }
+    Har bir element: { id, title, body, category, data, isRead, status, createdAt }
+    "category": "SEARCH_MATCH" | "ADMIN_BROADCAST" | "CHAT_MESSAGE" | "SYSTEM"
+    "data": { entityType: "chat"|"real-estate"|"job"|"master", entityId } |null
+            — bosilganda qayerga o'tish kerakligini bildiradi
+
+  GET /notifications/unread-count
+    Javob: { "count": 5 }
+
+  PATCH /notifications/:id/read        — bittasini o'qilgan qilish
+  PATCH /notifications/read-all        — hammasini o'qilgan qilish
+
+  POST /notifications/device-token     — push uchun qurilma ro'yxatdan o'tkazish
+    Body: { "token": "fcm-token...", "platform": "ANDROID" }  // yoki IOS/WEB
+
+  DELETE /notifications/device-token   — logout paytida
+    Body: { "token": "fcm-token..." }
+
+4.2) CHAT BILDIRISHNOMASI (yangi, avtomatik — frontend hech narsa chaqirmaydi)
+--------------------------------------------------------------------------------
+Endi chatga yangi xabar kelganda (mavjud `POST /chats/:id/messages` yoki
+socket `send_message`), ikkinchi tomonga AVTOMATIK "CHAT_MESSAGE" turidagi
+bildirishnoma boradi (yuqoridagi 4.1dagi ro'yxatda ko'rinadi + real-time
+socket orqali, pastga 4.4-bandga qarang).
+
+4.3) REAL-TIME (WebSocket) — YANGI namespace
+--------------------------------------------------------------------------------
+  Manzil    : https://api-b2c.prohome.uz/notifications
+  Autentifikatsiya: ulanishda `auth: { token: "<accessToken, Bearer'siz>" }`
+  Hodisa    : "new_notification" — Notification obyekti (4.1dagi ko'rinish bilan bir xil)
+
+  Foydalanuvchi ilovada online bo'lsa, yangi bildirishnoma (chat, moslik,
+  admin xabari — hammasi) shu orqali darhol keladi, sahifani yangilash
+  shart emas.
+
+4.4) ADMIN UCHUN (faqat ADMIN/SUPERADMIN)
+--------------------------------------------------------------------------------
+  GET /notifications/admin/search-subscriptions
+    Query: page, limit, id, type (REAL_ESTATE|JOB|MASTER), locationId, userId,
+           isActive, notified (true/false), createdFrom, createdTo
+    — foydalanuvchilar qidirib TOPA OLMAGAN so'rovlar ro'yxati (masalan
+      "hech kim topolmadi" holatlari). Faqat LOGIN QILGAN, oddiy (admin
+      bo'lmagan) foydalanuvchilarning qidiruvlari yoziladi.
+
+  DELETE /notifications/admin/search-subscriptions/:id   — YANGI
+    — bitta "topilmagan qidiruv" yozuvini o'chirish
+    Javob: { "message": "O'chirildi" }
+
+  GET /notifications/admin/templates          — bildirishnoma shablonlari
+  PATCH /notifications/admin/templates/:key    — shablon matnini tahrirlash
+    Body: { "title": "...", "body": "...", "isActive": true }
+
+  POST /notifications/admin/broadcast          — filtrlangan ommaviy xabar
+    Body: {
+      "title": "Aksiya!", "body": "...",
+      "filters": { "searchType": "REAL_ESTATE", "locationId": 5 }, // bo'sh — hammaga
+      "scheduledAt": "2026-09-10T09:00:00.000Z"  // bo'sh — darhol yuboriladi
+    }
+
+  GET /notifications/admin/broadcast?status=SENT   — yuborilgan xabarlar ro'yxati
+
+
+================================================================================
+5-BO'LIM: ANALITIKA (Analytics) — hammasi YANGI, faqat ADMIN/SUPERADMIN
+================================================================================
+  GET /analytics/overview        — barcha jadvallar bo'yicha umumiy sonlar
+  GET /analytics/users           — geografiya (davlat->viloyat), rol, status, trend
+  GET /analytics/masters         — geografiya, kasb turlari, band/bo'sh, reyting
+  GET /analytics/real-estates    — geografiya, turlar, narx statistikasi, trend
+  GET /analytics/jobs            — geografiya, kasb turlari, status, trend
+  GET /analytics/search-misses   — topilmagan qidiruvlar statistikasi
+  GET /analytics/notifications   — yuborilgan/muvaffaqiyatsiz statistikasi
+
+  Geografiya formati (users/masters/real-estates/jobs'da bir xil):
+  "geography": {
+    "byCountry": [
+      { "name": "O'zbekiston", "count": 120, "regions": [
+          { "name": "Farg'ona viloyati", "count": 45 },
+          { "name": "Toshkent viloyati", "count": 30 }
+      ]},
+      { "name": "Rossiya", "count": 5, "regions": [] }
+    ],
+    "unknown": 3
+  }
+  — frontend avval faqat "byCountry" ro'yxatini chiqaradi, davlat bosilganda
+  o'sha elementning "regions" massivi ochiladi.
+
+
+================================================================================
+6-BO'LIM: BAZA ZAXIRASI (Backup) — faqat SUPERADMIN
+================================================================================
+  GET /backup/status   — { "enabled": true, "lastBackupAt": "2026-09-08T..." }
+  POST /backup/run     — hoziroq qo'lda backup yuborish (odatda har 3 kunda
+                          avtomatik ishlaydi, bu — sinash/majburiy ishga tushirish)
+    Javob: { "message": "Backup yuborildi", "sizeKb": 1234 }
+
+  Frontend uchun amaliy foydasi yo'q (ichki DevOps funksiyasi), faqat
+  admin-panelda "oxirgi backup qachon bo'lgan" degan bitta status ko'rsatish
+  kerak bo'lsa GET /backup/status ishlatiladi.
+
+
+================================================================================
+7-BO'LIM: ADMIN RO'YXATLARIGA QO'SHILGAN FILTRLAR (jadval qidiruvi)
+================================================================================
+Quyidagi ro'yxat (list) endpointlariga **har ustun bo'yicha** filtr + `id` +
+umumiy `search` + `createdFrom`/`createdTo` (sana oralig'i) qo'shildi —
+admin jadvalida har bir ustun ostidagi qidiruv katakchalari uchun:
+
+  GET /users            — +id, +role, +locationId, +createdFrom/To (search bor edi)
+  GET /masters          — +id, +status, +locationId, +createdFrom/To
+  GET /real-estates     — +id, +createdFrom/To (search kengaytirildi: +phone/company)
+  GET /jobs             — +id, +userId, +minPrice/maxPrice, +createdFrom/To
+  GET /banners/admin/all      — +id, +search, +isActive, +location, +mediaType, +sana
+  GET /ratings/admin/all      — +id, +userId, +masterId, +rating/minRating/maxRating, +search, +sana
+  GET /companies              — +id, +search, +isActive, +sana
+  GET /news                   — +id, +search, +companyId, +sana
+  GET /reels                  — +id, +search, +sana
+  GET /skill-types             — +id, +search, +PAGINATION (avval yo'q edi!)
+  GET /skills                  — +id, +search, +typeId(bor edi), +PAGINATION (avval yo'q edi!)
+  GET /locations                — +id, +PAGINATION (avval yo'q edi!)
+  GET /notifications/admin/templates — +id, +search, +PAGINATION
+
+  ⚠️ DIQQAT — JAVOB SHAKLI O'ZGARDI: `skill-types`, `skills`, `locations`,
+  `notification templates` ILGARI oddiy massiv `[...]` qaytarardi. ENDI
+  boshqa hamma ro'yxat kabi `{ data: [...], meta: {...} }` qaytaradi.
+  Agar frontendda shu 4 ta endpointdan massiv sifatida foydalanilgan bo'lsa
+  (`response.map(...)`), endi `response.data.map(...)` qilish KERAK.
+  Qolgan hamma joyda eski parametrlar ishlayveradi, hech narsa buzilmagan.
+
+
+================================================================================
+QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
+================================================================================
+✅ Uy/ish qo'shishda endi lat/lng (xarita nuqtasi) MAJBURIY
+✅ Xaritada hudud bo'yicha qidirish: swLat/swLng/neLat/neLng
+✅ Telegram kanaldan avtomatik import + admin tasdiqlash oqimi (PENDING_REVIEW)
+✅ Bildirishnomalar: chat, moslik, admin xabari — real-time WebSocket bilan
+✅ To'liq analitika (geografiya, statistika)
+✅ Har bir admin jadvalida to'liq ustun-bo'yicha qidiruv
+⚠️ 4 ta endpoint javob shakli o'zgardi (yuqoriga qarang) — frontendda tekshiring
+================================================================================

@@ -189,6 +189,9 @@ export class TelegramImportService {
             title: parsed.title,
             description: this.buildDescription(parsed, channel, msg.text),
             price: parsed.price ?? 0,
+            priceDesc: parsed.priceIsPerSqm
+              ? `Import: asl e'londa narx 1 m² uchun ko'rsatilgan (${parsed.pricePerSqm}$/m²)${parsed.areaSize ? ` — umumiy narx ${parsed.areaSize} m² ga ko'paytirib hisoblangan` : ''}. Tekshiring.`
+              : undefined,
             propertyType: parsed.propertyType ?? channel.defaultPropertyType ?? PropertyType.APARTMENT,
             dealType: parsed.dealType ?? channel.defaultDealType ?? DealType.SALE,
             sellerType: SellerType.INDIVIDUAL,
@@ -210,6 +213,8 @@ export class TelegramImportService {
               originalId: parsed.originalId,
               parsedFields: {
                 price: parsed.price,
+                pricePerSqm: parsed.pricePerSqm,
+                priceIsPerSqm: parsed.priceIsPerSqm,
                 roomCount: parsed.roomCount,
                 areaSize: parsed.areaSize,
                 plotSize: parsed.plotSize,
@@ -321,7 +326,11 @@ export class TelegramImportService {
       parsed.floor ? `Qavat: ${parsed.floor}.` : '',
       parsed.areaSize ? `Maydoni: ${parsed.areaSize} m².` : '',
       parsed.plotSize ? `Yer maydoni: ${parsed.plotSize} sotix.` : '',
-      parsed.price ? `Narxi: ${parsed.price.toLocaleString('uz-UZ')} $.` : '',
+      parsed.price
+        ? parsed.priceIsPerSqm
+          ? `Narxi: ${parsed.price.toLocaleString('uz-UZ')} $ (1 m² — ${parsed.pricePerSqm} $, avtomatik hisoblangan).`
+          : `Narxi: ${parsed.price.toLocaleString('uz-UZ')} $.`
+        : '',
       parsed.contactPhone ? `Telefon: ${parsed.contactPhone}.` : '',
       "Telegram kanalidan import qilingan — administrator tasdig'ini kutmoqda.",
     ].filter(Boolean);
