@@ -49,13 +49,34 @@ export class BackupService implements OnModuleInit {
       return;
     }
     this.logger.log("Baza zaxirasi (backup) yoqilgan — har 3 kunda avtomatik yuboriladi ✅");
+
+    // MUHIM: `@Interval` faqat belgilangan vaqt (3 kun) O'TGANDAN KEYIN birinchi
+    // marta ishga tushadi — agar server shu 3 kun to'lmasdan qayta-qayta
+    // deploy/restart qilinsa (masalan aktiv ishlab chiqish davrida), interval
+    // hech qachon birinchi marta ham otmaydi va backup UMUMAN yuborilmaydi.
+    // Shuning uchun har safar ilova ishga tushganda: (1) guruhga "qayta ishga
+    // tushdi" xabari, (2) darhol bitta to'liq backup — fon rejimida (ishga
+    // tushishni sekinlashtirmasdan) yuboriladi.
+    this.notifyRestart().catch((e) => this.logger.warn(`Restart xabarini yuborib bo'lmadi: ${(e as Error).message}`));
+    this.runBackup().catch((e) => this.logger.error('Ishga tushishdagi backup xatosi', e as Error));
   }
 
-  // Ilova ishga tushgandan 3 kun o'tgach, keyin har 3 kunda bir marta
+  // Ilova (qayta) ishga tushganidan keyin, so'ng har 3 kunda bir marta
   @Interval(THREE_DAYS_MS)
   async scheduledBackup() {
     if (!this.isEnabled()) return;
     await this.runBackup().catch((e) => this.logger.error('Rejalashtirilgan backup xatosi', e as Error));
+  }
+
+  private async notifyRestart() {
+    if (!this.isEnabled()) return;
+    const token = this.getToken()!;
+    const groupId = this.getGroupId()!;
+    await this.sendTextMessage(
+      token,
+      groupId,
+      `🔄 Server qayta ishga tushdi — ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}`,
+    );
   }
 
   // Admin qo'lda ham chaqira oladi (POST /backup/run)
@@ -153,6 +174,14 @@ export class BackupService implements OnModuleInit {
 
     if (!data.ok) throw new Error(`Telegram xatosi: ${JSON.stringify(data)}`);
     return data.result.message_id;
+  }
+
+  private async sendTextMessage(token: string, chatId: string, text: string) {
+    const { data } = await axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+      chat_id: chatId,
+      text,
+    });
+    if (!data.ok) throw new Error(`Telegram xatosi: ${JSON.stringify(data)}`);
   }
 
   private async deleteMessage(token: string, chatId: string, messageId: number) {
