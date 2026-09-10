@@ -1,10 +1,14 @@
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import compression from 'compression';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
+
+    // JSON javoblarni gzip qiladi — katta ro'yxat javoblari ~70% kichrayadi
+    app.use(compression());
 
     app.useGlobalPipes(
         new ValidationPipe({

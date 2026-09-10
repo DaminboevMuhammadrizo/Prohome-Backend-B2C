@@ -272,30 +272,30 @@ model Rating {
 }
 
 model RealEstate {
-  id           Int          @id @default(autoincrement())
+  id           Int              @id @default(autoincrement())
   title        String
   description  String?
-  price        Decimal      @db.Decimal(15, 2)
-  propertyType PropertyType @map("property_type")
-  dealType     DealType     @map("deal_type")
-  sellerType   SellerType   @map("seller_type")
-  userId       Int          @map("user_id")
-  locationId   Int          @map("location_id")
-  contactPhone String       @map("contact_phone")
-  companyName  String?      @map("company_name")
-  companyLogo  String?      @map("company_logo")
-  areaSize     Float        @map("area_size")
-  roomCount    Int          @map("room_count")
+  price        Decimal          @db.Decimal(15, 2)
+  propertyType PropertyType     @map("property_type")
+  dealType     DealType         @map("deal_type")
+  sellerType   SellerType       @map("seller_type")
+  userId       Int              @map("user_id")
+  locationId   Int              @map("location_id")
+  contactPhone String           @map("contact_phone")
+  companyName  String?          @map("company_name")
+  companyLogo  String?          @map("company_logo")
+  areaSize     Float            @map("area_size")
+  roomCount    Int              @map("room_count")
   floor        Int?
-  totalFloors  Int?         @map("total_floors")
-  plotSize     Float?       @map("plot_size")
-  externalId   String?      @unique @map("external_id")
-  apiUrl       String?      @map("api_url")
-  syncStatus   Json?        @map("sync_status")
-  priceDesc String?          @map("price_desc")
-  viewCount Int              @default(0) @map("view_count")
-  likeCount Int              @default(0) @map("like_count")
-  status    RealEstateStatus @default(ACTIVE)
+  totalFloors  Int?             @map("total_floors")
+  plotSize     Float?           @map("plot_size")
+  externalId   String?          @unique @map("external_id")
+  apiUrl       String?          @map("api_url")
+  syncStatus   Json?            @map("sync_status")
+  priceDesc    String?          @map("price_desc")
+  viewCount    Int              @default(0) @map("view_count")
+  likeCount    Int              @default(0) @map("like_count")
+  status       RealEstateStatus @default(ACTIVE)
 
   // Xaritada aniq nuqta (masalan Yandex/OSM xarita tanlagichidan) — address matn ko'rinishi,
   // latitude/longitude esa bounding-box (xarita hududi) bo'yicha qidirish uchun ishlatiladi.
@@ -311,6 +311,10 @@ model RealEstate {
   media    PropertyImgAndVideo[]
 
   @@index([latitude, longitude])
+  @@index([status, createdAt])
+  @@index([propertyType, dealType])
+  @@index([locationId])
+  @@index([userId])
   @@map("real_estates")
 }
 
@@ -384,6 +388,10 @@ model Job {
   reels     Reel[]
 
   @@index([latitude, longitude])
+  @@index([status, createdAt])
+  @@index([skillTypeId])
+  @@index([locationId])
+  @@index([userId])
   @@map("jobs")
 }
 
@@ -595,9 +603,9 @@ model BackupState {
 // oddiy foydalanuvchiga qaytarilmaydi (admin esa /b2b/admin/* orqali hammasini
 // ko'radi va statusni o'zgartiradi).
 model B2bCompanyVisibility {
-  id           Int      @id @default(autoincrement())
-  b2bCompanyId Int      @unique @map("b2b_company_id")
-  isActive     Boolean  @default(true) @map("is_active")
+  id           Int     @id @default(autoincrement())
+  b2bCompanyId Int     @unique @map("b2b_company_id")
+  isActive     Boolean @default(true) @map("is_active")
   name         String? // admin ro'yxatida ko'rsatish uchun nom nusxasi
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -641,6 +649,8 @@ model News {
   job      Job?          @relation(fields: [jobId], references: [id], onDelete: SetNull)
   company  Company?      @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
+  @@index([status, publishedAt])
+  @@index([companyId])
   @@map("news")
 }
 
@@ -665,6 +675,8 @@ model Reel {
   job     Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
   company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
+  @@index([status, order])
+  @@index([companyId])
   @@map("reels")
 }
 

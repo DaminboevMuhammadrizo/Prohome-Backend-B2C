@@ -446,6 +446,63 @@ orqali boshqariladi — bular ikki alohida tizim.
 
 
 ================================================================================
+9-BO'LIM: TEZLIK OPTIMIZATSIYASI (list yengillashtirish + rasm + Redis cache)
+================================================================================
+
+9.1) GET /real-estates (RO'YXAT) JAVOBI YENGILLASHTIRILDI  ← FRONTEND TEKSHIRSIN
+--------------------------------------------------------------------------------
+Ro'yxat (list) endi FAQAT kartaga kerakli maydonlarni qaytaradi. Bitta e'lon
+elementida endi shular bor:
+  id, title, price, priceDesc, address, contactPhone,
+  propertyType, dealType, roomCount, areaSize, floor, status,
+  viewCount, likeCount, latitude, longitude, createdAt,
+  location: { id, name },
+  media: [ <barcha rasm/video, asosiysi birinchi> ]
+
+ENDI RO'YXATDA YO'Q (kesildi): description, syncStatus, externalId, apiUrl,
+companyName, companyLogo, totalFloors, sellerType, user obyekti.
+
+⚠️ Agar frontend ro'yxat kartasida shu kesilgan maydonlardan foydalanayotgan
+bo'lsa — endi ularni faqat `GET /real-estates/:id` (bitta e'lon) dan oling.
+`GET /real-estates/:id` javobi TO'LIQ, o'zgarmagan (hamma maydon + similar[]).
+`meta` (page/limit/total/totalPages) o'zgarmagan.
+
+9.2) RASMLAR AVTOMATIK SIQILADI
+--------------------------------------------------------------------------------
+Endi YUKLANADIGAN har bir rasm (real-estate media, master profil/ish rasmlari,
+news cover, company logo, chat rasm, banner rasm) server tomonida:
+  • EXIF orientatsiya bo'yicha to'g'rilanadi
+  • uzun tomoni max 1600px gacha kichraytiriladi (kompaniya logo — 512px)
+  • WebP (sifat 76) ga o'giriladi — natijada odatda 3-6x kichik fayl
+Fayl kengaytmasi endi doim `.webp`. Video/hujjatlarga tegilmaydi.
+Eski (allaqachon yuklangan) rasmlar o'zgarmaydi.
+
+Bundan tashqari rasm/fayl javoblariga (`GET /image/...`, `/video/...`)
+`Cache-Control: public, max-age=31536000, immutable` + `ETag` qo'shildi —
+brauzer bir marta yuklab, keyin keshdan oladi (takroriy ochilishda deyarli
+bir zumda). Shartli so'rov (`If-None-Match`) → `304 Not Modified`.
+
+9.3) REDIS CACHE (backend ichki — frontend uchun ko'rinmas, lekin sezilarli tez)
+--------------------------------------------------------------------------------
+Deyarli barcha GET (ro'yxat) endpointlar Redis'da keshlanadi:
+  real-estates, jobs, masters, locations, skills, skill-types, banners (public),
+  news (ro'yxat/kategoriyalar), reels (ro'yxat), b2b/*, analytics/*
+Har `create/update/delete/status` da tegishli kesh AVTOMATIK tozalanadi —
+ya'ni yangi e'lon qo'shilsa yoki tahrirlansa, keyingi GET da DARHOL ko'rinadi
+(eskirgan ma'lumot qaytmaydi). Frontend tomondan hech narsa o'zgartirish
+shart emas — shunchaki javoblar tezroq keladi.
+Zaxira muddati: 1 oy (analytics — 1 soat). Qiymat oddiy faylda:
+src/common/config/redis/cache.constants.ts (env dan olinmaydi). Redis
+o'chib qolsa ham hammasi ishlaydi (shunchaki keshsiz, sekinroq).
+
+9.4) GZIP
+--------------------------------------------------------------------------------
+Katta JSON javoblar endi gzip bilan siqiladi (`Accept-Encoding: gzip`) —
+mobil internetda ro'yxatlar ~70% kam trafik. Odatda HTTP klient buni
+o'zi hal qiladi, alohida sozlash kerak emas.
+
+
+================================================================================
 QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
 ================================================================================
 ✅ Uy/ish qo'shishda endi lat/lng (xarita nuqtasi) MAJBURIY
@@ -458,5 +515,8 @@ QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
    → inactive kompaniya GET /b2b/projects, /b2b/rooms, /b2b/room-detail da chiqmaydi
 ✅ Admin uchun: GET /b2b/admin/companies, GET /b2b/admin/projects (hammasini ko'radi)
 ✅ (alohida) PATCH /companies/:id/toggle — B2C login kompaniyaning news/reels'ini yashiradi
+✅ TEZLIK: GET ro'yxatlar Redis'da keshlanadi + rasmlar avtomatik siqiladi + gzip
+⚠️ GET /real-estates (ro'yxat) javobi yengillashtirildi — description/user/media[]
+   va h.k. endi faqat GET /real-estates/:id da (9.1-bo'lim) — frontendda tekshiring
 ⚠️ 4 ta endpoint javob shakli o'zgardi (yuqoriga qarang) — frontendda tekshiring
 ================================================================================

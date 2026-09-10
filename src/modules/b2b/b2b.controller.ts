@@ -1,13 +1,16 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import { CacheResource, HttpCacheInterceptor } from 'src/common/cache/http-cache.interceptor';
 import { B2bService } from './b2b.service';
 import { SetB2bCompanyStatusDto } from './dto/b2b.dto';
 
 @ApiTags('B2B Data')
+@UseInterceptors(HttpCacheInterceptor)
+@CacheResource('b2b', 600)
 @Controller('b2b')
 export class B2bController {
   constructor(private readonly b2bService: B2bService) {}

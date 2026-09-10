@@ -1,10 +1,21 @@
 import { PrismaService } from 'src/common/database/prisma.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SkillStatus } from '@prisma/client';
+import { RedisService } from 'src/common/config/redis/redis.service';
 
 @Injectable()
 export class SkillsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  private invalidate() {
+    return Promise.all([
+      this.redis.delByPattern('skill:*'),
+      this.redis.delByPattern('skilltype:*'),
+    ]).catch(() => null);
+  }
 
   async getAll(params: { page?: number; limit?: number; id?: number; search?: string; typeId?: number; status?: SkillStatus } = {}) {
     const { page = 1, limit = 50, id, search, typeId, status } = params;
@@ -38,17 +49,22 @@ export class SkillsService {
   async create(data: { name: string; typeId: number; status?: SkillStatus }) {
     const type = await this.prisma.skillType.findUnique({ where: { id: data.typeId } });
     if (!type) throw new NotFoundException('Skill turi topilmadi');
-    return this.prisma.skills.create({ data, include: { type: true } });
+    const created = await this.prisma.skills.create({ data, include: { type: true } });
+    await this.invalidate();
+    return created;
   }
 
   async update(id: number, data: { name?: string; typeId?: number; status?: SkillStatus }) {
     await this.getById(id);
-    return this.prisma.skills.update({ where: { id }, data, include: { type: true } });
+    const updated = await this.prisma.skills.update({ where: { id }, data, include: { type: true } });
+    await this.invalidate();
+    return updated;
   }
 
   async delete(id: number) {
     await this.getById(id);
     await this.prisma.skills.delete({ where: { id } });
+    await this.invalidate();
     return { message: 'Skill o\'chirildi' };
   }
 }

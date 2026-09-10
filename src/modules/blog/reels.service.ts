@@ -1,11 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContentStatus } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
 import { CreateReelDto, UpdateReelDto } from './dto/reels.dto';
 
 @Injectable()
 export class ReelsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  private invalidate() {
+    return this.redis.delByPattern('reels:*').catch(() => null);
+  }
 
   private readonly include = {
     master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
@@ -85,17 +93,22 @@ export class ReelsService {
 
   async create(dto: CreateReelDto & { videoUrl: string }) {
     if (dto.companyId) await this.checkCompanyWeeklyLimit(dto.companyId);
-    return this.prisma.reel.create({ data: dto, include: this.include });
+    const created = await this.prisma.reel.create({ data: dto, include: this.include });
+    await this.invalidate();
+    return created;
   }
 
   async update(id: number, dto: UpdateReelDto) {
     await this.ensureExists(id);
-    return this.prisma.reel.update({ where: { id }, data: dto, include: this.include });
+    const updated = await this.prisma.reel.update({ where: { id }, data: dto, include: this.include });
+    await this.invalidate();
+    return updated;
   }
 
   async delete(id: number) {
     await this.ensureExists(id);
     await this.prisma.reel.delete({ where: { id } });
+    await this.invalidate();
     return { message: 'Reel o\'chirildi' };
   }
 }

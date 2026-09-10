@@ -1,9 +1,11 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
+import { CacheResource, HttpCacheInterceptor } from 'src/common/cache/http-cache.interceptor';
+import { ANALYTICS_CACHE_TTL } from 'src/common/config/redis/cache.constants';
 import { AnalyticsService } from './analytics.service';
 
 // Faqat admin uchun — chuqur statistika/analitika paneli.
@@ -14,6 +16,8 @@ import { AnalyticsService } from './analytics.service';
 @ApiBearerAuth()
 @UseGuards(GuardService, RoleGuardService)
 @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
+@UseInterceptors(HttpCacheInterceptor)
+@CacheResource('analytics', ANALYTICS_CACHE_TTL)
 @Controller('analytics')
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}

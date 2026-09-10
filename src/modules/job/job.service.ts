@@ -3,13 +3,22 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from 'src/common/database/prisma.service';
 import { JobStatus, SearchType } from '@prisma/client';
 import { NotificationService } from 'src/modules/notification/notification.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
+import { CACHE_TTL, cacheKey } from 'src/common/config/redis/cache.constants';
+
+const CACHE_NS = 'job';
 
 @Injectable()
 export class JobService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly notificationService: NotificationService,
+        private readonly redis: RedisService,
     ) { }
+
+    private invalidateCache() {
+        return this.redis.delByPattern(`${CACHE_NS}:*`).catch(() => null);
+    }
 
     private jobSelect = {
         id: true,
@@ -70,22 +79,31 @@ export class JobService {
             where.longitude = { gte: swLng, lte: neLng };
         }
 
-        const [data, total] = await Promise.all([
-            this.prisma.job.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.jobSelect }),
-            this.prisma.job.count({ where }),
-        ]);
+        const key = cacheKey(CACHE_NS, 'list', {
+            page, limit, search, status, skillTypeId, locationId, id, userId,
+            minPrice, maxPrice, createdFrom, createdTo, isRemote, swLat, swLng, neLat, neLng,
+        });
+        const result = await this.redis.wrap(key, CACHE_TTL, async () => {
+            const [data, total] = await Promise.all([
+                this.prisma.job.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.jobSelect }),
+                this.prisma.job.count({ where }),
+            ]);
+            return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+        });
 
-        if (data.length === 0 && (search || skillTypeId || locationId)) {
+        if (result.data.length === 0 && (search || skillTypeId || locationId)) {
             this.notificationService.recordEmptySearch(SearchType.JOB, { search, skillTypeId, locationId }, locationId, subscriberUserId);
         }
 
-        return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+        return result;
     }
 
     async getById(id: number) {
-        const job = await this.prisma.job.findUnique({ where: { id }, select: this.jobSelect });
-        if (!job) throw new NotFoundException('Ish e\'loni topilmadi');
-        return job;
+        return this.redis.wrap(cacheKey(CACHE_NS, 'item', id), CACHE_TTL, async () => {
+            const job = await this.prisma.job.findUnique({ where: { id }, select: this.jobSelect });
+            if (!job) throw new NotFoundException('Ish e\'loni topilmadi');
+            return job;
+        });
     }
 
 
@@ -121,6 +139,7 @@ export class JobService {
             });
         }
 
+        await this.invalidateCache();
         const created = await this.getById(job.id);
         this.notificationService.matchAndNotify(SearchType.JOB, created).catch(() => null);
         return created;
@@ -142,19 +161,23 @@ export class JobService {
 
         const { skillIds, ...rest } = dto;
         await this.prisma.job.update({ where: { id }, data: rest });
+        await this.invalidateCache();
         return this.getById(id);
     }
 
     async changeStatus(id: number, userId: number, isAdmin: boolean, dto: ChangeJobStatusDto) {
         const job = await this.getById(id);
         if (!isAdmin && (job as any).user.id !== userId) throw new ForbiddenException('Ruxsat yo\'q');
-        return this.prisma.job.update({ where: { id }, data: { status: dto.status }, select: this.jobSelect });
+        const updated = await this.prisma.job.update({ where: { id }, data: { status: dto.status }, select: this.jobSelect });
+        await this.invalidateCache();
+        return updated;
     }
 
     async delete(id: number, userId: number, isAdmin: boolean) {
         const job = await this.getById(id);
         if (!isAdmin && (job as any).user.id !== userId) throw new ForbiddenException('Ruxsat yo\'q');
         await this.prisma.job.delete({ where: { id } });
+        await this.invalidateCache();
         return { message: 'Ish e\'loni o\'chirildi' };
     }
 

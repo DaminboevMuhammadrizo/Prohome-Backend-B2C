@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
 
 @Injectable()
 export class B2bService {
@@ -10,6 +11,7 @@ export class B2bService {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
   ) {
     this.baseUrl = this.config.get<string>('B2B_BASE_URL', 'http://localhost:3000');
   }
@@ -116,6 +118,8 @@ export class B2bService {
       update: { isActive, name },
       create: { b2bCompanyId, isActive, name },
     });
+    // b2b GET cache'lari (projects/rooms/admin ro'yxatlar) eskirdi
+    await this.redis.delByPattern('b2b:*').catch(() => null);
     return { b2bCompanyId: row.b2bCompanyId, name: row.name, isActive: row.isActive };
   }
 

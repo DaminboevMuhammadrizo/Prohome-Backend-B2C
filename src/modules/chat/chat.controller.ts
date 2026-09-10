@@ -23,6 +23,7 @@ import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { memoryStorage } from 'multer';
+import { toOptimizedWebp } from 'src/common/utils/image.util';
 import { UserData } from 'src/common/decorators/auth.decorators';
 import { GuardService } from 'src/common/guard/guard.service';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
@@ -119,8 +120,10 @@ export class ChatController {
         if (file) {
             const subDir = getSubDir(file.mimetype);
             const dir = ensureUploadDir(subDir);
-            const filename = `${Date.now()}${extname(file.originalname)}`;
-            await writeFile(join(dir, filename), file.buffer);
+            const isImage = file.mimetype.startsWith('image/');
+            const filename = isImage ? `${Date.now()}.webp` : `${Date.now()}${extname(file.originalname)}`;
+            const buffer = isImage ? await toOptimizedWebp(file.buffer) : file.buffer;
+            await writeFile(join(dir, filename), buffer);
             fileUrl = `${subDir}/${filename}`;
             fileType = detectFileType(file.mimetype);
         }

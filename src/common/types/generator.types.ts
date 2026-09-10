@@ -49,9 +49,25 @@ export function getPathInFileType(fileName: string) {
 }
 
 export async function headerDataStream(res: Response, filePath: string, fileName: string) {
-  const fileSize = (await stat(filePath)).size;
+  const fileStat = await stat(filePath);
+  const fileSize = fileStat.size;
   const range = res.req.headers.range;
   const mimeType = getMymtype(fileName)
+
+  // Yuklangan fayllar nomi `Date.now()` bilan unik — hech qachon o'zgarmaydi,
+  // shuning uchun brauzer/CDN uzoq muddat keshlashi mumkin. Bu takroriy
+  // ochilishlarda rasmlar deyarli bir zumda keladi.
+  const etag = `"${fileSize}-${Math.floor(fileStat.mtimeMs)}"`;
+  const cacheHeaders = {
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    'Last-Modified': fileStat.mtime.toUTCString(),
+    'ETag': etag,
+  };
+
+  if (res.req.headers['if-none-match'] === etag) {
+    res.writeHead(304, cacheHeaders);
+    return res.end();
+  }
 
   if (range) {
     const parts = range.replace(/bytes=/, '').split('-');
@@ -65,12 +81,14 @@ export async function headerDataStream(res: Response, filePath: string, fileName
       'Accept-Ranges': 'bytes',
       'Content-Length': chunkSize,
       'Content-Type': mimeType,
+      ...cacheHeaders,
     });
     file.pipe(res);
   } else {
     res.writeHead(200, {
       'Content-Length': fileSize,
       'Content-Type': mimeType,
+      ...cacheHeaders,
     });
     createReadStream(filePath).pipe(res);
   }

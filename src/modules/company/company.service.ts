@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { hashPassword } from 'src/common/config/bcrypt';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
 import { B2bService } from '../b2b/b2b.service';
 import { ContentLimitDto, CreateCompanyDto, UpdateCompanyDto } from './dto/company.dto';
 
@@ -9,7 +10,17 @@ export class CompanyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly b2bService: B2bService,
+    private readonly redis: RedisService,
   ) {}
+
+  // Kompaniya bloklansa/faollashsa — uning news/reels'lari public ro'yxatlarda
+  // ko'rinishi o'zgaradi, shu cache'lar eskiradi.
+  private invalidateContentCache() {
+    return Promise.all([
+      this.redis.delByPattern('news:*'),
+      this.redis.delByPattern('reels:*'),
+    ]).catch(() => null);
+  }
 
   // ── B2B company list (admin panelda ko'rsatish uchun) ────────────────────
 
@@ -107,16 +118,19 @@ export class CompanyService {
 
   async toggleActive(id: number) {
     const company = await this.findOne(id);
-    return this.prisma.company.update({
+    const updated = await this.prisma.company.update({
       where: { id },
       data: { isActive: !company.isActive },
       select: { id: true, name: true, isActive: true },
     });
+    await this.invalidateContentCache();
+    return updated;
   }
 
   async delete(id: number) {
     await this.findOne(id);
     await this.prisma.company.delete({ where: { id } });
+    await this.invalidateContentCache();
     return { message: 'Kompaniya o\'chirildi' };
   }
 

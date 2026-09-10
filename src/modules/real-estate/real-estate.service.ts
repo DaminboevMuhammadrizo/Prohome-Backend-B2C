@@ -3,15 +3,26 @@ import { DealType, MediaType, PropertyType, RealEstateStatus, SearchType, Seller
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
+import { CACHE_TTL, cacheKey } from 'src/common/config/redis/cache.constants';
 import { NotificationService } from 'src/modules/notification/notification.service';
 import { ChangeRealEstateStatusDto, CreateRealEstateDto, UpdateRealEstateDto } from './dto/real-estate.dto';
+
+const CACHE_NS = 're';
 
 @Injectable()
 export class RealEstateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
+    private readonly redis: RedisService,
   ) {}
+
+  // Har qanday e'lon o'zgarishi (create/update/status/delete/media/like) ro'yxat
+  // va detal cache'larini eskirtiradi — butun "re:*" namespace tozalanadi.
+  private invalidateCache() {
+    return this.redis.delByPattern(`${CACHE_NS}:*`).catch(() => null);
+  }
 
   private select = {
     id: true,
@@ -45,6 +56,31 @@ export class RealEstateService {
     location: { select: { id: true, name: true, type: true, parent: { select: { id: true, name: true } } } },
     user: { select: { id: true, firstName: true, lastName: true, phone: true } },
     media: { orderBy: { isMain: 'desc' as const } },
+  };
+
+  // Ro'yxat (karta) uchun yengil select — og'ir maydonlar (description,
+  // syncStatus, externalId/apiUrl, company logo, user obyekti, barcha media)
+  // olib tashlangan. Faqat kartada ko'rsatiladigan + xarita uchun kerakli.
+  private cardSelect = {
+    id: true,
+    title: true,
+    price: true,
+    priceDesc: true,
+    address: true,
+    contactPhone: true,
+    propertyType: true,
+    dealType: true,
+    roomCount: true,
+    areaSize: true,
+    floor: true,
+    status: true,
+    viewCount: true,
+    likeCount: true,
+    latitude: true,
+    longitude: true,
+    createdAt: true,
+    location: { select: { id: true, name: true } },
+    media: { orderBy: { isMain: 'desc' as const }, select: { id: true, url: true, mediaType: true, isMain: true } },
   };
 
   async getAll(params: {
@@ -104,12 +140,24 @@ export class RealEstateService {
       where.longitude = { gte: swLng, lte: neLng };
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.realEstate.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.select }),
-      this.prisma.realEstate.count({ where }),
-    ]);
+    // Natija Redis'da cache qilinadi — kalit query parametrlaridan (subscriberUserId
+    // dan TASHQARI, chunki u faqat quyidagi side-effect'ga ta'sir qiladi).
+    const key = cacheKey(CACHE_NS, 'list', {
+      page, limit, id, search, propertyType, dealType, sellerType, locationId,
+      minPrice, maxPrice, roomCount, status, userId, createdFrom, createdTo,
+      swLat, swLng, neLat, neLng,
+    });
+    const result = await this.redis.wrap(key, CACHE_TTL, async () => {
+      const [data, total] = await Promise.all([
+        this.prisma.realEstate.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.cardSelect }),
+        this.prisma.realEstate.count({ where }),
+      ]);
+      return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    });
 
-    if (data.length === 0 && (search || propertyType || dealType || sellerType || locationId || roomCount || minPrice !== undefined || maxPrice !== undefined)) {
+    // "Topilmagan qidiruv"ni yozish — cache'dan kelgan bo'lsa ham, natija bo'sh
+    // bo'lsa har chaqiruvda tekshiriladi (o'zining ichki guard'lari bor).
+    if (result.data.length === 0 && (search || propertyType || dealType || sellerType || locationId || roomCount || minPrice !== undefined || maxPrice !== undefined)) {
       this.notificationService.recordEmptySearch(
         SearchType.REAL_ESTATE,
         { search, propertyType, dealType, sellerType, locationId, roomCount, minPrice, maxPrice },
@@ -118,7 +166,7 @@ export class RealEstateService {
       );
     }
 
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return result;
   }
 
   private listSelect = {
@@ -141,22 +189,24 @@ export class RealEstateService {
   };
 
   async getById(id: number) {
-    const re = await this.prisma.realEstate.findUnique({ where: { id }, select: this.select });
-    if (!re) throw new NotFoundException("Ko'chmas mulk topilmadi");
+    return this.redis.wrap(cacheKey(CACHE_NS, 'item', id), CACHE_TTL, async () => {
+      const re = await this.prisma.realEstate.findUnique({ where: { id }, select: this.select });
+      if (!re) throw new NotFoundException("Ko'chmas mulk topilmadi");
 
-    const similar = await this.prisma.realEstate.findMany({
-      where: {
-        id: { not: id },
-        propertyType: (re as any).propertyType,
-        dealType: (re as any).dealType,
-        status: 'ACTIVE',
-      },
-      take: 10,
-      orderBy: { createdAt: 'desc' },
-      select: this.listSelect,
+      const similar = await this.prisma.realEstate.findMany({
+        where: {
+          id: { not: id },
+          propertyType: (re as any).propertyType,
+          dealType: (re as any).dealType,
+          status: 'ACTIVE',
+        },
+        take: 10,
+        orderBy: { createdAt: 'desc' },
+        select: this.listSelect,
+      });
+
+      return { ...re, similar };
     });
-
-    return { ...re, similar };
   }
 
   async create(userId: number, dto: CreateRealEstateDto) {
@@ -170,6 +220,7 @@ export class RealEstateService {
 
     // Shu e'longa mos "topilmagan qidiruv"lar bo'lsa — egalariga bildirishnoma yuboriladi
     this.notificationService.matchAndNotify(SearchType.REAL_ESTATE, realEstate).catch(() => null);
+    await this.invalidateCache();
 
     return realEstate;
   }
@@ -177,13 +228,17 @@ export class RealEstateService {
   async update(id: number, userId: number, isAdmin: boolean, dto: UpdateRealEstateDto) {
     const re = await this.getById(id);
     if (!isAdmin && (re as any).user.id !== userId) throw new ForbiddenException('Ruxsat yo\'q');
-    return this.prisma.realEstate.update({ where: { id }, data: dto, select: this.select });
+    const updated = await this.prisma.realEstate.update({ where: { id }, data: dto, select: this.select });
+    await this.invalidateCache();
+    return updated;
   }
 
   async changeStatus(id: number, userId: number, isAdmin: boolean, dto: ChangeRealEstateStatusDto) {
     const re = await this.getById(id);
     if (!isAdmin && (re as any).user.id !== userId) throw new ForbiddenException('Ruxsat yo\'q');
-    return this.prisma.realEstate.update({ where: { id }, data: { status: dto.status }, select: this.select });
+    const updated = await this.prisma.realEstate.update({ where: { id }, data: { status: dto.status }, select: this.select });
+    await this.invalidateCache();
+    return updated;
   }
 
   async delete(id: number, userId: number, isAdmin: boolean) {
@@ -201,6 +256,7 @@ export class RealEstateService {
     }
 
     await this.prisma.realEstate.delete({ where: { id } });
+    await this.invalidateCache();
     return { message: 'Ko\'chmas mulk o\'chirildi' };
   }
 
@@ -209,9 +265,11 @@ export class RealEstateService {
     if (isMain) {
       await this.prisma.propertyImgAndVideo.updateMany({ where: { propertyId: id }, data: { isMain: false } });
     }
-    return this.prisma.propertyImgAndVideo.create({
+    const created = await this.prisma.propertyImgAndVideo.create({
       data: { propertyId: id, url: `${mediaType === MediaType.IMAGE ? 'image' : 'video'}/${filename}`, isMain, mediaType },
     });
+    await this.invalidateCache();
+    return created;
   }
 
   async deleteMedia(propertyId: number, mediaId: number) {
@@ -223,6 +281,7 @@ export class RealEstateService {
       await unlink(join(process.cwd(), 'core', 'uploads', folder, filename!));
     } catch {}
     await this.prisma.propertyImgAndVideo.delete({ where: { id: mediaId } });
+    await this.invalidateCache();
     return { message: 'Media o\'chirildi' };
   }
 

@@ -6,7 +6,7 @@ import { memoryStorage } from 'multer';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { writeFile } from 'fs/promises';
-import sharp from 'sharp';
+import { toOptimizedWebp } from 'src/common/utils/image.util';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
@@ -33,7 +33,8 @@ async function saveVideoToDisk(buffer: Buffer, originalname: string): Promise<st
 
 async function saveImageAsWebp(buffer: Buffer): Promise<string> {
     const filename = `${Date.now()}.webp`;
-    const webpBuffer = await sharp(buffer).webp({ quality: 88, effort: 4 }).toBuffer();
+    // max 1600px, webp q76, EXIF-rotate — asl JPEG'dan ~3-5x kichik
+    const webpBuffer = await toOptimizedWebp(buffer);
     await writeFile(join(ensureDir('images'), filename), webpBuffer);
     return filename;
 }

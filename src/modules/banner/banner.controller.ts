@@ -1,31 +1,44 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { CacheResource, HttpCacheInterceptor } from 'src/common/cache/http-cache.interceptor';
 import { BannerLocation, MediaType, UserRole } from '@prisma/client';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname, join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { writeFile } from 'fs/promises';
+import { toOptimizedWebp } from 'src/common/utils/image.util';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { BannerService } from './banner.service';
 
-const bannerStorage = (type: 'images' | 'videos') =>
-  diskStorage({
-    destination: (req, file, cb) => {
-      const dest = join(process.cwd(), 'core', 'uploads', type);
-      if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
-      cb(null, dest);
-    },
-    filename: (req, file, cb) => cb(null, `${Date.now()}${extname(file.originalname)}`),
-  });
+const bannerUpload = {
+  storage: memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+};
+
+// Rasm bo'lsa — webp'ga siqiladi (max 1600px, q76); video bo'lsa asl holida
+// saqlanadi. Fayl nomini qaytaradi.
+async function saveBannerFile(file: Express.Multer.File): Promise<string> {
+  const isVideo = file.mimetype.startsWith('video/');
+  const type = isVideo ? 'videos' : 'images';
+  const dest = join(process.cwd(), 'core', 'uploads', type);
+  if (!existsSync(dest)) mkdirSync(dest, { recursive: true });
+  const filename = isVideo ? `${Date.now()}${extname(file.originalname)}` : `${Date.now()}.webp`;
+  const buffer = isVideo ? file.buffer : await toOptimizedWebp(file.buffer);
+  await writeFile(join(dest, filename), buffer);
+  return filename;
+}
 
 @ApiTags('Banners')
+@UseInterceptors(HttpCacheInterceptor)
 @Controller('banners')
 export class BannerController {
   constructor(private readonly bannerService: BannerService) {}
 
   @Get()
+  @CacheResource('banner')
   @ApiOperation({ summary: 'Faol bannerlar (public)' })
   getAll() {
     return this.bannerService.getAll();
@@ -79,8 +92,7 @@ export class BannerController {
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
   @UseInterceptors(FileInterceptor('file', {
-    storage: bannerStorage('images'),
-    limits: { fileSize: 50 * 1024 * 1024 },
+    ...bannerUpload,
     fileFilter: (req, file, cb) => {
       if (!file.mimetype.startsWith('image/') && !file.mimetype.startsWith('video/')) {
         cb(new BadRequestException('Faqat rasm yoki video'), false);
@@ -89,43 +101,42 @@ export class BannerController {
   }))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Banner yaratish (rasm yoki video)' })
-  create(
+  async create(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: { title?: string; link?: string; location?: BannerLocation; isActive?: string; order?: string },
   ) {
     const mediaType = file.mimetype.startsWith('video/') ? MediaType.VIDEO : MediaType.IMAGE;
+    const filename = await saveBannerFile(file);
     return this.bannerService.create({
       title: body.title,
       link: body.link,
       location: body.location,
       isActive: body.isActive === 'false' ? false : true,
       order: body.order ? +body.order : 0,
-    }, file.filename, mediaType);
+    }, filename, mediaType);
   }
 
   @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(GuardService, RoleGuardService)
   @Role(UserRole.ADMIN, UserRole.SUPERADMIN)
-  @UseInterceptors(FileInterceptor('file', {
-    storage: bannerStorage('images'),
-    limits: { fileSize: 50 * 1024 * 1024 },
-  }))
+  @UseInterceptors(FileInterceptor('file', bannerUpload))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Banner yangilash' })
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @UploadedFile() file?: Express.Multer.File,
     @Body() body: any = {},
   ) {
     const mediaType = file?.mimetype.startsWith('video/') ? MediaType.VIDEO : MediaType.IMAGE;
+    const filename = file ? await saveBannerFile(file) : undefined;
     return this.bannerService.update(id, {
       title: body.title,
       link: body.link,
       location: body.location,
       isActive: body.isActive !== undefined ? body.isActive !== 'false' : undefined,
       order: body.order !== undefined ? +body.order : undefined,
-    }, file?.filename, file ? mediaType : undefined);
+    }, filename, file ? mediaType : undefined);
   }
 
   @Patch(':id/status')

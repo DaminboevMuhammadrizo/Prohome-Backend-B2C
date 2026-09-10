@@ -3,6 +3,7 @@ import { BannerLocation, MediaType } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
 
 export class CreateBannerDto {
   title?: string;
@@ -14,7 +15,14 @@ export class CreateBannerDto {
 
 @Injectable()
 export class BannerService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  private invalidate() {
+    return this.redis.delByPattern('banner:*').catch(() => null);
+  }
 
   private async deleteFile(url?: string) {
     if (!url) return;
@@ -63,7 +71,7 @@ export class BannerService {
 
   async create(dto: CreateBannerDto, filename: string, mediaType: MediaType) {
     const mediaUrl = `${mediaType === MediaType.IMAGE ? 'image' : 'video'}/${filename}`;
-    return this.prisma.banner.create({
+    const created = await this.prisma.banner.create({
       data: {
         ...dto,
         mediaUrl,
@@ -73,6 +81,8 @@ export class BannerService {
         order: dto.order ?? 0,
       },
     });
+    await this.invalidate();
+    return created;
   }
 
   async update(id: number, dto: CreateBannerDto, filename?: string, mediaType?: MediaType) {
@@ -84,21 +94,26 @@ export class BannerService {
       mediaUrl = `${mediaType === MediaType.IMAGE ? 'image' : 'video'}/${filename}`;
     }
 
-    return this.prisma.banner.update({
+    const updated = await this.prisma.banner.update({
       where: { id },
       data: { ...dto, ...(mediaUrl ? { mediaUrl, mediaType } : {}) },
     });
+    await this.invalidate();
+    return updated;
   }
 
   async updateStatus(id: number, isActive: boolean) {
     await this.getById(id);
-    return this.prisma.banner.update({ where: { id }, data: { isActive } });
+    const updated = await this.prisma.banner.update({ where: { id }, data: { isActive } });
+    await this.invalidate();
+    return updated;
   }
 
   async delete(id: number) {
     const banner = await this.getById(id);
     await this.deleteFile(banner.mediaUrl);
     await this.prisma.banner.delete({ where: { id } });
+    await this.invalidate();
     return { message: 'Banner o\'chirildi' };
   }
 }

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ContentStatus, Prisma } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
 import { CreateNewsCategoryDto, CreateNewsDto, UpdateNewsCategoryDto, UpdateNewsDto } from './dto/news.dto';
 
 function toSlug(title: string): string {
@@ -37,7 +38,14 @@ async function uniqueSlug(base: string, check: (slug: string) => Promise<boolean
 
 @Injectable()
 export class NewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  private invalidate() {
+    return this.redis.delByPattern('news:*').catch(() => null);
+  }
 
   private readonly include = {
     category: { select: { id: true, name: true } },
@@ -151,7 +159,7 @@ export class NewsService {
     });
 
     try {
-      return await this.prisma.news.create({
+      const created = await this.prisma.news.create({
         data: {
           ...dto,
           slug,
@@ -159,6 +167,8 @@ export class NewsService {
         },
         include: this.include,
       });
+      await this.invalidate();
+      return created;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new BadRequestException('Bu slug allaqachon mavjud, boshqa nom kiriting');
@@ -179,7 +189,7 @@ export class NewsService {
     }
 
     try {
-      return await this.prisma.news.update({
+      const updated = await this.prisma.news.update({
         where: { id },
         data: {
           ...dto,
@@ -187,6 +197,8 @@ export class NewsService {
         },
         include: this.include,
       });
+      await this.invalidate();
+      return updated;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new BadRequestException('Bu slug allaqachon mavjud');
@@ -198,23 +210,29 @@ export class NewsService {
   async delete(id: number) {
     await this.ensureExists(id);
     await this.prisma.news.delete({ where: { id } });
+    await this.invalidate();
     return { message: 'Yangilik o\'chirildi' };
   }
 
   async createCategory(dto: CreateNewsCategoryDto) {
-    return this.prisma.newsCategory.create({ data: { name: dto.name } });
+    const created = await this.prisma.newsCategory.create({ data: { name: dto.name } });
+    await this.invalidate();
+    return created;
   }
 
   async updateCategory(id: number, dto: UpdateNewsCategoryDto) {
     const cat = await this.prisma.newsCategory.findUnique({ where: { id } });
     if (!cat) throw new NotFoundException('Kategoriya topilmadi');
-    return this.prisma.newsCategory.update({ where: { id }, data: { name: dto.name } });
+    const updated = await this.prisma.newsCategory.update({ where: { id }, data: { name: dto.name } });
+    await this.invalidate();
+    return updated;
   }
 
   async deleteCategory(id: number) {
     const cat = await this.prisma.newsCategory.findUnique({ where: { id } });
     if (!cat) throw new NotFoundException('Kategoriya topilmadi');
     await this.prisma.newsCategory.delete({ where: { id } });
+    await this.invalidate();
     return { message: 'Kategoriya o\'chirildi' };
   }
 }

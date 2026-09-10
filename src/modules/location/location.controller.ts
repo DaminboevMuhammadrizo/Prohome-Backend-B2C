@@ -1,5 +1,6 @@
-import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { CacheResource, HttpCacheInterceptor } from 'src/common/cache/http-cache.interceptor';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { CreateLocationDto, UpdateLocationDto } from './dto/location.dto';
 import { GuardService } from 'src/common/guard/guard.service';
@@ -9,6 +10,8 @@ import { DashboardService } from 'src/modules/dashboard/dashboard.service';
 import { LocationService } from './location.service';
 
 @ApiTags('Locations')
+@UseInterceptors(HttpCacheInterceptor)
+@CacheResource('loc')
 @Controller('locations')
 export class LocationController {
   constructor(

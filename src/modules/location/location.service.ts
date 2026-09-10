@@ -2,10 +2,18 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { CreateLocationDto, UpdateLocationDto } from './dto/location.dto';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { LocationType } from '@prisma/client';
+import { RedisService } from 'src/common/config/redis/redis.service';
 
 @Injectable()
 export class LocationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  private invalidate() {
+    return this.redis.delByPattern('loc:*').catch(() => null);
+  }
 
   async getAll(params: { page?: number; limit?: number; id?: number; type?: LocationType; parentId?: number; search?: string } = {}) {
     const { page = 1, limit = 200, id, type, parentId, search } = params;
@@ -71,24 +79,29 @@ export class LocationService {
       throw new BadRequestException('Ota-joylashuvsiz faqat COUNTRY yaratish mumkin');
     }
 
-    return this.prisma.location.create({
+    const created = await this.prisma.location.create({
       data: dto,
       include: { parent: true },
     });
+    await this.invalidate();
+    return created;
   }
 
   async update(id: number, dto: UpdateLocationDto) {
     await this.getById(id);
-    return this.prisma.location.update({
+    const updated = await this.prisma.location.update({
       where: { id },
       data: dto,
       include: { parent: true },
     });
+    await this.invalidate();
+    return updated;
   }
 
   async delete(id: number) {
     await this.getById(id);
     await this.prisma.location.delete({ where: { id } });
+    await this.invalidate();
     return { message: 'Joylashuv o\'chirildi' };
   }
 }

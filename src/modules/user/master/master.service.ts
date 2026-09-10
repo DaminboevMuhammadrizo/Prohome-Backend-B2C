@@ -5,14 +5,23 @@ import { join } from 'path';
 import { hashPassword } from 'src/common/config/bcrypt';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { NotificationService } from 'src/modules/notification/notification.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
+import { CACHE_TTL, cacheKey } from 'src/common/config/redis/cache.constants';
 import { CreateMasterByAdminDto, RegisterAsMasterDto, UpdateMasterDto } from './dto/create-master.dto';
+
+const CACHE_NS = 'master';
 
 @Injectable()
 export class MasterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
+    private readonly redis: RedisService,
   ) {}
+
+  private invalidateCache() {
+    return this.redis.delByPattern(`${CACHE_NS}:*`).catch(() => null);
+  }
 
   private masterListSelect = {
     id: true,
@@ -80,40 +89,48 @@ export class MasterService {
       ];
     }
 
-    const [data, total] = await Promise.all([
-      this.prisma.master.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        select: this.masterListSelect,
-      }),
-      this.prisma.master.count({ where }),
-    ]);
+    const key = cacheKey(CACHE_NS, 'list', {
+      page, limit, search, isFree, skillTypeId, id, locationId, status, createdFrom, createdTo,
+    });
+    const result = await this.redis.wrap(key, CACHE_TTL, async () => {
+      const [data, total] = await Promise.all([
+        this.prisma.master.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          select: this.masterListSelect,
+        }),
+        this.prisma.master.count({ where }),
+      ]);
+      return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    });
 
-    if (data.length === 0 && (search || skillTypeId || isFree !== undefined)) {
+    if (result.data.length === 0 && (search || skillTypeId || isFree !== undefined)) {
       this.notificationService.recordEmptySearch(SearchType.MASTER, { search, skillTypeId, isFree }, undefined, subscriberUserId);
     }
 
-    return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+    return result;
   }
 
   async getById(id: number) {
-    const master = await this.prisma.master.findUnique({ where: { id }, select: this.masterDetailSelect });
-    if (!master) throw new NotFoundException('Usta topilmadi');
+    return this.redis.wrap(cacheKey(CACHE_NS, 'item', id), CACHE_TTL, async () => {
+      const master = await this.prisma.master.findUnique({ where: { id }, select: this.masterDetailSelect });
+      if (!master) throw new NotFoundException('Usta topilmadi');
 
-    const firstSkillTypeId = (master.skills[0] as any)?.skill?.type?.id;
-    let similar: any[] = [];
-    if (firstSkillTypeId) {
-      similar = await this.prisma.master.findMany({
-        where: { id: { not: id }, skills: { some: { skill: { typeId: firstSkillTypeId } } } },
-        take: 10,
-        orderBy: { createdAt: 'desc' },
-        select: this.masterListSelect,
-      });
-    }
+      const firstSkillTypeId = (master.skills[0] as any)?.skill?.type?.id;
+      let similar: any[] = [];
+      if (firstSkillTypeId) {
+        similar = await this.prisma.master.findMany({
+          where: { id: { not: id }, skills: { some: { skill: { typeId: firstSkillTypeId } } } },
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          select: this.masterListSelect,
+        });
+      }
 
-    return { ...master, similar };
+      return { ...master, similar };
+    });
   }
 
   async getByUserId(userId: number) {
@@ -174,6 +191,7 @@ export class MasterService {
       });
     }
 
+    await this.invalidateCache();
     const created = await this.getById(master.id);
     this.notificationService.matchAndNotify(SearchType.MASTER, created).catch(() => null);
     return created;
@@ -200,6 +218,7 @@ export class MasterService {
     }
 
     await this.prisma.user.update({ where: { id: userId }, data: { role: UserRole.MASTER } });
+    await this.invalidateCache();
     const created = await this.getById(master.id);
     this.notificationService.matchAndNotify(SearchType.MASTER, created).catch(() => null);
     return created;
@@ -218,20 +237,24 @@ export class MasterService {
       }
     }
 
-    return this.prisma.master.update({
+    const updated = await this.prisma.master.update({
       where: { id },
       data: { experience: dto.experience, bio: dto.bio, salary: dto.salary ? dto.salary : undefined },
       select: this.masterDetailSelect,
     });
+    await this.invalidateCache();
+    return updated;
   }
 
   async toggleFree(id: number) {
     const master = await this.getById(id);
-    return this.prisma.master.update({
+    const updated = await this.prisma.master.update({
       where: { id },
       data: { isFree: !(master as any).isFree },
       select: this.masterDetailSelect,
     });
+    await this.invalidateCache();
+    return updated;
   }
 
   async delete(id: number) {
@@ -241,15 +264,18 @@ export class MasterService {
       where: { id: (master as any).user.id },
       data: { role: UserRole.USER },
     });
+    await this.invalidateCache();
     return { message: "Usta o'chirildi" };
   }
 
   async uploadProfileImg(id: number, filename: string) {
-    return this.prisma.master.update({
+    const updated = await this.prisma.master.update({
       where: { id },
       data: { profileImg: `image/${filename}` },
       select: this.masterDetailSelect,
     });
+    await this.invalidateCache();
+    return updated;
   }
 
   async recordView(id: number) {
@@ -288,11 +314,13 @@ export class MasterService {
   async addWorkImg(id: number, filename: string) {
     const master = await this.prisma.master.findUnique({ where: { id } });
     if (!master) throw new NotFoundException('Usta topilmadi');
-    return this.prisma.master.update({
+    const updated = await this.prisma.master.update({
       where: { id },
       data: { workImgs: { push: `image/${filename}` } },
       select: this.masterDetailSelect,
     });
+    await this.invalidateCache();
+    return updated;
   }
 
   async deleteImg(userId: number, imgname: string) {
@@ -317,6 +345,7 @@ export class MasterService {
       });
     }
 
+    await this.invalidateCache();
     return { message: 'Rasm o\'chirildi' };
   }
 }

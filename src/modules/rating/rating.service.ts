@@ -1,9 +1,18 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { RedisService } from 'src/common/config/redis/redis.service';
 
 @Injectable()
 export class RatingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
+  ) {}
+
+  // Reyting o'zgarsa ustaning o'rtacha bahosi ham o'zgaradi — master cache'i eskiradi
+  private invalidateMasterCache() {
+    return this.redis.delByPattern('master:*').catch(() => null);
+  }
 
   async getAll(params: {
     page?: number; limit?: number; id?: number; userId?: number; masterId?: number;
@@ -77,6 +86,7 @@ export class RatingService {
     // Usta like count yangilash
     const avg = await this.prisma.rating.aggregate({ where: { masterId: dto.masterId }, _avg: { rating: true } });
 
+    await this.invalidateMasterCache();
     return { ...created, masterAvgRating: avg._avg.rating };
   }
 
@@ -86,8 +96,10 @@ export class RatingService {
     if (existing.userId !== userId) throw new ForbiddenException('Ruxsat yo\'q');
     if (dto.rating && (dto.rating < 1 || dto.rating > 5)) throw new BadRequestException('Reyting 1-5 oralig\'ida bo\'lishi kerak');
 
-    return this.prisma.rating.update({ where: { id }, data: dto,
+    const updated = await this.prisma.rating.update({ where: { id }, data: dto,
       include: { user: { select: { id: true, firstName: true, lastName: true } } } });
+    await this.invalidateMasterCache();
+    return updated;
   }
 
   async delete(id: number, userId: number, isAdmin: boolean) {
@@ -96,6 +108,7 @@ export class RatingService {
     if (!isAdmin && existing.userId !== userId) throw new ForbiddenException('Ruxsat yo\'q');
 
     await this.prisma.rating.delete({ where: { id } });
+    await this.invalidateMasterCache();
     return { message: 'Reyting o\'chirildi' };
   }
 }

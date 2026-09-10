@@ -3,9 +3,11 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ContentStatus, UserRole } from '@prisma/client';
 import { memoryStorage } from 'multer';
-import { extname, join } from 'path';
+import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { writeFile } from 'fs/promises';
+import { toOptimizedWebp } from 'src/common/utils/image.util';
+import { CacheResource, HttpCacheInterceptor } from 'src/common/cache/http-cache.interceptor';
 import { Role } from 'src/common/decorators/role.decorator';
 import { GuardService } from 'src/common/guard/guard.service';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
@@ -25,12 +27,13 @@ const IMAGE_INTERCEPTOR = FileInterceptor('coverImage', {
 async function saveImage(file: Express.Multer.File): Promise<string> {
   const dir = join(process.cwd(), 'core', 'uploads', 'images');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const filename = `${Date.now()}${extname(file.originalname)}`;
-  await writeFile(join(dir, filename), file.buffer);
+  const filename = `${Date.now()}.webp`;
+  await writeFile(join(dir, filename), await toOptimizedWebp(file.buffer));
   return `image/${filename}`;
 }
 
 @ApiTags('News')
+@UseInterceptors(HttpCacheInterceptor)
 @Controller('news')
 export class NewsController {
   constructor(private readonly newsService: NewsService) {}
@@ -38,6 +41,7 @@ export class NewsController {
   // ── Statik route'lar — /:id dan OLDIN ───────────────────────────────────
 
   @Get()
+  @CacheResource('news')
   @ApiOperation({
     summary: "Yangiliklar ro'yxati (jadval uchun)",
     description: '`status` berilmasa faqat PUBLISHED qaytadi. Javob: `{ data: News[], meta: {page, limit, total, totalPages} }`.',
@@ -78,6 +82,7 @@ export class NewsController {
   }
 
   @Get('categories')
+  @CacheResource('news')
   @ApiOperation({ summary: "Yangilik kategoriyalari ro'yxati" })
   getCategories() {
     return this.newsService.getCategories();

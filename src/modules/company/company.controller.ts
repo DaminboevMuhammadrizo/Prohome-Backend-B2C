@@ -3,7 +3,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { memoryStorage } from 'multer';
-import { extname, join } from 'path';
+import { join } from 'path';
+import { toOptimizedWebp } from 'src/common/utils/image.util';
 import { existsSync, mkdirSync } from 'fs';
 import { writeFile } from 'fs/promises';
 import { Role } from 'src/common/decorators/role.decorator';
@@ -98,8 +99,8 @@ export class CompanyController {
         if (!file) throw new BadRequestException('Logo fayli yuborilmadi');
         const dir = join(process.cwd(), 'core', 'uploads', 'images');
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-        const filename = `${Date.now()}${extname(file.originalname)}`;
-        await writeFile(join(dir, filename), file.buffer);
+        const filename = `${Date.now()}.webp`;
+        await writeFile(join(dir, filename), await toOptimizedWebp(file.buffer, { maxSize: 512 }));
         return this.companyService.updateLogo(id, `image/${filename}`);
     }
 

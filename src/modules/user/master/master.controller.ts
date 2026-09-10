@@ -6,7 +6,7 @@ import { memoryStorage } from 'multer';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { writeFile } from 'fs/promises';
-import sharp from 'sharp';
+import { toOptimizedWebp } from 'src/common/utils/image.util';
 import { JwtService } from '@nestjs/jwt';
 import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 import { UserData } from 'src/common/decorators/auth.decorators';
@@ -26,7 +26,7 @@ function ensureImgDir() {
 async function saveAsWebp(buffer: Buffer): Promise<string> {
   const filename = `${Date.now()}.webp`;
   const dest = ensureImgDir();
-  const webpBuffer = await sharp(buffer).webp({ quality: 88, effort: 4 }).toBuffer();
+  const webpBuffer = await toOptimizedWebp(buffer);
   await writeFile(join(dest, filename), webpBuffer);
   return filename;
 }

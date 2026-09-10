@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import { CacheResource, HttpCacheInterceptor } from 'src/common/cache/http-cache.interceptor';
 import { RoleGuardService } from 'src/common/role_guard/role_guard.service';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { GuardService } from 'src/common/guard/guard.service';
@@ -7,6 +8,8 @@ import { SkillStatus, UserRole } from '@prisma/client';
 import { SkillsService } from './skills.service';
 
 @ApiTags('Skills')
+@UseInterceptors(HttpCacheInterceptor)
+@CacheResource('skill')
 @Controller('skills')
 export class SkillsController {
   constructor(private readonly skillsService: SkillsService) {}

@@ -6,6 +6,7 @@ import { memoryStorage } from 'multer';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import { writeFile } from 'fs/promises';
+import { CacheResource, HttpCacheInterceptor } from 'src/common/cache/http-cache.interceptor';
 import { CompanyData } from 'src/common/decorators/auth.decorators';
 import { Role } from 'src/common/decorators/role.decorator';
 import { CompanyGuardService } from 'src/common/guard/company-guard.service';
@@ -24,11 +25,13 @@ function ensureVideoDir() {
 }
 
 @ApiTags('Reels')
+@UseInterceptors(HttpCacheInterceptor)
 @Controller('reels')
 export class ReelsController {
   constructor(private readonly reelsService: ReelsService) {}
 
   @Get()
+  @CacheResource('reels')
   @ApiOperation({
     summary: "Reels ro'yxati (jadval uchun)",
     description: '`status` berilmasa faqat PUBLISHED qaytadi. Javob: `{ data: Reel[], meta: {page, limit, total, totalPages} }`.',
