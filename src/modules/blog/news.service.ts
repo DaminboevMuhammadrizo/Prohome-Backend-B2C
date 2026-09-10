@@ -43,6 +43,7 @@ export class NewsService {
     category: { select: { id: true, name: true } },
     master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
     job: { select: { id: true, title: true } },
+    company: { select: { id: true, name: true, logo: true, isActive: true } },
   };
 
   async getAll(params: {
@@ -63,6 +64,12 @@ export class NewsService {
 
     const where: any = { status: status ?? ContentStatus.PUBLISHED };
     if (id !== undefined) where.id = id;
+    // Public ko'rinish (admin `status` bermagan) — bloklangan (isActive=false)
+    // kompaniyaning yangiliklari hech kimga ko'rinmasin. Admin jadvalda esa
+    // (status berilganda) hammasi ko'rinaveradi.
+    if (status === undefined) {
+      where.AND = [{ OR: [{ companyId: null }, { company: { isActive: true } }] }];
+    }
     if (search) where.OR = [
       { title: { contains: search, mode: 'insensitive' } },
       { excerpt: { contains: search, mode: 'insensitive' } },
@@ -88,6 +95,7 @@ export class NewsService {
           category: { select: { id: true, name: true } },
           master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
           job: { select: { id: true, title: true } },
+          company: { select: { id: true, name: true, logo: true } },
         },
       }),
       this.prisma.news.count({ where }),
@@ -103,6 +111,7 @@ export class NewsService {
   async getById(id: number) {
     const news = await this.prisma.news.findUnique({ where: { id }, include: this.include });
     if (!news) throw new NotFoundException('Yangilik topilmadi');
+    if (news.company && !news.company.isActive) throw new NotFoundException('Yangilik topilmadi');
     await this.prisma.news.update({ where: { id }, data: { viewCount: { increment: 1 } } });
     return news;
   }
@@ -110,8 +119,17 @@ export class NewsService {
   async getBySlug(slug: string) {
     const news = await this.prisma.news.findUnique({ where: { slug }, include: this.include });
     if (!news) throw new NotFoundException('Yangilik topilmadi');
+    if (news.company && !news.company.isActive) throw new NotFoundException('Yangilik topilmadi');
     await this.prisma.news.update({ where: { id: news.id }, data: { viewCount: { increment: 1 } } });
     return news;
+  }
+
+  // Admin mutatsiyalari (update/delete) uchun — bu yerda kompaniya bloklangan
+  // bo'lsa ham yozuv "mavjud" deb hisoblanadi (getById esa public bo'lgani uchun
+  // bloklangan kompaniya kontentini yashiradi).
+  private async ensureExists(id: number) {
+    const n = await this.prisma.news.findUnique({ where: { id }, select: { id: true } });
+    if (!n) throw new NotFoundException('Yangilik topilmadi');
   }
 
   private async checkCompanyWeeklyLimit(companyId: number) {
@@ -150,7 +168,7 @@ export class NewsService {
   }
 
   async update(id: number, dto: UpdateNewsDto) {
-    await this.getById(id);
+    await this.ensureExists(id);
 
     // Slug o'zgartirilayotgan bo'lsa — unique ekanini tekshir
     if (dto.slug) {
@@ -178,7 +196,7 @@ export class NewsService {
   }
 
   async delete(id: number) {
-    await this.getById(id);
+    await this.ensureExists(id);
     await this.prisma.news.delete({ where: { id } });
     return { message: 'Yangilik o\'chirildi' };
   }

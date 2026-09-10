@@ -390,6 +390,62 @@ admin jadvalida har bir ustun ostidagi qidiruv katakchalari uchun:
 
 
 ================================================================================
+8-BO'LIM: B2B LOYIHALARNI KOMPANIYA BO'YICHA KO'RSATISH / YASHIRISH
+================================================================================
+B2B ma'lumotlari (loyiha/xona) tashqi backend `backend.prohome.uz` dan olinadi.
+Endi admin HAR BIR B2B kompaniyani "active / inactive" qilib belgilay oladi —
+`inactive` bo'lsa, o'sha kompaniyaning loyihalari va xonalari `GET /b2b/*`
+endpointlarida oddiy foydalanuvchiga UMUMAN qaytarilmaydi. Yozuv bo'lmasa —
+kompaniya default KO'RINADI.
+
+--- PUBLIC (oddiy foydalanuvchi, auth shart emas) ---
+
+  GET /b2b/projects
+    — Faqat KO'RINADIGAN (active) kompaniyalarning loyihalari.
+      inactive qilingan kompaniyaning loyihasi bu ro'yxatda YO'Q.
+    Javob: [ { id, name, address, image3d, companyId, status, ... }, ... ]
+
+  GET /b2b/rooms?projectId=&page=...
+    — inactive kompaniyaning xonalari `data` massividan olib tashlanadi.
+    Javob: { data: [ { id, ..., company: { id, name, ... }, projectName } ], ... }
+
+  GET /b2b/room-detail?id=  (yoki ?roomNumber=)
+    — Xona inactive kompaniyaga tegishli bo'lsa 404 ("Xona topilmadi").
+
+--- ADMIN (faqat ADMIN / SUPERADMIN, Authorization header) ---
+
+  GET /b2b/admin/companies
+    — Tashqi backenddagi BARCHA B2B kompaniyalar + ko'rinish holati.
+    Javob: [ {
+      "id": 1,               // tashqi B2B kompaniya id si (status o'zgartirishda shu ishlatiladi)
+      "name": "ProHome",
+      "phoneNumber": "...", "managerName": "...", "logo": null,
+      "isActive": true,      // overlay yozuvi bo'lmasa true (default ko'rinadi)
+      "visibilityOverridden": false   // admin qo'lda o'zgartirganmi
+    }, ... ]
+
+  GET /b2b/admin/projects
+    — BARCHA loyihalar (yashirilganlari ham), har biriga qo'shimcha:
+      "companyName": "ProHome",
+      "companyActive": true | false
+    Admin shu ro'yxatdan turib qaysi loyiha/kompaniya yashiringanini ko'radi.
+
+  PATCH /b2b/admin/companies/:companyId/status
+    — `:companyId` = GET /b2b/admin/companies dagi `id` (tashqi B2B kompaniya id si).
+    Body: { "isActive": false }   // false — yashirish, true — ko'rsatish
+    Javob: { "b2bCompanyId": 1, "name": "ProHome", "isActive": false }
+    — Darhol kuchga kiradi: shu kompaniyaning loyihalari/xonalari public
+      `GET /b2b/*` da ko'rinmay qoladi. Qayta `true` qilinsa — hammasi qaytadi
+      (hech narsa o'chirilmaydi, faqat filtrlanadi).
+
+ESLATMA (alohida narsa, aralashtirmaslik uchun): `/companies` endpointlaridagi
+`isActive` (`PATCH /companies/:id/toggle`) — bu B2C LOGIN qiladigan, news/reels
+joylaydigan kompaniyalar uchun. U bloklansa o'sha kompaniyaning news/reels'lari
+public'da ko'rinmaydi. B2B loyiha ko'rinishi esa yuqoridagi `/b2b/admin/*`
+orqali boshqariladi — bular ikki alohida tizim.
+
+
+================================================================================
 QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
 ================================================================================
 ✅ Uy/ish qo'shishda endi lat/lng (xarita nuqtasi) MAJBURIY
@@ -398,5 +454,9 @@ QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
 ✅ Bildirishnomalar: chat, moslik, admin xabari — real-time WebSocket bilan
 ✅ To'liq analitika (geografiya, statistika)
 ✅ Har bir admin jadvalida to'liq ustun-bo'yicha qidiruv
+✅ B2B loyihalarni kompaniya bo'yicha yashirish: PATCH /b2b/admin/companies/:id/status
+   → inactive kompaniya GET /b2b/projects, /b2b/rooms, /b2b/room-detail da chiqmaydi
+✅ Admin uchun: GET /b2b/admin/companies, GET /b2b/admin/projects (hammasini ko'radi)
+✅ (alohida) PATCH /companies/:id/toggle — B2C login kompaniyaning news/reels'ini yashiradi
 ⚠️ 4 ta endpoint javob shakli o'zgardi (yuqoriga qarang) — frontendda tekshiring
 ================================================================================

@@ -10,7 +10,7 @@ export class ReelsService {
   private readonly include = {
     master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
     job: { select: { id: true, title: true } },
-    company: { select: { id: true, name: true, logo: true } },
+    company: { select: { id: true, name: true, logo: true, isActive: true } },
   };
 
   async getAll(params: {
@@ -30,6 +30,11 @@ export class ReelsService {
 
     const where: any = { status: status ?? ContentStatus.PUBLISHED };
     if (id !== undefined) where.id = id;
+    // Public ko'rinish (admin `status` bermagan) — bloklangan (isActive=false)
+    // kompaniyaning reels'lari hech kimga ko'rinmasin.
+    if (status === undefined) {
+      where.AND = [{ OR: [{ companyId: null }, { company: { isActive: true } }] }];
+    }
     if (search) where.OR = [
       { title: { contains: search, mode: 'insensitive' } },
       { description: { contains: search, mode: 'insensitive' } },
@@ -58,8 +63,16 @@ export class ReelsService {
   async getById(id: number) {
     const reel = await this.prisma.reel.findUnique({ where: { id }, include: this.include });
     if (!reel) throw new NotFoundException('Reel topilmadi');
+    if (reel.company && !reel.company.isActive) throw new NotFoundException('Reel topilmadi');
     await this.prisma.reel.update({ where: { id }, data: { viewCount: { increment: 1 } } });
     return reel;
+  }
+
+  // Admin mutatsiyalari (update/delete) uchun — kompaniya bloklangan bo'lsa ham
+  // yozuv "mavjud" sanaladi (getById public bo'lgani uchun uni yashiradi).
+  private async ensureExists(id: number) {
+    const r = await this.prisma.reel.findUnique({ where: { id }, select: { id: true } });
+    if (!r) throw new NotFoundException('Reel topilmadi');
   }
 
   private async checkCompanyWeeklyLimit(companyId: number) {
@@ -76,12 +89,12 @@ export class ReelsService {
   }
 
   async update(id: number, dto: UpdateReelDto) {
-    await this.getById(id);
+    await this.ensureExists(id);
     return this.prisma.reel.update({ where: { id }, data: dto, include: this.include });
   }
 
   async delete(id: number) {
-    await this.getById(id);
+    await this.ensureExists(id);
     await this.prisma.reel.delete({ where: { id } });
     return { message: 'Reel o\'chirildi' };
   }
