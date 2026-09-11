@@ -5,6 +5,7 @@ import { join } from 'path';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { RedisService } from 'src/common/config/redis/redis.service';
 import { CACHE_TTL, cacheKey } from 'src/common/config/redis/cache.constants';
+import { haversineKm } from 'src/common/utils/geo.util';
 import { NotificationService } from 'src/modules/notification/notification.service';
 import { ChangeRealEstateStatusDto, CreateRealEstateDto, UpdateRealEstateDto } from './dto/real-estate.dto';
 
@@ -104,9 +105,18 @@ export class RealEstateService {
     swLng?: number;
     neLat?: number;
     neLng?: number;
+    lat?: number;
+    lng?: number;
   }) {
-    const { page = 1, limit = 20, id, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId, createdFrom, createdTo, swLat, swLng, neLat, neLng } = params;
+    const { page = 1, limit = 20, id, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId, createdFrom, createdTo, swLat, swLng, neLat, neLng, lat, lng } = params;
     const skip = (page - 1) * limit;
+
+    // Foydalanuvchining joriy joylashuvi (ixtiyoriy) — berilsa, ro'yxat unga
+    // eng yaqinidan boshlab qaytariladi. ~1.1km katakka yaxlitlanadi — kesh
+    // samaradorligi uchun (aks holda har bir GPS koordinata alohida kesh
+    // yozuvi yasab tashlaydi).
+    const nearLat = lat !== undefined ? Math.round(lat * 100) / 100 : undefined;
+    const nearLng = lng !== undefined ? Math.round(lng * 100) / 100 : undefined;
 
     const where: any = userId ? {} : { status: status || RealEstateStatus.ACTIVE };
     if (userId) { where.userId = userId; if (status) where.status = status; }
@@ -145,13 +155,31 @@ export class RealEstateService {
     const key = cacheKey(CACHE_NS, 'list', {
       page, limit, id, search, propertyType, dealType, sellerType, locationId,
       minPrice, maxPrice, roomCount, status, userId, createdFrom, createdTo,
-      swLat, swLng, neLat, neLng,
+      swLat, swLng, neLat, neLng, lat: nearLat, lng: nearLng,
     });
     const result = await this.redis.wrap(key, CACHE_TTL, async () => {
-      const [data, total] = await Promise.all([
-        this.prisma.realEstate.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.cardSelect }),
-        this.prisma.realEstate.count({ where }),
-      ]);
+      const total = await this.prisma.realEstate.count({ where });
+
+      let data: any[];
+      if (nearLat !== undefined && nearLng !== undefined) {
+        // Yaqinlik bo'yicha saralash oddiy Float ustunlarda DB darajasida arzon
+        // hisoblanmaydi — mos yozuvlarni (cheklangan hajmda) olib, JS'da Haversine
+        // masofa bo'yicha saralaymiz, keyin sahifalab qaymoqlaymiz. Koordinatasi
+        // yo'q yozuvlar oxiriga tushadi.
+        const origin = { latitude: nearLat, longitude: nearLng };
+        const candidates = await this.prisma.realEstate.findMany({
+          where, take: 500, orderBy: { createdAt: 'desc' }, select: this.cardSelect,
+        });
+        candidates.sort((a: any, b: any) => {
+          const da = a.latitude != null && a.longitude != null ? haversineKm(origin, { latitude: a.latitude, longitude: a.longitude }) : Infinity;
+          const db = b.latitude != null && b.longitude != null ? haversineKm(origin, { latitude: b.latitude, longitude: b.longitude }) : Infinity;
+          return da - db;
+        });
+        data = candidates.slice(skip, skip + limit);
+      } else {
+        data = await this.prisma.realEstate.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.cardSelect });
+      }
+
       return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
     });
 
@@ -193,17 +221,29 @@ export class RealEstateService {
       const re = await this.prisma.realEstate.findUnique({ where: { id }, select: this.select });
       if (!re) throw new NotFoundException("Ko'chmas mulk topilmadi");
 
-      const similar = await this.prisma.realEstate.findMany({
+      // O'xshash e'lonlar — bir xil kategoriya (mulk turi + bitim turi) va
+      // imkon qadar bir xil joylashuv (shahar) bo'yicha, 5 tagacha.
+      let similar = await this.prisma.realEstate.findMany({
         where: {
           id: { not: id },
           propertyType: (re as any).propertyType,
           dealType: (re as any).dealType,
+          locationId: (re as any).locationId,
           status: 'ACTIVE',
         },
-        take: 10,
+        take: 5,
         orderBy: { createdAt: 'desc' },
         select: this.listSelect,
       });
+      // Shu joylashuvda yetarli o'xshash topilmasa — joylashuvsiz kengroq qidiramiz
+      if (similar.length < 5) {
+        similar = await this.prisma.realEstate.findMany({
+          where: { id: { not: id }, propertyType: (re as any).propertyType, dealType: (re as any).dealType, status: 'ACTIVE' },
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          select: this.listSelect,
+        });
+      }
 
       return { ...re, similar };
     });

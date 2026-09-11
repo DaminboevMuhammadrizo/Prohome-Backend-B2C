@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, DefaultValuePipe, Delete, Get, Param, ParseIntPipe, Patch, Post, Query, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { MasterWorkType, UserRole } from '@prisma/client';
 import { memoryStorage } from 'multer';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -66,6 +66,7 @@ export class MasterController {
   @ApiQuery({ name: 'skillTypeId', required: false, description: 'Kasb turi ID si (/skill-types dan)' })
   @ApiQuery({ name: 'locationId', required: false, description: 'Usta profilidagi foydalanuvchining joylashuvi (shahar) ID si' })
   @ApiQuery({ name: 'status', required: false, description: 'Usta profilidagi foydalanuvchi holati (ACTIVE/BLOCKED/ARCHIVED)' })
+  @ApiQuery({ name: 'workType', required: false, enum: MasterWorkType, description: "Yakka o'zi (INDIVIDUAL) yoki jamoa (TEAM) bo'lib ishlashi" })
   @ApiQuery({ name: 'createdFrom', required: false, description: 'Qo\'shilgan sana — shundan boshlab', example: '2026-01-01' })
   @ApiQuery({ name: 'createdTo', required: false, description: 'Qo\'shilgan sana — shungacha', example: '2026-12-31' })
   getAll(
@@ -78,6 +79,7 @@ export class MasterController {
     @Query('skillTypeId') skillTypeId?: string,
     @Query('locationId') locationId?: string,
     @Query('status') status?: string,
+    @Query('workType') workType?: MasterWorkType,
     @Query('createdFrom') createdFrom?: string,
     @Query('createdTo') createdTo?: string,
   ) {
@@ -89,6 +91,7 @@ export class MasterController {
       id: id ? +id : undefined,
       locationId: locationId ? +locationId : undefined,
       status: status as any,
+      workType,
       createdFrom, createdTo,
     });
   }

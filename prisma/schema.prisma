@@ -52,6 +52,13 @@ enum SellerType {
   COMPANY
 }
 
+// Usta yakka o'zi ishlaydimi (INDIVIDUAL) yoki jamoa (bir nechta usta/brigada)
+// bilan ishlaydimi (TEAM) — admin/foydalanuvchi belgilaydi, filtr sifatida ham ishlatiladi.
+enum MasterWorkType {
+  INDIVIDUAL
+  TEAM
+}
+
 enum JobStatus {
   OPEN
   IN_PROGRESS
@@ -174,16 +181,17 @@ model Location {
 }
 
 model Master {
-  id         Int      @id @default(autoincrement())
-  profileImg String?  @map("profile_img")
-  experience Int      @default(0)
+  id         Int            @id @default(autoincrement())
+  profileImg String?        @map("profile_img")
+  experience Int            @default(0)
   bio        String?
-  salary     Decimal? @db.Decimal(15, 2)
-  workImgs   String[] @map("work_imgs")
-  isFree     Boolean  @default(true) @map("is_free")
-  userId     Int      @unique @map("user_id")
-  likeCount  Int      @default(0) @map("like_count")
-  viewCount  Int      @default(0) @map("view_count")
+  salary     Decimal?       @db.Decimal(15, 2)
+  workImgs   String[]       @map("work_imgs")
+  isFree     Boolean        @default(true) @map("is_free")
+  workType   MasterWorkType @default(INDIVIDUAL) @map("work_type")
+  userId     Int            @unique @map("user_id")
+  likeCount  Int            @default(0) @map("like_count")
+  viewCount  Int            @default(0) @map("view_count")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

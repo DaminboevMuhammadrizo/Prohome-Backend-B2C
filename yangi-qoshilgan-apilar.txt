@@ -501,6 +501,61 @@ Katta JSON javoblar endi gzip bilan siqiladi (`Accept-Encoding: gzip`) —
 mobil internetda ro'yxatlar ~70% kam trafik. Odatda HTTP klient buni
 o'zi hal qiladi, alohida sozlash kerak emas.
 
+9.5) ESKI (hali siqilmagan) RASMLARNI AVTOMATIK SIQISH
+--------------------------------------------------------------------------------
+`GET /image/:file` — bu ALLAQACHON ishlatilayotgan manzil (media.url shu orqali
+ko'rsatiladi). Endi: agar rasm 150KB dan katta va hali siqilmagan bo'lsa —
+BIRINCHI ko'rsatilganda avtomatik webp'ga siqiladi va keshlanadi; keyingi HAR
+QANDAY foydalanuvchi ko'rsa — to'g'ridan tezkor siqilgan versiya qaytadi.
+Frontendda HECH NARSA o'zgartirish shart emas — bu to'liq avtomatik va
+ko'rinmas jarayon, alohida so'rov yoki parametr kerak emas.
+
+
+================================================================================
+10-BO'LIM: O'XSHASH MA'LUMOTLAR + "YAQINIMDAGILAR" SARALASH
+================================================================================
+
+10.1) O'XSHASH E'LONLAR/USTALAR (similar) — mavjud, endi 5 tagacha
+--------------------------------------------------------------------------------
+`GET /real-estates/:id` va `GET /masters/:id` javobida `similar` massivi bor —
+shu bilan bir xil kategoriyadagi (mulk turi+bitim turi, yoki kasb turi) va
+imkon qadar BIR XIL JOYLASHUVDAGI (shahar) 5 tagacha o'xshash yozuv. Agar shu
+shaharda yetarli topilmasa — joylashuvsiz kengroq qidiriladi (baribir 5 tagacha
+qaytadi). Bu maydon YANGI endpoint emas — allaqachon `/:id` javobida bor,
+faqat soni 10 dan 5 ga tushirildi va joylashuv moslashtirildi.
+
+10.2) "YAQINIMDAGILAR" — joriy joylashuvga yaqinlik bo'yicha saralash — YANGI
+--------------------------------------------------------------------------------
+`GET /real-estates` va `GET /jobs` ga YANGI ixtiyoriy parametrlar:
+  lat — foydalanuvchining joriy joylashuvi (kenglik)
+  lng — foydalanuvchining joriy joylashuvi (uzunlik)
+
+Berilsa — ro'yxat foydalanuvchi turgan nuqtaga ENG YAQINIDAN boshlab
+qaytariladi (masofasi noma'lum — masalan masofaviy ish — yozuvlar oxiriga
+tushadi). Berilmasa — hozirgidek eng yangisidan (createdAt) saralanadi,
+hech narsa buzilmaydi.
+
+  Misol: GET /real-estates?lat=41.311081&lng=69.240562&limit=20
+
+Bu — xaritadagi bounding-box qidiruv (`swLat/swLng/neLat/neLng`, 1.2-band)
+bilan BOSHQA narsa: bounding-box — xarita ko'ryapti degan aniq hudud bilan
+cheklaydi, `lat/lng` esa — oddiy ro'yxat (masalan bosh sahifa)ni foydalanuvchi
+turgan joyga qarab saralaydi. Ikkalasini birga ham ishlatsa bo'ladi.
+
+
+================================================================================
+11-BO'LIM: USTA — "JAMOA MI YOKI O'ZI ISHLAYDI" (Master.workType)
+================================================================================
+Yangi enum `MasterWorkType`: `INDIVIDUAL` (yakka o'zi) | `TEAM` (jamoa).
+Master modeliga `workType` maydoni qo'shildi, default `INDIVIDUAL`.
+
+  POST /masters (admin), usta ro'yxatdan o'tishi, PATCH /masters/:id —
+    Body'ga qo'shimcha: { "workType": "TEAM" }  // yoki "INDIVIDUAL"
+
+  GET /masters?workType=TEAM — admin jadvalida ustun-bo'yicha filtr
+
+  Ro'yxat va detal javoblarida endi `workType` maydoni bor.
+
 
 ================================================================================
 QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
@@ -516,6 +571,10 @@ QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
 ✅ Admin uchun: GET /b2b/admin/companies, GET /b2b/admin/projects (hammasini ko'radi)
 ✅ (alohida) PATCH /companies/:id/toggle — B2C login kompaniyaning news/reels'ini yashiradi
 ✅ TEZLIK: GET ro'yxatlar Redis'da keshlanadi + rasmlar avtomatik siqiladi + gzip
+✅ Eski (hali siqilmagan) rasmlar birinchi ko'rsatishda avtomatik siqiladi
+✅ GET /real-estates va /jobs: ?lat=&lng= — foydalanuvchiga yaqinidan saralash
+✅ /real-estates/:id va /masters/:id: similar — endi bir xil joylashuv + 5 tagacha
+✅ Usta uchun workType (INDIVIDUAL/TEAM — jamoa yoki yakka) maydoni va filtri
 ⚠️ GET /real-estates (ro'yxat) javobi yengillashtirildi — description/user/media[]
    va h.k. endi faqat GET /real-estates/:id da (9.1-bo'lim) — frontendda tekshiring
 ⚠️ 4 ta endpoint javob shakli o'zgardi (yuqoriga qarang) — frontendda tekshiring

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MasterWorkType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsArray, IsEmail, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsArray, IsEmail, IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
 
 export class CreateMasterByAdminDto {
   @ApiPropertyOptional({ example: '+998901234567' })
@@ -64,6 +65,11 @@ export class CreateMasterByAdminDto {
   @IsArray()
   @IsInt({ each: true })
   skillIds?: number[];
+
+  @ApiPropertyOptional({ enum: MasterWorkType, description: "Yakka o'zi (INDIVIDUAL) yoki jamoa (TEAM) bo'lib ishlaydi. Berilmasa — INDIVIDUAL" })
+  @IsOptional()
+  @IsEnum(MasterWorkType)
+  workType?: MasterWorkType;
 }
 
 export class RegisterAsMasterDto {
@@ -90,6 +96,11 @@ export class RegisterAsMasterDto {
   @IsArray()
   @IsInt({ each: true })
   skillIds?: number[];
+
+  @ApiPropertyOptional({ enum: MasterWorkType, description: "Yakka o'zi (INDIVIDUAL) yoki jamoa (TEAM) bo'lib ishlaydi. Berilmasa — INDIVIDUAL" })
+  @IsOptional()
+  @IsEnum(MasterWorkType)
+  workType?: MasterWorkType;
 }
 
 export class UpdateMasterDto {
@@ -116,4 +127,9 @@ export class UpdateMasterDto {
   @IsArray()
   @IsInt({ each: true })
   skillIds?: number[];
+
+  @ApiPropertyOptional({ enum: MasterWorkType })
+  @IsOptional()
+  @IsEnum(MasterWorkType)
+  workType?: MasterWorkType;
 }

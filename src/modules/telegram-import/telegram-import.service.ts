@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { DealType, PropertyType, RealEstateStatus, SellerType, TelegramImportChannel, UserRole, UserStatus } from '@prisma/client';
 import { PrismaService } from 'src/common/database/prisma.service';
+import { haversineKm } from 'src/common/utils/geo.util';
 import { AddChannelDto, UpdateChannelDto } from './dto/telegram-import.dto';
 import { GeocodingService } from './geocoding.service';
 import { TelegramClientService } from './telegram-client.service';
@@ -243,20 +244,6 @@ export class TelegramImportService {
     return { imported, skipped };
   }
 
-  // Uzoq masofani tekshirish uchun (geocoding "aldanib" butunlay boshqa
-  // hududni qaytarishi mumkin — sinovda ko'rdik: "Фаргона шахар" so'zi
-  // Nominatim'da Farg'onadan 600km narida joylashgan noto'g'ri nuqtaga
-  // moslashtirildi). Haversine formula, km.
-  private haversineKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
-    const R = 6371;
-    const toRad = (d: number) => (d * Math.PI) / 180;
-    const dLat = toRad(b.latitude - a.latitude);
-    const dLon = toRad(b.longitude - a.longitude);
-    const h =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLon / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-  }
 
   // Manzilni bir necha usulda, ketma-ket urinib geocode qiladi — eng aniqdan
   // eng taxminiyga qarab: (1) to'liq manzil (tuman+mo'ljal), (2) faqat mo'ljal
@@ -296,7 +283,7 @@ export class TelegramImportService {
         : await this.geocoding.geocode(attempt.query);
       if (!coords) continue;
 
-      if (cityCoords && this.haversineKm(coords, cityCoords) > MAX_DISTANCE_FROM_CITY_KM) {
+      if (cityCoords && haversineKm(coords, cityCoords) > MAX_DISTANCE_FROM_CITY_KM) {
         this.logger.warn(`"${attempt.query}" natijasi "${cityName}"dan juda uzoq chiqdi — rad etildi (ehtimol geocoding xatosi)`);
         continue;
       }

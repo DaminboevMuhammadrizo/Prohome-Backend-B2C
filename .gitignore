@@ -65,3 +65,7 @@ prisma/migrations
 
 # Firebase service account — maxfiy kalit, hech qachon commit qilinmasin
 firebase-service-account.json
+
+# Eski rasmlarni birinchi so'ralganda avtomatik siqib keshlash uchun
+# (FileStreamService) — runtime'da generatsiya qilinadi, commit qilinmasin
+core/uploads/**/.optimized/

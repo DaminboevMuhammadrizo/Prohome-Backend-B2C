@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { SearchType, UserRole, UserStatus } from '@prisma/client';
+import { MasterWorkType, SearchType, UserRole, UserStatus } from '@prisma/client';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { hashPassword } from 'src/common/config/bcrypt';
@@ -28,6 +28,7 @@ export class MasterService {
     profileImg: true,
     experience: true,
     isFree: true,
+    workType: true,
     likeCount: true,
     viewCount: true,
     createdAt: true,
@@ -49,11 +50,12 @@ export class MasterService {
     salary: true,
     workImgs: true,
     isFree: true,
+    workType: true,
     likeCount: true,
     viewCount: true,
     createdAt: true,
     updatedAt: true,
-    user: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, status: true } },
+    user: { select: { id: true, firstName: true, lastName: true, phone: true, email: true, status: true, locationId: true } },
     skills: {
       select: {
         skill: { select: { id: true, name: true, type: { select: { id: true, name: true } } } },
@@ -65,14 +67,15 @@ export class MasterService {
 
   async getAll(params: {
     page?: number; limit?: number; search?: string; isFree?: boolean; skillTypeId?: number; subscriberUserId?: number;
-    id?: number; locationId?: number; status?: UserStatus; createdFrom?: string; createdTo?: string;
+    id?: number; locationId?: number; status?: UserStatus; workType?: MasterWorkType; createdFrom?: string; createdTo?: string;
   }) {
-    const { page = 1, limit = 20, search, isFree, skillTypeId, subscriberUserId, id, locationId, status, createdFrom, createdTo } = params;
+    const { page = 1, limit = 20, search, isFree, skillTypeId, subscriberUserId, id, locationId, status, workType, createdFrom, createdTo } = params;
     const skip = (page - 1) * limit;
     const where: any = {};
     if (id !== undefined) where.id = id;
     if (skillTypeId) where.skills = { some: { skill: { typeId: skillTypeId } } };
     if (isFree !== undefined) where.isFree = isFree;
+    if (workType) where.workType = workType;
     if (locationId !== undefined) where.user = { ...where.user, locationId };
     if (status) where.user = { ...where.user, status };
     if (createdFrom || createdTo) {
@@ -90,7 +93,7 @@ export class MasterService {
     }
 
     const key = cacheKey(CACHE_NS, 'list', {
-      page, limit, search, isFree, skillTypeId, id, locationId, status, createdFrom, createdTo,
+      page, limit, search, isFree, skillTypeId, id, locationId, status, workType, createdFrom, createdTo,
     });
     const result = await this.redis.wrap(key, CACHE_TTL, async () => {
       const [data, total] = await Promise.all([
@@ -118,15 +121,28 @@ export class MasterService {
       const master = await this.prisma.master.findUnique({ where: { id }, select: this.masterDetailSelect });
       if (!master) throw new NotFoundException('Usta topilmadi');
 
+      // O'xshash ustalar — bir xil kasb turi (skillType) va imkon qadar bir xil
+      // joylashuv (shahar) bo'yicha, 5 tagacha.
       const firstSkillTypeId = (master.skills[0] as any)?.skill?.type?.id;
+      const locationId = (master as any).user?.locationId;
       let similar: any[] = [];
       if (firstSkillTypeId) {
-        similar = await this.prisma.master.findMany({
-          where: { id: { not: id }, skills: { some: { skill: { typeId: firstSkillTypeId } } } },
-          take: 10,
-          orderBy: { createdAt: 'desc' },
-          select: this.masterListSelect,
-        });
+        if (locationId) {
+          similar = await this.prisma.master.findMany({
+            where: { id: { not: id }, skills: { some: { skill: { typeId: firstSkillTypeId } } }, user: { locationId } },
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            select: this.masterListSelect,
+          });
+        }
+        if (similar.length < 5) {
+          similar = await this.prisma.master.findMany({
+            where: { id: { not: id }, skills: { some: { skill: { typeId: firstSkillTypeId } } } },
+            take: 5,
+            orderBy: { createdAt: 'desc' },
+            select: this.masterListSelect,
+          });
+        }
       }
 
       return { ...master, similar };
@@ -181,6 +197,7 @@ export class MasterService {
         experience: dto.experience ?? 0,
         bio: dto.bio,
         salary: dto.salary ? dto.salary : undefined,
+        workType: dto.workType ?? MasterWorkType.INDIVIDUAL,
       },
     });
 
@@ -207,7 +224,7 @@ export class MasterService {
     }
 
     const master = await this.prisma.master.create({
-      data: { userId, experience: dto.experience ?? 0, bio: dto.bio, salary: dto.salary ?? undefined },
+      data: { userId, experience: dto.experience ?? 0, bio: dto.bio, salary: dto.salary ?? undefined, workType: dto.workType ?? MasterWorkType.INDIVIDUAL },
     });
 
     if (dto.skillIds?.length) {
@@ -239,7 +256,7 @@ export class MasterService {
 
     const updated = await this.prisma.master.update({
       where: { id },
-      data: { experience: dto.experience, bio: dto.bio, salary: dto.salary ? dto.salary : undefined },
+      data: { experience: dto.experience, bio: dto.bio, salary: dto.salary ? dto.salary : undefined, workType: dto.workType },
       select: this.masterDetailSelect,
     });
     await this.invalidateCache();
