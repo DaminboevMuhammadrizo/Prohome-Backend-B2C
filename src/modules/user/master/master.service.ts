@@ -241,8 +241,35 @@ export class MasterService {
     return created;
   }
 
-  async update(id: number, dto: UpdateMasterDto) {
-    await this.getById(id);
+  async update(id: number, requesterUserId: number, isAdmin: boolean, dto: UpdateMasterDto) {
+    const existing = await this.getById(id);
+    const ownerUserId = (existing as any).user.id;
+    if (!isAdmin && ownerUserId !== requesterUserId) throw new ForbiddenException('Ruxsat yo\'q');
+
+    // Usta emas, uning User yozuvidagi maydonlar — shu bitta so'rovdan turib
+    // to'liq tahrirlash mumkin bo'lishi uchun (ism, telefon, email, joylashuv).
+    if (dto.phone) {
+      const taken = await this.prisma.user.findUnique({ where: { phone: dto.phone } });
+      if (taken && taken.id !== ownerUserId) throw new BadRequestException('Bu telefon raqam band');
+    }
+    if (dto.email) {
+      const taken = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (taken && taken.id !== ownerUserId) throw new BadRequestException('Bu email band');
+    }
+    if (dto.locationId !== undefined) {
+      const loc = await this.prisma.location.findUnique({ where: { id: dto.locationId } });
+      if (!loc) throw new NotFoundException('Joylashuv topilmadi');
+    }
+    if (dto.firstName !== undefined || dto.lastName !== undefined || dto.phone !== undefined || dto.email !== undefined || dto.age !== undefined || dto.locationId !== undefined) {
+      await this.prisma.user.update({
+        where: { id: ownerUserId },
+        data: { firstName: dto.firstName, lastName: dto.lastName, phone: dto.phone, email: dto.email, age: dto.age, locationId: dto.locationId },
+      });
+    }
+
+    // isFree'ni admin bo'lmagan usta ham o'zi to'g'ridan o'zgartira olsin (band/bo'sh
+    // belgilash) — lekin workType/experience kabi boshqa maydonlar bilan bir xil
+    // egalik tekshiruvi allaqachon yuqorida bajarildi.
 
     if (dto.skillIds !== undefined) {
       await this.prisma.masterSkills.deleteMany({ where: { masterId: id } });
@@ -256,7 +283,7 @@ export class MasterService {
 
     const updated = await this.prisma.master.update({
       where: { id },
-      data: { experience: dto.experience, bio: dto.bio, salary: dto.salary ? dto.salary : undefined, workType: dto.workType },
+      data: { experience: dto.experience, bio: dto.bio, salary: dto.salary ? dto.salary : undefined, workType: dto.workType, isFree: dto.isFree },
       select: this.masterDetailSelect,
     });
     await this.invalidateCache();
@@ -285,7 +312,9 @@ export class MasterService {
     return { message: "Usta o'chirildi" };
   }
 
-  async uploadProfileImg(id: number, filename: string) {
+  async uploadProfileImg(id: number, requesterUserId: number, isAdmin: boolean, filename: string) {
+    const existing = await this.getById(id);
+    if (!isAdmin && (existing as any).user.id !== requesterUserId) throw new ForbiddenException('Ruxsat yo\'q');
     const updated = await this.prisma.master.update({
       where: { id },
       data: { profileImg: `image/${filename}` },
@@ -328,9 +357,10 @@ export class MasterService {
     }
   }
 
-  async addWorkImg(id: number, filename: string) {
-    const master = await this.prisma.master.findUnique({ where: { id } });
+  async addWorkImg(id: number, requesterUserId: number, isAdmin: boolean, filename: string) {
+    const master = await this.prisma.master.findUnique({ where: { id }, select: { id: true, userId: true } });
     if (!master) throw new NotFoundException('Usta topilmadi');
+    if (!isAdmin && master.userId !== requesterUserId) throw new ForbiddenException('Ruxsat yo\'q');
     const updated = await this.prisma.master.update({
       where: { id },
       data: { workImgs: { push: `image/${filename}` } },

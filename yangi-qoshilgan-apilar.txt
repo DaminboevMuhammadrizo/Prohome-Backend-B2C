@@ -556,6 +556,51 @@ Master modeliga `workType` maydoni qo'shildi, default `INDIVIDUAL`.
 
   Ro'yxat va detal javoblarida endi `workType` maydoni bor.
 
+11.1) USTANI TO'LIQ TAHRIRLASH — YANGILANDI (PATCH /masters/:id)
+--------------------------------------------------------------------------------
+Ilgari bu endpoint faqat usta-maydonlarni (experience/bio/salary/skillIds)
+o'zgartirar edi. ENDI bitta so'rovdan turib User-maydonlarini ham (ism,
+telefon, email, joylashuv) birga o'zgartirish mumkin:
+
+  PATCH /masters/:id
+  Body (hammasi ixtiyoriy — faqat o'zgartirmoqchi bo'lganlaringizni yuboring):
+  {
+    "firstName": "Ali",
+    "lastName": "Valiyev",
+    "phone": "+998901234567",
+    "email": "ali@example.com",
+    "age": 27,
+    "locationId": 5,
+    "experience": 4,
+    "bio": "...",
+    "salary": 600000,
+    "skillIds": [1, 2],
+    "workType": "TEAM",
+    "isFree": false
+  }
+
+  Kim chaqira oladi: USTANING O'ZI (faqat o'z profilini) yoki ADMIN/SUPERADMIN
+  (istalgan ustani). Boshqa hech kim — 403 Forbidden.
+  `phone`/`email` band bo'lsa — 400 ("Bu telefon raqam band" / "Bu email band").
+
+⚠️ XAVFSIZLIK TUZATISHI (frontendga aloqasi yo'q, lekin bilib qo'yish uchun):
+Ilgari `PATCH /masters/:id`, `POST /masters/:id/profile-img` va
+`POST /masters/:id/work-img` — HAR QANDAY tizimga kirgan foydalanuvchi
+(hatto boshqa ustaning yoki oddiy mijozning tokeni bilan) ISTALGAN ustaning
+profilini o'zgartira olar edi (egalik tekshiruvi yo'q edi). Endi bu uchtasi
+ham faqat usta o'zi yoki admin uchun ishlaydi — boshqasi uchun 403.
+
+11.2) "QILGAN ISHLARI" (portfolio rasmlari) — allaqachon bor edi, tasdiqlandi
+--------------------------------------------------------------------------------
+  POST /masters/:id/work-img   (multipart, "file") — bitta ish-rasmi qo'shadi
+    (ko'p rasm qo'shish uchun shu endpointni bir necha marta chaqiring)
+  DELETE /masters/img?imgname=image/xxx.webp — profil yoki ish-rasmini o'chirish
+
+Bular YANGI qo'shilmadi — allaqachon bor edi, faqat 11.1-banddagi egalik
+tekshiruvi shu ikkalasiga ham qo'llandi. Usta yaratishning o'zida (POST
+/masters) rasm yuborib bo'lmaydi (JSON body, fayl emas) — avval ustani
+yarating, keyin qaytgan `id` bilan shu endpointlarga rasm yuklang.
+
 
 ================================================================================
 QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
@@ -575,6 +620,8 @@ QISQA JAMLANMA — ENG MUHIM YANGILIKLAR
 ✅ GET /real-estates va /jobs: ?lat=&lng= — foydalanuvchiga yaqinidan saralash
 ✅ /real-estates/:id va /masters/:id: similar — endi bir xil joylashuv + 5 tagacha
 ✅ Usta uchun workType (INDIVIDUAL/TEAM — jamoa yoki yakka) maydoni va filtri
+✅ PATCH /masters/:id endi ism/telefon/email/joylashuvni ham o'zgartiradi
+✅ (xavfsizlik) usta tahrirlash/rasm yuklash endi faqat o'zi yoki admin uchun
 ⚠️ GET /real-estates (ro'yxat) javobi yengillashtirildi — description/user/media[]
    va h.k. endi faqat GET /real-estates/:id da (9.1-bo'lim) — frontendda tekshiring
 ⚠️ 4 ta endpoint javob shakli o'zgardi (yuqoriga qarang) — frontendda tekshiring

@@ -168,9 +168,16 @@ export class MasterController {
   @ApiBearerAuth()
   @UseGuards(GuardService)
   @Patch(':id')
-  @ApiOperation({ summary: 'Ustani yangilash' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateMasterDto) {
-    return this.masterService.update(id, dto);
+  @ApiOperation({
+    summary: "Ustani to'liq yangilash (o'zi yoki admin)",
+    description:
+      "Usta o'zi (faqat o'z profilini) yoki ADMIN/SUPERADMIN (istalgan ustani) tahrirlashi mumkin. " +
+      'Usta-maydonlar (experience/bio/salary/skillIds/workType/isFree) bilan bir qatorda ' +
+      "endi User-maydonlar (firstName/lastName/phone/email/age/locationId) ham shu bitta so'rovdan turib o'zgartiriladi.",
+  })
+  update(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload, @Body() dto: UpdateMasterDto) {
+    const isAdmin = user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN;
+    return this.masterService.update(id, user.id, isAdmin, dto);
   }
 
   @ApiBearerAuth()
@@ -203,10 +210,11 @@ export class MasterController {
     },
   }))
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Usta profil rasmi yuklash (WebP ga aylantiriladi)' })
-  async uploadProfileImg(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
+  @ApiOperation({ summary: 'Usta profil rasmi yuklash (WebP ga aylantiriladi) — o\'zi yoki admin' })
+  async uploadProfileImg(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload, @UploadedFile() file: Express.Multer.File) {
+    const isAdmin = user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN;
     const filename = await saveAsWebp(file.buffer);
-    return this.masterService.uploadProfileImg(id, filename);
+    return this.masterService.uploadProfileImg(id, user.id, isAdmin, filename);
   }
 
   @ApiBearerAuth()
@@ -221,9 +229,10 @@ export class MasterController {
     },
   }))
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: "Usta ish rasmi qo'shish (WebP ga aylantiriladi)" })
-  async addWorkImg(@Param('id', ParseIntPipe) id: number, @UploadedFile() file: Express.Multer.File) {
+  @ApiOperation({ summary: "Usta ish rasmi (qilgan ishlari — portfolio) qo'shish (WebP ga aylantiriladi) — o'zi yoki admin" })
+  async addWorkImg(@Param('id', ParseIntPipe) id: number, @UserData() user: JwtPayload, @UploadedFile() file: Express.Multer.File) {
+    const isAdmin = user.role === UserRole.ADMIN || user.role === UserRole.SUPERADMIN;
     const filename = await saveAsWebp(file.buffer);
-    return this.masterService.addWorkImg(id, filename);
+    return this.masterService.addWorkImg(id, user.id, isAdmin, filename);
   }
 }
