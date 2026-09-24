@@ -1,0 +1,202 @@
+================================================================================
+BILDIRISHNOMALARNI (NOTIFICATION) MOBIL ILOVAGA ULASH — TO'LIQ QO'LLANMA
+================================================================================
+Sana   : 2026-09-24
+Maqsad : Faqat ODDIY FOYDALANUVCHI (client/master) tomonidan kerak bo'ladigan
+         bildirishnoma API'lari + push (FCM) ulash uchun kerakli hammasi.
+         Admin panelga tegishli narsalar (broadcast, shablonlar, statistika)
+         BU FAYLDA YO'Q — ular alohida, faqat admin uchun.
+
+Umumiy: barcha endpoint uchun `Authorization: Bearer <accessToken>` header shart
+(foydalanuvchi login qilgan bo'lishi kerak).
+
+
+================================================================================
+1-BO'LIM: ODDIY (IN-APP) BILDIRISHNOMALAR — REST API
+================================================================================
+
+1.1) Bildirishnomalar ro'yxati
+--------------------------------------------------------------------------------
+  GET /notifications?page=1&limit=20&isRead=false
+
+  Query parametrlar (hammasi ixtiyoriy):
+    page    — sahifa raqami (default 1)
+    limit   — bir sahifadagi son (default 20)
+    isRead  — true: faqat o'qilganlar, false: faqat o'qilmaganlar,
+              berilmasa: hammasi
+
+  Javob:
+  {
+    "data": [
+      {
+        "id": 123,
+        "userId": 45,
+        "title": "Yangi moslik topildi!",
+        "body": "Siz qidirgan mezonlarga mos 3 xonali kvartira qo'shildi",
+        "category": "SEARCH_MATCH",
+        "data": { "entityType": "REAL_ESTATE", "entityId": 91 },
+        "isRead": false,
+        "status": "SENT",
+        "scheduledAt": null,
+        "createdAt": "2026-09-24T08:12:00.000Z"
+      },
+      ...
+    ],
+    "meta": { "page": 1, "limit": 20, "total": 34, "totalPages": 2, "unread": 5 }
+  }
+
+  MUHIM — `category` qiymatlari va ularning ma'nosi:
+    "SEARCH_MATCH"      — foydalanuvchi ilgari qidirib topolmagan narsasiga mos
+                           yangi e'lon/usta qo'shildi (avtomatik)
+    "CHAT_MESSAGE"      — chatga yangi xabar keldi (avtomatik)
+    "ADMIN_BROADCAST"   — admin barcha/filtrlangan foydalanuvchilarga yubοrgan xabar
+    "SYSTEM"            — tizim xabari
+
+  MUHIM — `data` maydoni (bosilganda qayerga o'tish kerakligini bildiradi,
+  ba'zan `null` bo'lishi mumkin — masalan oddiy SYSTEM/ADMIN_BROADCAST xabarida):
+    { "entityType": "REAL_ESTATE" | "JOB" | "MASTER" | "chat", "entityId": <id> }
+
+  Frontend logikasi (tavsiya):
+    switch (notification.data?.entityType) {
+      case "REAL_ESTATE": -> uy-joy detail sahifasiga (id = entityId)
+      case "JOB":          -> ish e'loni detail sahifasiga
+      case "MASTER":        -> usta profiliga
+      case "chat":          -> shu chat oynasiga (chatId = entityId)
+      default:              -> hech qayerga o'tmasin, faqat ro'yxatda ko'rsatilsin
+    }
+
+1.2) O'qilmagan bildirishnomalar soni (badge uchun)
+--------------------------------------------------------------------------------
+  GET /notifications/unread-count
+  Javob: { "count": 5 }
+
+  Bu odatda ilova ochilganda va push kelganda (badge yangilash uchun) chaqiriladi.
+
+1.3) Bitta bildirishnomani o'qilgan deb belgilash
+--------------------------------------------------------------------------------
+  PATCH /notifications/:id/read
+  Javob: yangilangan Notification obyekti (1.1dagi ko'rinishda, `isRead: true`)
+
+  Foydalanuvchi bildirishnomani ochganda (bosganda) chaqiriladi.
+
+1.4) Barchasini o'qilgan deb belgilash
+--------------------------------------------------------------------------------
+  PATCH /notifications/read-all
+  Javob: { "message": "Barcha bildirishnomalar o'qilgan deb belgilandi" }
+
+  "Hammasini o'qilgan qilish" tugmasi uchun.
+
+
+================================================================================
+2-BO'LIM: PUSH BILDIRISHNOMA (FCM) — QURILMANI RO'YXATDAN O'TKAZISH
+================================================================================
+Ilova YOPIQ yoki background'da bo'lganda ham xabar kelishi uchun — Firebase
+Cloud Messaging (FCM) orqali. Backend push yuborish tomonini allaqachon
+sozlagan (Firebase Admin SDK) — sizga (mobil tarafda) FAQAT quyidagilar kerak.
+
+2.1) Ilova tomonida FCM'ni sozlash (bir martalik, mobil jamoa qiladi)
+--------------------------------------------------------------------------------
+  Backend Firebase loyihasi: **project_id = "prohome-b2c"**
+
+  Mobil ilova (Android/iOS/Flutter) O'ZINING Firebase klient konfiguratsiya
+  faylini shu LOYIHADAN olishi kerak — bu backend'dagi maxfiy kalitdan (service
+  account) BUTUNLAY BOSHQA narsa, backendda mavjud emas, faqat Firebase
+  Console'dan olinadi:
+
+  1. https://console.firebase.google.com -> loyiha: "prohome-b2c" ni oching
+     (agar ko'rmasangiz — loyiha egasidan/admin sifatidan qo'shilishni so'rang)
+  2. Project Settings -> "Your apps" -> Android/iOS/Flutter ilova qo'shing
+     (agar hali qo'shilmagan bo'lsa — package name / bundle ID kerak bo'ladi)
+  3. Android uchun: `google-services.json` faylini yuklab, loyihada
+     `android/app/google-services.json` ga qo'ying
+     iOS uchun: `GoogleService-Info.plist` ni yuklab, `ios/Runner/` ga qo'ying
+  4. Flutter bo'lsa: `firebase_core` + `firebase_messaging` paketlarini
+     qo'shing, `flutterfire configure` buyrug'ini ishga tushiring (shu
+     loyihani — prohome-b2c — tanlang) — bu avtomatik `firebase_options.dart`
+     yaratadi.
+
+  ESLATMA: Backend'dagi `firebase-service-account.json` — bu SERVER uchun
+  (push YUBORISH huquqi), mobil ilovaga UMUMAN kerak emas va berilmaydi —
+  xavfsizlik uchun faqat backend serverida turadi.
+
+2.2) Qurilma tokenini backend'ga yuborish
+--------------------------------------------------------------------------------
+Ilova ochilganda (yoki login'dan keyin) FCM token oling (`FirebaseMessaging.
+instance.getToken()` — Flutter'da) va backend'ga yuboring:
+
+  POST /notifications/device-token
+  Body: {
+    "token": "d3F...uzunFCMtoken...",
+    "platform": "ANDROID"   // yoki "IOS" | "WEB" — berilmasa default ANDROID
+  }
+  Javob: { "id": 1, "userId": 45, "token": "...", "platform": "ANDROID", ... }
+
+  Bir xil token qayta yuborilsa — yangilanadi (xato bermaydi, upsert).
+  Token yangilanganda (FCM token vaqti-vaqti bilan o'zgarishi mumkin — Firebase
+  SDK buni `onTokenRefresh` orqali bildiradi) — HAR SAFAR shu endpointga qayta
+  yuborilishi kerak.
+
+2.3) Logout paytida qurilmani o'chirish
+--------------------------------------------------------------------------------
+  DELETE /notifications/device-token
+  Body: { "token": "d3F...xuddi o'sha token..." }
+  Javob: { "message": "Qurilma o'chirildi" }
+
+  MUHIM: logout qilishdan OLDIN shuni chaqiring — aks holda chiqib ketgan
+  foydalanuvchi qurilmasiga ham (agar boshqa odam shu qurilmani ishlatsa)
+  bildirishnoma kelishda davom etadi.
+
+2.4) Push xabar formati (Firebase orqali kelganda)
+--------------------------------------------------------------------------------
+Backend FCM orqali yuboradigan xabar ikki qismdan iborat:
+  notification: { title, body }        — tizim tomonidan avtomatik ko'rsatiladi
+  data: { entityType, entityId: "<son, string ko'rinishida>" }
+
+  Foydalanuvchi push'ni bosganda — xuddi 1.1-banddagi `data.entityType`/
+  `entityId` bilan bir xil mantiqda tegishli sahifaga yo'naltiring. FCM
+  data-payload'dagi qiymatlar HAMMASI STRING bo'ladi (masalan entityId "91",
+  raqam emas) — o'zingiz `int.parse()` qilishingiz kerak.
+
+
+================================================================================
+3-BO'LIM: REAL-TIME (WebSocket) — ILOVA OCHIQ TURGANDA DARHOL KELISHI UCHUN
+================================================================================
+Push (FCM) — ilova yopiq/background bo'lganda. Ilova OCHIQ turganda esa (foreground)
+eng tez va ishonchli yo'l — WebSocket:
+
+  Manzil     : wss://api-b2c.prohome.uz/notifications  (socket.io namespace)
+  Ulanish    : socket.io client bilan, handshake'da:
+               auth: { token: "<accessToken, \"Bearer \" SIZ>" }
+  Tinglanadigan hodisa: "new_notification"
+               — kelgan obyekt 1.1-banddagi Notification bilan bir xil ko'rinishda
+
+  Flutter misoli (socket_io_client paketi):
+    final socket = IO.io('https://api-b2c.prohome.uz/notifications',
+      IO.OptionBuilder()
+        .setTransports(['websocket'])
+        .setAuth({'token': accessToken})
+        .build());
+    socket.on('new_notification', (data) {
+      // ro'yxatga qo'shish + badge +1 + (agar kerak bo'lsa) mahalliy bildirishnoma ko'rsatish
+    });
+
+  Tavsiya: ilova ochiq bo'lganda ham, background'ga o'tganda ham ishlashi
+  uchun HAM WebSocket (foreground), HAM FCM (background/yopiq) ikkalasini
+  ham ulash kerak — ular bir-birini almashtirmaydi, to'ldiradi.
+
+
+================================================================================
+4-BO'LIM: QISQA — INTEGRATSIYA QADAMLARI (CHECKLIST)
+================================================================================
+[ ] 1. Firebase Console'dan "prohome-b2c" loyihasiga Android/iOS ilova qo'shish,
+       google-services.json / GoogleService-Info.plist olish
+[ ] 2. firebase_core + firebase_messaging (yoki mos SDK) ilovaga ulash
+[ ] 3. Login'dan keyin FCM token olib POST /notifications/device-token
+[ ] 4. onTokenRefresh bo'lganda ham qayta POST /notifications/device-token
+[ ] 5. Logout'da DELETE /notifications/device-token
+[ ] 6. Ilova ochilganda: GET /notifications/unread-count (badge)
+[ ] 7. Bildirishnomalar ekrani: GET /notifications (pagination bilan)
+[ ] 8. Bosilganda: PATCH /notifications/:id/read + data.entityType bo'yicha yo'naltirish
+[ ] 9. WebSocket ulanish (foreground real-time) — "new_notification" tingla
+[ ] 10. FCM'dan kelgan push bosilganda ham xuddi shu yo'naltirish mantig'i
+================================================================================

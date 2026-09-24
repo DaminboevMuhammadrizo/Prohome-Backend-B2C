@@ -1,0 +1,303 @@
+PROHOME MOBILE NOTIFICATION (USER-ONLY)
+=======================================
+
+Bu fayl faqat mobile app uchun foydalanuvchi (user) kerak bo'lgan notification ma'lumotlarini o'z ichiga oladi.
+Admin uchun API/endpointlar shu yerga kiritilmagan.
+
+1) ASOSIY MA'LUMOT
+
+Loyiha ichida notification tizimi quyidagi modullarda ishlaydi:
+- src/modules/notification/notification.controller.ts
+- src/modules/notification/notification.service.ts
+- src/modules/notification/dto/notification.dto.ts
+- src/common/config/firebase/firebase.service.ts
+
+Notification tizimi 3 ta asosiy komponentdan iborat:
+1. In-app notification (database ichidagi notification yozuvlari)
+2. WebSocket real-time notification (live UI update)
+3. Push notification (FCM Firebase Cloud Messaging)
+
+Foydalanuvchi uchun asosiy maqsadlar:
+- yangi chat xabari kelganda bildirishnoma olish
+- qidirilgan narsaga mos keladigan e'lon bo'lganda bildirishnoma olish
+- admin tomonidan yuborilgan umumiy bildirishnoma olish
+- o'qilgan/o'qilmagan bildirishnomalarni ko'rish
+- qurilma tokenini ro'yxatdan o'tkazish va push olish
+
+2) AUTH / JWT
+
+Barcha user notification endpointsiga login qilingan foydalanuvchi token bilan kirishi kerak.
+Header format:
+Authorization: Bearer <JWT_TOKEN>
+
+3) USER NOTIFICATION API ENDPOINTS
+
+A) GET /notifications
+Ma'lumot: foydalanuvchi bildirishnomalarini olish
+Method: GET
+Auth: kerak
+Query params:
+- page (default 1)
+- limit (default 20)
+- isRead (optional: true/false)
+
+Masalan:
+GET /notifications?page=1&limit=20
+GET /notifications?isRead=false
+
+Javob struktura:
+{
+  "data": [
+    {
+      "id": 12,
+      "userId": 5,
+      "title": "💬 Ali",
+      "body": "Salom, uy haqida so'radim",
+      "category": "CHAT_MESSAGE",
+      "status": "SENT",
+      "isRead": false,
+      "data": {
+        "entityType": "chat",
+        "entityId": 77
+      },
+      "createdAt": "2026-09-13T10:15:00.000Z",
+      "updatedAt": "2026-09-13T10:15:00.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "limit": 20,
+    "total": 35,
+    "totalPages": 2,
+    "unread": 8
+  }
+}
+
+B) GET /notifications/unread-count
+Ma'lumot: o'qilmagan bildirishnomalar soni
+Method: GET
+Auth: kerak
+
+Javob:
+{
+  "count": 4
+}
+
+C) PATCH /notifications/read-all
+Ma'lumot: barcha bildirishnomalarni o'qilgan deb belgilash
+Method: PATCH
+Auth: kerak
+
+Javob:
+{
+  "message": "Barcha bildirishnomalar o'qilgan deb belgilandi"
+}
+
+D) PATCH /notifications/:id/read
+Ma'lumot: bitta bildirishnomani o'qilgan qilish
+Method: PATCH
+Auth: kerak
+Path param:
+- id: notification ID
+
+Javob:
+{
+  "id": 12,
+  "userId": 5,
+  "title": "💬 Ali",
+  "body": "Salom, uy haqida so'radim",
+  "category": "CHAT_MESSAGE",
+  "status": "SENT",
+  "isRead": true,
+  "createdAt": "2026-09-13T10:15:00.000Z",
+  "updatedAt": "2026-09-13T10:15:00.000Z"
+}
+
+E) POST /notifications/device-token
+Ma'lumot: mobile app qurilma tokenini backendga ro'yxatdan o'tkazish
+Method: POST
+Auth: kerak
+
+Body:
+{
+  "token": "fcm-device-token-xxxxx",
+  "platform": "ANDROID"
+}
+
+platform qiymatlari:
+- ANDROID
+- IOS
+
+Javob:
+{
+  "id": 1,
+  "userId": 5,
+  "token": "fcm-device-token-xxxxx",
+  "platform": "ANDROID",
+  "createdAt": "2026-09-13T10:15:00.000Z",
+  "updatedAt": "2026-09-13T10:15:00.000Z"
+}
+
+Eslatma: bu token FCM uchun ishlatiladi. Har bir qurilma uchun bitta token saqlanadi.
+
+F) DELETE /notifications/device-token
+Ma'lumot: qurilma tokenini o'chirish (logout yoki token o'zgarganda)
+Method: DELETE
+Auth: kerak
+
+Body:
+{
+  "token": "fcm-device-token-xxxxx"
+}
+
+Javob:
+{
+  "message": "Qurilma o'chirildi"
+}
+
+4) NOTIFICATION KATEGORIYALARI (USER)
+
+User uchun ishlatiladigan asosiy categoriyalar:
+- CHAT_MESSAGE — chatdan kelgan xabar
+- SEARCH_MATCH — foydalanuvchi qidirgan narsaga mos kelgan e'lon
+- ADMIN_BROADCAST — admin tomonidan ommaviy xabar
+
+So'zlashuvdagi qiymatlar:
+- NotificationCategory.CHAT_MESSAGE
+- NotificationCategory.SEARCH_MATCH
+- NotificationCategory.ADMIN_BROADCAST
+
+5) PUSH NOTIFICATION (Firebase FCM)
+
+Loyiha Firebase Admin SDK orqali push yuboradi.
+Fayl:
+- src/common/config/firebase/firebase.service.ts
+
+Qurulish logikasi:
+- Firebase service-account fayli topilsa, FCM aktiv bo'ladi
+- topilmasa, push ishlamaydi, faqat in-app/WebSocket ishlaydi
+
+Kerakli fayl:
+- firebase-service-account.json
+
+Yoki env:
+- FIREBASE_PROJECT_ID
+- FIREBASE_CLIENT_EMAIL
+- FIREBASE_PRIVATE_KEY
+
+Push yuborish funksiyasi:
+- sendToToken({ token, title, body, data })
+- sendToTokens({ tokens, title, body, data })
+
+FCM ishlayotgan holatda, notification jo'natilganda backend quyidagilarni qiladi:
+1. database da notification yozadi
+2. websocket orqali userga live xabar yuboradi
+3. barcha user devices tokenlariga FCM push yuboradi
+4. agar token yaroqsiz bo'lsa bazadan avtomatik o'chiriladi
+
+6) REAL-TIME (WEBSOCKET) NOTIFICATION
+
+NotificationGateway orqali foydalanuvchi uchun live xabarlar yuboriladi.
+Namespace: notifications
+
+Qo'shimcha xususiyat:
+- online bo'lgan foydalanuvchi bir zumda in-app bildirishnoma oladi
+- offline bo'lsa databasedagi notification qoladi
+
+7) HOW MOBILE APP SHOULD USE IT
+
+Mobile app quyidagi holatlarda ishlatishi kerak:
+
+A) App ochilganda / login bo'lganda:
+- POST /notifications/device-token yuborish
+- tokenni saqlab qolish
+
+B) Lovelace / push kelganda:
+- notification title/body ni ko'rsatish
+- data.payload ichidagi entityType/entityId dan kerakli sahifani aniqlash
+
+Masalan:
+{
+  "data": {
+    "entityType": "chat",
+    "entityId": 77
+  }
+}
+
+C) Notificationlarni ko'rishda:
+- GET /notifications
+- o'qilmaganlar uchun unread-count
+- PATCH /notifications/:id/read yoki PATCH /notifications/read-all
+
+D) Logoutda:
+- DELETE /notifications/device-token
+
+8) NOTIFICATION OBJECT EXAMPLE
+
+{
+  "id": 12,
+  "userId": 5,
+  "title": "💬 Ali",
+  "body": "Salom, uy haqida so'radim",
+  "category": "CHAT_MESSAGE",
+  "status": "SENT",
+  "isRead": false,
+  "data": {
+    "entityType": "chat",
+    "entityId": 77
+  },
+  "createdAt": "2026-09-13T10:15:00.000Z",
+  "updatedAt": "2026-09-13T10:15:00.000Z"
+}
+
+9) O'QILMAGAN / O'QILGAN HOLAT
+
+- isRead = false => o'qilmagan
+- isRead = true => o'qilgan
+
+Barcha o'qilmaganlar uchun:
+GET /notifications/unread-count
+
+Barchasini o'qilgan qilish uchun:
+PATCH /notifications/read-all
+
+10) IMPORTANT NOTES FOR MOBILE
+
+- Bu endpointlar faqat userga tegishli. Admin endpointlari ishlatilmaydi.
+- FCM ishlashi uchun service-account kerak.
+- Tokenni backendga har doim yangilab turish kerak.
+- Token eskirgan bo'lsa backend avtomatik tozalanadi.
+- App push kelganda data payload string bo'ladi, shuning uchun mobile appda Number/ID ni pars qilish kerak.
+- In-app notification va push notification ikki xil jarayon; ikkalasi ham ishlaydi, lekin backendda bir vaqtning o'zida borki.
+
+11) USER-ONLY ENDPOINT SUMMARY
+
+- GET /notifications
+- GET /notifications/unread-count
+- PATCH /notifications/read-all
+- PATCH /notifications/:id/read
+- POST /notifications/device-token
+- DELETE /notifications/device-token
+
+Bu endpointlar faqat foydalanuvchi uchun kerak bo'lgan notification qismi.
+Admin panel va broadcast/search-subscription management endpointlari shu yerga kiritilmagan.
+
+12) FILES TO CHECK
+
+- src/modules/notification/notification.controller.ts
+- src/modules/notification/notification.service.ts
+- src/modules/notification/dto/notification.dto.ts
+- src/common/config/firebase/firebase.service.ts
+
+13) KARMA SHARTLAR
+
+Agar mobile app quyidagi amallarni bajaradigan bo'lsa yaxshi ishlaydi:
+1. Login qilgandan so'ng device tokenni jo'natadi
+2. Push kelganida title/body ni ko'rsatadi
+3. /notifications dan barcha notificationlarni olib, UI da chiqaradi
+4. /notifications/:id/read bilan o'qish holatini yangilaydi
+5. Logout bo'lganda device tokenni o'chiradi
+
+Tugatish.
+
+Ushbu fayl faqat user uchun kerak bo'lgan ma'lumotlarni o'z ichiga oladi. Admin qismi bu yerda mavjud emas.

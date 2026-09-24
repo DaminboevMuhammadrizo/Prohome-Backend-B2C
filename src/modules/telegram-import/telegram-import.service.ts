@@ -1,8 +1,13 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { DealType, PropertyType, RealEstateStatus, SellerType, TelegramImportChannel, UserRole, UserStatus } from '@prisma/client';
+import { DealType, MediaType, PropertyType, RealEstateStatus, SellerType, TelegramImportChannel, UserRole, UserStatus } from '@prisma/client';
+import { mkdirSync, existsSync } from 'fs';
+import { writeFile } from 'fs/promises';
+import { join } from 'path';
+import type { Api } from 'telegram';
 import { PrismaService } from 'src/common/database/prisma.service';
 import { haversineKm } from 'src/common/utils/geo.util';
+import { toOptimizedWebp } from 'src/common/utils/image.util';
 import { AddChannelDto, UpdateChannelDto } from './dto/telegram-import.dto';
 import { GeocodingService } from './geocoding.service';
 import { TelegramClientService } from './telegram-client.service';
@@ -135,14 +140,14 @@ export class TelegramImportService {
       return { imported: 0, skipped: 0 };
     }
 
-    const messages = isBackfill
+    const posts = isBackfill
       ? await this.telegramClient.fetchMessages(channel.username, { sinceDate: channel.sinceDate })
       : await this.telegramClient.fetchMessages(channel.username, { afterMessageId: channel.lastMessageId });
 
     const cities = await this.prisma.location.findMany({ where: { type: 'CITY' } });
     if (cities.length === 0) {
       this.logger.error("Bazada birorta ham shahar (Location) topilmadi — import to'xtatildi");
-      return { imported: 0, skipped: messages.length };
+      return { imported: 0, skipped: posts.length };
     }
     const systemUserId = await this.getOrCreateImportUser();
     const cityCoordsCache = new Map<string, { latitude: number; longitude: number } | null>();
@@ -151,23 +156,25 @@ export class TelegramImportService {
     let skipped = 0;
     let maxMessageId = channel.lastMessageId ?? 0;
 
-    for (const msg of messages) {
-      maxMessageId = Math.max(maxMessageId, msg.id);
-      const externalId = `telegram:${channel.username}:${msg.id}`;
+    for (const post of posts) {
+      maxMessageId = Math.max(maxMessageId, post.maxId);
+      const externalId = `telegram:${channel.username}:${post.id}`;
 
       const exists = await this.prisma.realEstate.findUnique({ where: { externalId } });
       if (exists) continue;
 
-      const parsed = this.parser.parse(msg.text);
+      const parsed = this.parser.parse(post.text);
 
       // Faqat narx/telefon borligi yetarli emas — turizm/reklama kabi ko'chmas
       // mulkka aloqasi yo'q postlarda ham shular bo'lishi mumkin (masalan
       // "tur — 558$, +998..."). Shuning uchun kamida bitta ko'chmas-mulkka XOS
       // tuzilgan maydon (xona/qavat/maydon/sotix) topilgan bo'lishi shart —
       // aks holda bu umuman e'lon emas deb hisoblab o'tkazib yuboramiz.
+      // "kvartira kerak"/"sherik qidirilmoqda" kabi TALAB postlari ham (sotuvchi
+      // emas, qidirayotgan odam yozgan) o'tkazib yuboriladi.
       const hasRealEstateSignal =
         parsed.roomCount !== null || parsed.floor !== null || parsed.areaSize !== null || parsed.plotSize !== null;
-      if (!hasRealEstateSignal || (parsed.price === null && parsed.contactPhone === null)) {
+      if (parsed.isDemandPost || !hasRealEstateSignal || (parsed.price === null && parsed.contactPhone === null)) {
         skipped++;
         continue;
       }
@@ -184,15 +191,24 @@ export class TelegramImportService {
 
       const { coords, coordsSource } = await this.resolveCoordinates(parsed, resolvedCity.name, cityCoordsCache);
 
+      // Narx haqida ko'rsatiladigan izoh — m²-narx holatida batafsil tushuntirish,
+      // aks holda parser topgan asl narx matni ("22 000 $" kabi), bo'lmasa yo'q.
+      const priceDesc = parsed.priceIsPerSqm
+        ? `Import: asl e'londa narx 1 m² uchun ko'rsatilgan (${parsed.pricePerSqm}$/m²)${parsed.areaSize ? ` — umumiy narx ${parsed.areaSize} m² ga ko'paytirib hisoblangan` : ''}. Tekshiring.`
+        : (parsed.pricePrimaryText ?? undefined);
+
+      // Rasmlarni RealEstate yaratilishidan OLDIN yuklaymiz — shunda nechta
+      // rasm kelganini `syncStatus.parsedFields.importedImageCount`ga yozib
+      // qo'yamiz (admin PENDING_REVIEW'da darhol ko'rishi uchun).
+      const imageUrls = await this.downloadAndSaveImages(post.photoRefs);
+
       try {
-        await this.prisma.realEstate.create({
+        const realEstate = await this.prisma.realEstate.create({
           data: {
             title: parsed.title,
-            description: this.buildDescription(parsed, channel, msg.text),
+            description: this.buildDescription(parsed, channel, post.text),
             price: parsed.price ?? 0,
-            priceDesc: parsed.priceIsPerSqm
-              ? `Import: asl e'londa narx 1 m² uchun ko'rsatilgan (${parsed.pricePerSqm}$/m²)${parsed.areaSize ? ` — umumiy narx ${parsed.areaSize} m² ga ko'paytirib hisoblangan` : ''}. Tekshiring.`
-              : undefined,
+            priceDesc,
             propertyType: parsed.propertyType ?? channel.defaultPropertyType ?? PropertyType.APARTMENT,
             dealType: parsed.dealType ?? channel.defaultDealType ?? DealType.SALE,
             sellerType: SellerType.INDIVIDUAL,
@@ -208,9 +224,9 @@ export class TelegramImportService {
             longitude: coords?.longitude,
             status: RealEstateStatus.PENDING_REVIEW,
             externalId,
-            apiUrl: `https://t.me/${channel.username}/${msg.id}`,
+            apiUrl: `https://t.me/${channel.username}/${post.id}`,
             syncStatus: {
-              rawText: msg.text,
+              rawText: post.text,
               originalId: parsed.originalId,
               parsedFields: {
                 price: parsed.price,
@@ -222,6 +238,7 @@ export class TelegramImportService {
                 floor: parsed.floor,
                 dealType: parsed.dealType ?? channel.defaultDealType ?? null,
                 propertyType: parsed.propertyType,
+                importedImageCount: imageUrls.length,
               },
               locationMatched: !!matchedCity,
               resolvedCityName: resolvedCity.name,
@@ -232,6 +249,14 @@ export class TelegramImportService {
             },
           },
         });
+
+        // Yuqorida yuklab olingan rasmlarni endi e'longa biriktiramiz.
+        if (imageUrls.length > 0) {
+          await this.prisma.propertyImgAndVideo.createMany({
+            data: imageUrls.map((url, i) => ({ propertyId: realEstate.id, url, mediaType: MediaType.IMAGE, isMain: i === 0 })),
+          });
+        }
+
         imported++;
       } catch (e) {
         this.logger.warn(`Import xatosi (${externalId}): ${(e as Error).message}`);
@@ -291,6 +316,35 @@ export class TelegramImportService {
     }
 
     return { coords: cityCoords, coordsSource: cityCoords ? 'city-fallback' : null };
+  }
+
+  // ───────────────────────── Rasmlarni yuklab olish ─────────────────────────
+
+  // Postdagi har bir rasmni Telegram'dan yuklab, siqib (max 1600px, webp q76 —
+  // mavjud `toOptimizedWebp`), `core/uploads/images`ga yozadi. Bitta rasm
+  // muvaffaqiyatsiz bo'lsa ham (Telegram xatosi, buzuq fayl va h.k.) qolganlari
+  // bilan davom etadi — natija bo'sh massiv bo'lishi ham mumkin, bu e'lonni
+  // yaratishni to'xtatmaydi (admin keyin qo'lda rasm qo'sha oladi).
+  private async downloadAndSaveImages(photoRefs: Api.Message[]): Promise<string[]> {
+    if (photoRefs.length === 0) return [];
+
+    const dir = join(process.cwd(), 'core', 'uploads', 'images');
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+
+    const urls: string[] = [];
+    for (const msg of photoRefs) {
+      try {
+        const buffer = await this.telegramClient.downloadPhoto(msg);
+        if (!buffer) continue;
+        const optimized = await toOptimizedWebp(buffer);
+        const filename = `${Date.now()}-${urls.length}.webp`;
+        await writeFile(join(dir, filename), optimized);
+        urls.push(`image/${filename}`);
+      } catch (e) {
+        this.logger.warn(`Rasmni saqlab bo'lmadi: ${(e as Error).message}`);
+      }
+    }
+    return urls;
   }
 
   // Frontenddagi generateDescriptionDraft() bilan bir xil uslubda — toza,
