@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DealType, JobStatus, PropertyType, RealEstateStatus, SellerType } from '@prisma/client';
+import { DealType, JobStatus, PropertyType, RealEstateStatus } from '@prisma/client';
 import axios from 'axios';
 import { PrismaService } from 'src/common/database/prisma.service';
 
@@ -42,41 +42,34 @@ export class DashboardService {
   }
 
   async getHomeCategories() {
-    const [apartment, house, office, rent, newBuilding, retail, masters, jobs] =
-      await Promise.all([
-        this.prisma.realEstate.count({
-          where: { propertyType: PropertyType.APARTMENT, status: RealEstateStatus.ACTIVE },
-        }),
-        this.prisma.realEstate.count({
-          where: { propertyType: PropertyType.HOUSE, status: RealEstateStatus.ACTIVE },
-        }),
-        this.prisma.realEstate.count({
-          where: { propertyType: PropertyType.OFFICE, status: RealEstateStatus.ACTIVE },
-        }),
-        this.prisma.realEstate.count({
-          where: { dealType: DealType.RENT, status: RealEstateStatus.ACTIVE },
-        }),
-        this.prisma.realEstate.count({
-          where: {
-            propertyType: PropertyType.APARTMENT,
-            sellerType: SellerType.COMPANY,
-            status: RealEstateStatus.ACTIVE,
-          },
-        }),
-        this.prisma.realEstate.count({
-          where: { propertyType: PropertyType.RETAIL, status: RealEstateStatus.ACTIVE },
-        }),
-        this.prisma.master.count(),
-        this.prisma.job.count({ where: { status: JobStatus.OPEN } }),
-      ]);
+    // Bitta groupBy — har propertyType uchun alohida count() so'rov yubormasdan
+    // (ilgari "Yangi bino" uchun propertyType=APARTMENT+sellerType=COMPANY degan
+    // taxminiy belgi ishlatilgan edi — endi NEW_BUILDING o'zining haqiqiy
+    // propertyType qiymati, aniqroq).
+    const [propertyGroups, rent, masters, jobs] = await Promise.all([
+      this.prisma.realEstate.groupBy({
+        by: ['propertyType'],
+        where: { status: RealEstateStatus.ACTIVE },
+        _count: { _all: true },
+      }),
+      this.prisma.realEstate.count({ where: { dealType: DealType.RENT, status: RealEstateStatus.ACTIVE } }),
+      this.prisma.master.count(),
+      this.prisma.job.count({ where: { status: JobStatus.OPEN } }),
+    ]);
+
+    const countFor = (type: PropertyType) => propertyGroups.find((g) => g.propertyType === type)?._count._all ?? 0;
 
     return [
-      { key: 'APARTMENT', name: 'Kvartira', description: "Ko'p qavatli uylar", count: apartment },
-      { key: 'HOUSE', name: 'Hovli-uy', description: 'Yer bilan birga', count: house },
-      { key: 'OFFICE', name: 'Ofis', description: 'Biznes uchun', count: office },
-      { key: 'RENT', name: 'Ijara', description: 'Kunlik va uzoq muddat', count: rent },
-      { key: 'NEW_BUILDING', name: 'Yangi bino', description: 'Yangi qurilgan', count: newBuilding },
-      { key: 'RETAIL', name: 'Tijorat', description: 'Magazin, savdo', count: retail },
+      { key: 'APARTMENT', name: 'Kvartira', description: "Ko'p qavatli", count: countFor(PropertyType.APARTMENT) },
+      { key: 'HOUSE', name: 'Hovli-uy', description: 'Yer bilan birga', count: countFor(PropertyType.HOUSE) },
+      { key: 'RENT', name: 'Ijara', description: 'Uzoq va qisqa', count: rent },
+      { key: 'NEW_BUILDING', name: 'Yangi bino', description: 'Yangi qurilgan', count: countFor(PropertyType.NEW_BUILDING) },
+      { key: 'DACHA', name: 'Dacha', description: 'Shahar tashqarisi', count: countFor(PropertyType.DACHA) },
+      { key: 'DAILY_RENTAL', name: 'Mehmonxona', description: 'Sutkalik ijara', count: countFor(PropertyType.DAILY_RENTAL) },
+      { key: 'LAND', name: 'Yer maydoni', description: 'Uchastka, tomorqa', count: countFor(PropertyType.LAND) },
+      { key: 'OFFICE', name: 'Ofis', description: 'Biznes uchun', count: countFor(PropertyType.OFFICE) },
+      { key: 'RETAIL', name: 'Savdo joyi', description: "Do'kon, bozor", count: countFor(PropertyType.RETAIL) },
+      { key: 'GARAGE_WAREHOUSE', name: 'Garaj / Ombor', description: 'Saqlash joyi', count: countFor(PropertyType.GARAGE_WAREHOUSE) },
       { key: 'MASTER', name: 'Ustalar', description: 'Professional xizmat', count: masters },
       { key: 'JOB', name: 'Loyihalar', description: 'Yangi qurilishlar', count: jobs },
     ];

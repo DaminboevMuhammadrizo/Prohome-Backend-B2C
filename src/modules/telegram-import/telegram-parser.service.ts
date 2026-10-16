@@ -51,9 +51,17 @@ export class TelegramParserService {
   // \b qo'yilmagan, faqat bo'sh joy/qatorlar bilan chegaralangan deb hisoblanadi.
   // "(?<!-)\bdom\b" — manzildagi "46-dom" (bino raqami) yolg'on-musbat
   // bermasligi uchun (hyphen bilan bevosita ulangan "dom" e'tiborga olinmaydi).
-  private readonly houseWords = /\buy\b|hovli|(?<!-)\bdom\b|dacha|коттедж|(^|\s)дом(\s|$|[.,!?])/i;
+  private readonly houseWords = /\buy\b|hovli|(?<!-)\bdom\b|коттедж|(^|\s)дом(\s|$|[.,!?])/i;
   private readonly officeWords = /ofis|офис/i;
   private readonly retailWords = /do'kon|magazin|торгов|savdo/i;
+  private readonly dachaWords = /dacha|дача/i;
+  // "Yer maydoni" — uchastka/tomorqa. Alohida mulk turi (HOUSE emas).
+  private readonly landWords = /yer\s*maydoni|uchastka|tomorqa|участка|томорка/i;
+  private readonly garageWords = /\bgaraj\b|\bombor\b|гараж|склад|омбор/i;
+  // Faqat ANIQ "sutkalik/kunlik ijara" iborasi — yolg'iz "mehmonxona" so'zi
+  // ko'pincha mo'ljal (landmark) sifatida ishlatiladi ("mehmonxona yonida"),
+  // shuning uchun bitta so'zga tayanib xato tur belgilab qo'yilmasin.
+  private readonly dailyRentalWords = /сутк(а|алик)|sutkalik|kunlik\s*ijara|суточно/i;
 
   // Ixtiyoriy qavslarni ham qo'llab-quvvatlaydi: "+998-(93)-550-88-53"
   private readonly phoneRegex = /(?:\+?998)?[\s\-]?\(?(\d{2})\)?[\s\-]?(\d{3})[\s\-]?(\d{2})[\s\-]?(\d{2})\b/;
@@ -184,11 +192,16 @@ export class TelegramParserService {
     else if (this.saleWords.test(text)) dealType = DealType.SALE;
     else missingFields.push('dealType');
 
-    // Mulk turi (default APARTMENT, lekin aniq so'z topilmasa ham missing qilib belgilaymiz).
-    // "#участка"/"#ер" (yer/tomorqa) uchun tizimda alohida tur yo'q — eng yaqin
-    // mos HOUSE ga tushiriladi (plotSize baribir alohida saqlanadi).
+    // Mulk turi (default APARTMENT, lekin aniq so'z topilmasa ham missing qilib
+    // belgilaymiz). Tartib muhim — aniqrog'i (dacha/yer/garaj/sutkalik) odatdagi
+    // "uy"/"dom" so'zlaridan OLDIN tekshiriladi (masalan "дача" "дом" bilan
+    // chalkashib ketmasin).
     let propertyType: PropertyType = PropertyType.APARTMENT;
-    if (this.houseWords.test(text) || /#(участка|ер|ховли)\b/i.test(text)) propertyType = PropertyType.HOUSE;
+    if (this.dachaWords.test(text)) propertyType = PropertyType.DACHA;
+    else if (this.landWords.test(text) || /#(участка|ер)\b/i.test(text)) propertyType = PropertyType.LAND;
+    else if (this.garageWords.test(text)) propertyType = PropertyType.GARAGE_WAREHOUSE;
+    else if (this.dailyRentalWords.test(text)) propertyType = PropertyType.DAILY_RENTAL;
+    else if (this.houseWords.test(text) || /#ховли\b/i.test(text)) propertyType = PropertyType.HOUSE;
     else if (this.officeWords.test(text)) propertyType = PropertyType.OFFICE;
     else if (this.retailWords.test(text)) propertyType = PropertyType.RETAIL;
 

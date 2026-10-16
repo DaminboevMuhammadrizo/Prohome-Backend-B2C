@@ -28,8 +28,13 @@ const DETAIL_MARKER = '---PROHOME_REAL_ESTATE_DETAILS---';
 const PROPERTY_TYPE_LABEL: Record<PropertyType, string> = {
   APARTMENT: 'Kvartira',
   HOUSE: "Hovli-uy",
+  NEW_BUILDING: 'Yangi bino',
+  DACHA: 'Dacha',
+  DAILY_RENTAL: 'Mehmonxona (sutkalik ijara)',
+  LAND: 'Yer maydoni',
   OFFICE: 'Ofis',
   RETAIL: 'Tijorat obyekti',
+  GARAGE_WAREHOUSE: 'Garaj/Ombor',
 };
 
 // Telegram postlari ko'pincha kirill alifbosida ("Фаргона шахар"), bazadagi

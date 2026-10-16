@@ -36,10 +36,15 @@ enum SocialPlatform {
 }
 
 enum PropertyType {
-  APARTMENT
-  HOUSE
-  OFFICE
-  RETAIL
+  APARTMENT // Kvartira — ko'p qavatli
+  HOUSE // Hovli-uy — yer bilan birga
+  NEW_BUILDING // Yangi bino — yangi qurilgan
+  DACHA // Dacha — shahar tashqarisida
+  DAILY_RENTAL // Mehmonxona tipidagi, sutkalik ijara
+  LAND // Yer maydoni — uchastka, tomorqa
+  OFFICE // Ofis — biznes uchun
+  RETAIL // Savdo joyi — do'kon, bozor
+  GARAGE_WAREHOUSE // Garaj / Ombor — saqlash joyi
 }
 
 enum DealType {
