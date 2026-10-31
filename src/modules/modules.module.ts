@@ -20,6 +20,7 @@ import { NotificationModule } from './notification/notification.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { TelegramImportModule } from './telegram-import/telegram-import.module';
 import { BackupModule } from './backup/backup.module';
+import { WalletModule } from './wallet/wallet.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { BackupModule } from './backup/backup.module';
     AnalyticsModule,
     TelegramImportModule,
     BackupModule,
+    WalletModule,
     AuthModule,
     UserModule,
     MasterModule,

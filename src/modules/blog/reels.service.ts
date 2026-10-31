@@ -59,7 +59,8 @@ export class ReelsService {
     const [data, total] = await Promise.all([
       this.prisma.reel.findMany({
         where, skip, take: limit,
-        orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
+        // Coin to'lab boost qilinganlar har doim avval (1-tier).
+        orderBy: [{ boostedUntil: { sort: 'desc', nulls: 'last' } }, { order: 'asc' }, { createdAt: 'desc' }],
         include: this.include,
       }),
       this.prisma.reel.count({ where }),

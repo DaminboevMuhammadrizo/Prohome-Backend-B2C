@@ -13,11 +13,27 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import { DashboardService } from './dashboard.service';
 import { CreateDraftDto } from './dto/dashboard.dto';
 import { GuardService } from 'src/common/guard/guard.service';
+import { JwtService } from '@nestjs/jwt';
+import type { JwtPayload } from 'src/common/config/jwt/jwt.service';
 
 @ApiTags('Dashboard')
 @Controller()
 export class DashboardController {
-    constructor(private readonly dashboardService: DashboardService) {}
+    constructor(
+        private readonly dashboardService: DashboardService,
+        private readonly jwtService: JwtService,
+    ) {}
+
+    private extractUserId(req: any): number | undefined {
+        try {
+            const token = req.headers.authorization?.split(' ')[1];
+            if (!token) return undefined;
+            const payload = this.jwtService.decode(token) as JwtPayload | null;
+            return payload?.id ?? undefined;
+        } catch {
+            return undefined;
+        }
+    }
 
     // ─── HOME ──────────────────────────────────────────────────────────────
 
@@ -58,6 +74,15 @@ export class DashboardController {
     @ApiOperation({ summary: 'Tavsiya etilgan e\'lonlar, ustalar va ishlar' })
     getRecommendations() {
         return this.dashboardService.getRecommendations();
+    }
+
+    @Get('for-you')
+    @ApiOperation({
+        summary: 'Shaxsiylashtirilgan tavsiyalar (token ixtiyoriy)',
+        description: 'Token berilsa — foydalanuvchining yoqtirganlari/qidiruv obunalari/joylashuviga qarab moslashtirilgan natija. Token bo\'lmasa yoki signal topilmasa — umumiy `/recommendations` natijasi (hech qachon bo\'sh qaytmaydi).',
+    })
+    getForYou(@Req() req: any) {
+        return this.dashboardService.getPersonalRecommendations(this.extractUserId(req));
     }
 
     // ─── PLATFORM OVERVIEW ─────────────────────────────────────────────────

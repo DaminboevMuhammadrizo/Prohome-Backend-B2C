@@ -96,10 +96,11 @@ export class NewsService {
     const [data, total] = await Promise.all([
       this.prisma.news.findMany({
         where, skip, take: limit,
-        orderBy: { publishedAt: 'desc' },
+        // Coin to'lab boost qilinganlar har doim avval (1-tier).
+        orderBy: [{ boostedUntil: { sort: 'desc', nulls: 'last' } }, { publishedAt: 'desc' }],
         select: {
           id: true, title: true, slug: true, excerpt: true, coverImage: true,
-          status: true, publishedAt: true, viewCount: true, createdAt: true,
+          status: true, publishedAt: true, viewCount: true, createdAt: true, boostedUntil: true,
           category: { select: { id: true, name: true } },
           master: { select: { id: true, user: { select: { firstName: true, lastName: true } } } },
           job: { select: { id: true, title: true } },

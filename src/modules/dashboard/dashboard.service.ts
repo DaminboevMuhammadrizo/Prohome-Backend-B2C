@@ -210,6 +210,106 @@ export class DashboardService {
     };
   }
 
+  // Shaxsiylashtirilgan tavsiyalar — bor bo'lsa foydalanuvchining signallariga
+  // (yoqtirganlari, qidiruv obunalari, joylashuvi) qarab, aks holda (yangi
+  // user/anonim) umumiy `getRecommendations()`ga qaytadi — HECH QACHON bo'sh
+  // qaytmaydi.
+  async getPersonalRecommendations(userId?: number) {
+    if (!userId) return this.getRecommendations();
+
+    const [masterLikes, jobLikes, subs, user] = await Promise.all([
+      this.prisma.masterLike.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: { master: { select: { skills: { select: { skill: { select: { typeId: true } } } } } } },
+      }),
+      this.prisma.jobLike.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+        select: { job: { select: { skillTypeId: true } } },
+      }),
+      this.prisma.searchSubscription.findMany({
+        where: { userId, isActive: true },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+      }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { locationId: true } }),
+    ]);
+
+    const skillTypeIds = new Set<number>();
+    masterLikes.forEach((l) => l.master?.skills.forEach((s) => s.skill?.typeId && skillTypeIds.add(s.skill.typeId)));
+    jobLikes.forEach((l) => l.job?.skillTypeId && skillTypeIds.add(l.job.skillTypeId));
+
+    const propertyTypes = new Set<PropertyType>();
+    let signalLocationId: number | undefined;
+    for (const s of subs) {
+      const c = s.criteria as any;
+      if (c?.propertyType) propertyTypes.add(c.propertyType);
+      if (c?.skillTypeId) skillTypeIds.add(c.skillTypeId);
+      if (!signalLocationId && s.locationId) signalLocationId = s.locationId;
+    }
+
+    const locationId = signalLocationId ?? user?.locationId ?? undefined;
+    const hasSignal = skillTypeIds.size > 0 || propertyTypes.size > 0 || !!locationId;
+    if (!hasSignal) return this.getRecommendations();
+
+    const [realEstates, masters, jobs] = await Promise.all([
+      this.prisma.realEstate.findMany({
+        where: {
+          status: RealEstateStatus.ACTIVE,
+          ...(propertyTypes.size ? { propertyType: { in: Array.from(propertyTypes) } } : {}),
+          ...(locationId ? { locationId } : {}),
+        },
+        orderBy: [{ boostedUntil: { sort: 'desc', nulls: 'last' } }, { viewCount: 'desc' }],
+        take: 8,
+        include: { media: { where: { isMain: true }, take: 1 }, location: true },
+      }),
+      this.prisma.master.findMany({
+        where: {
+          ...(skillTypeIds.size ? { skills: { some: { skill: { typeId: { in: Array.from(skillTypeIds) } } } } } : {}),
+          ...(locationId ? { user: { locationId } } : {}),
+        },
+        orderBy: [{ boostedUntil: { sort: 'desc', nulls: 'last' } }, { likeCount: 'desc' }],
+        take: 4,
+        include: {
+          user: { select: { firstName: true, lastName: true } },
+          skills: { include: { skill: { include: { type: true } } }, take: 3 },
+          ratings: { select: { rating: true } },
+        },
+      }),
+      this.prisma.job.findMany({
+        where: {
+          status: JobStatus.OPEN,
+          ...(skillTypeIds.size ? { skillTypeId: { in: Array.from(skillTypeIds) } } : {}),
+          ...(locationId ? { locationId } : {}),
+        },
+        orderBy: [{ boostedUntil: { sort: 'desc', nulls: 'last' } }, { viewCount: 'desc' }],
+        take: 4,
+        include: { location: true, skillType: true },
+      }),
+    ]);
+
+    // Filtr hech narsa topmagan bo'lsa (masalan juda tor signal) — umumiy
+    // tavsiyalar bilan to'ldiramiz, bo'sh javob qaytmasin.
+    if (realEstates.length === 0 && masters.length === 0 && jobs.length === 0) {
+      return this.getRecommendations();
+    }
+
+    return {
+      realEstates,
+      masters: masters.map((m) => ({
+        ...m,
+        avgRating:
+          m.ratings.length > 0
+            ? +(m.ratings.reduce((s, r) => s + r.rating, 0) / m.ratings.length).toFixed(1)
+            : 0,
+      })),
+      jobs,
+    };
+  }
+
   async getSearchSuggestions(query: string) {
     if (!query || query.trim().length < 2) return [];
 

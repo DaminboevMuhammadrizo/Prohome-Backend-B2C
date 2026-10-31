@@ -42,16 +42,24 @@ export class JobService {
         skillType: { select: { id: true, name: true } },
         skills: { include: { skill: { select: { id: true, name: true } } } },
         _count: { select: { likes: true, views: true } },
+        boostedUntil: true,
     };
 
     async getAll(params: {
         page?: number; limit?: number; search?: string; status?: JobStatus; skillTypeId?: number; locationId?: number; subscriberUserId?: number;
         id?: number; userId?: number; minPrice?: number; maxPrice?: number; createdFrom?: string; createdTo?: string;
         isRemote?: boolean; swLat?: number; swLng?: number; neLat?: number; neLng?: number; lat?: number; lng?: number;
+        sort?: 'cheapest' | 'expensive';
     }) {
-        const { page = 1, limit = 20, search, status, skillTypeId, locationId, subscriberUserId, id, userId, minPrice, maxPrice, createdFrom, createdTo, isRemote, swLat, swLng, neLat, neLng, lat, lng } = params;
+        const { page = 1, limit = 20, search, status, skillTypeId, locationId, subscriberUserId, id, userId, minPrice, maxPrice, createdFrom, createdTo, isRemote, swLat, swLng, neLat, neLng, lat, lng, sort } = params;
         const skip = (page - 1) * limit;
         const where: any = {};
+
+        // Coin to'lab boost qilinganlar har doim avval (1-tier).
+        const orderBy: any[] = [{ boostedUntil: { sort: 'desc', nulls: 'last' } }];
+        if (sort === 'cheapest') orderBy.push({ price: 'asc' });
+        else if (sort === 'expensive') orderBy.push({ price: 'desc' });
+        else orderBy.push({ createdAt: 'desc' });
 
         // Foydalanuvchining joriy joylashuvi (ixtiyoriy) — berilsa, ro'yxat unga eng
         // yaqinidan boshlab qaytariladi. ~1.1km katakka yaxlitlanadi (kesh uchun).
@@ -88,27 +96,32 @@ export class JobService {
         const key = cacheKey(CACHE_NS, 'list', {
             page, limit, search, status, skillTypeId, locationId, id, userId,
             minPrice, maxPrice, createdFrom, createdTo, isRemote, swLat, swLng, neLat, neLng,
-            lat: nearLat, lng: nearLng,
+            lat: nearLat, lng: nearLng, sort,
         });
         const result = await this.redis.wrap(key, CACHE_TTL, async () => {
             const total = await this.prisma.job.count({ where });
 
             let data: any[];
             if (nearLat !== undefined && nearLng !== undefined) {
-                // Masofa bo'yicha saralash — JS'da (cheklangan hajmda). Masofasi yo'q
-                // (masalan masofaviy — isRemote) ishlar ro'yxat oxiriga tushadi.
+                // Masofa bo'yicha saralash — JS'da (cheklangan hajmda). Avval boost
+                // (1-tier), keyin masofa (2-tier). Masofasi yo'q (masalan masofaviy —
+                // isRemote) ishlar ro'yxat oxiriga tushadi.
+                const now = Date.now();
+                const isBoosted = (r: any) => r.boostedUntil && new Date(r.boostedUntil).getTime() > now;
                 const origin = { latitude: nearLat, longitude: nearLng };
                 const candidates = await this.prisma.job.findMany({
                     where, take: 500, orderBy: { createdAt: 'desc' }, select: this.jobSelect,
                 });
                 candidates.sort((a: any, b: any) => {
+                    const boostDiff = Number(isBoosted(b)) - Number(isBoosted(a));
+                    if (boostDiff !== 0) return boostDiff;
                     const da = a.latitude != null && a.longitude != null ? haversineKm(origin, { latitude: a.latitude, longitude: a.longitude }) : Infinity;
                     const db = b.latitude != null && b.longitude != null ? haversineKm(origin, { latitude: b.latitude, longitude: b.longitude }) : Infinity;
                     return da - db;
                 });
                 data = candidates.slice(skip, skip + limit);
             } else {
-                data = await this.prisma.job.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.jobSelect });
+                data = await this.prisma.job.findMany({ where, skip, take: limit, orderBy, select: this.jobSelect });
             }
 
             return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };

@@ -13,6 +13,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { CompanyLoginDto, MasterRegisterDto, OtpPurpose, RegisterAuthDto, ResetPasswordDto, SendOtpDto } from './dto/register.dto';
 import { TelegramVerifyDto } from './dto/telegram-login.dto';
 import { TEST_OTP_BYPASS_PHONES, TEST_OTP_CODE } from './test-accounts.constants';
+import { WalletService } from '../wallet/wallet.service';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +23,7 @@ export class AuthService {
     private readonly redis: RedisService,
     private readonly sms: SmsService,
     private readonly config: ConfigService,
+    private readonly walletService: WalletService,
   ) { }
 
   // Faqat ENABLE_TEST_ACCOUNTS=true bo'lganda ishlaydi — production'da bu .env'da bo'lmasin
@@ -128,6 +130,10 @@ export class AuthService {
         },
       });
 
+      // Ro'yxat bonusi + (bo'lsa) referral bonusi — xato bo'lsa ham ro'yxatdan
+      // o'tishning o'zi buzilmasin (wallet ichkarida ham himoyalangan, bu yerda yana bir qavat).
+      this.walletService.createWalletForNewUser(user.id, dto.referralCode).catch(() => null);
+
       return this.genTokens(user);
     }
 
@@ -152,6 +158,8 @@ export class AuthService {
       },
     });
 
+    this.walletService.createWalletForNewUser(user.id, dto.referralCode).catch(() => null);
+
     return this.genTokens(user);
   }
 
@@ -162,6 +170,11 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { phone } });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
     this.ensureActive(user);
+
+    // Kunlik tashrif (strike) + bonus — SAYT va MOBIL ikkalasi ham shu endpoint
+    // (yoki loginPassword) orqali kiradi, shuning uchun bitta joyda — ikkalasida
+    // bir xil ishlaydi. Xato bo'lsa ham login buzilmasin.
+    this.walletService.recordDailyVisit(user.id).catch(() => null);
 
     return this.genTokens(user);
   }
@@ -185,6 +198,8 @@ export class AuthService {
 
     const valid = await compirePassword(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Login yoki parol noto\'g\'ri');
+
+    this.walletService.recordDailyVisit(user.id).catch(() => null);
 
     return this.genTokens(user);
   }
@@ -254,6 +269,8 @@ export class AuthService {
       data: dto.skillIds.map((skillId) => ({ masterId: master.id, skillId })),
       skipDuplicates: true,
     });
+
+    this.walletService.createWalletForNewUser(user.id, dto.referralCode).catch(() => null);
 
     const tokens = await this.genTokens(user);
     return { ...tokens, masterId: master.id };

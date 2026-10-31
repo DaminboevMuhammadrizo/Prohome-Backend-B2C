@@ -40,6 +40,8 @@ export class MasterService {
       },
     },
     _count: { select: { ratings: true } },
+    boostedUntil: true,
+    salary: true,
   };
 
   private masterDetailSelect = {
@@ -68,10 +70,17 @@ export class MasterService {
   async getAll(params: {
     page?: number; limit?: number; search?: string; isFree?: boolean; skillTypeId?: number; subscriberUserId?: number;
     id?: number; locationId?: number; status?: UserStatus; workType?: MasterWorkType; createdFrom?: string; createdTo?: string;
+    sort?: 'cheapest' | 'expensive';
   }) {
-    const { page = 1, limit = 20, search, isFree, skillTypeId, subscriberUserId, id, locationId, status, workType, createdFrom, createdTo } = params;
+    const { page = 1, limit = 20, search, isFree, skillTypeId, subscriberUserId, id, locationId, status, workType, createdFrom, createdTo, sort } = params;
     const skip = (page - 1) * limit;
     const where: any = {};
+
+    // Coin to'lab boost qilinganlar har doim avval (1-tier).
+    const orderBy: any[] = [{ boostedUntil: { sort: 'desc', nulls: 'last' } }];
+    if (sort === 'cheapest') orderBy.push({ salary: 'asc' });
+    else if (sort === 'expensive') orderBy.push({ salary: 'desc' });
+    else orderBy.push({ createdAt: 'desc' });
     if (id !== undefined) where.id = id;
     if (skillTypeId) where.skills = { some: { skill: { typeId: skillTypeId } } };
     if (isFree !== undefined) where.isFree = isFree;
@@ -93,7 +102,7 @@ export class MasterService {
     }
 
     const key = cacheKey(CACHE_NS, 'list', {
-      page, limit, search, isFree, skillTypeId, id, locationId, status, workType, createdFrom, createdTo,
+      page, limit, search, isFree, skillTypeId, id, locationId, status, workType, createdFrom, createdTo, sort,
     });
     const result = await this.redis.wrap(key, CACHE_TTL, async () => {
       const [data, total] = await Promise.all([
@@ -101,7 +110,7 @@ export class MasterService {
           where,
           skip,
           take: limit,
-          orderBy: { createdAt: 'desc' },
+          orderBy,
           select: this.masterListSelect,
         }),
         this.prisma.master.count({ where }),

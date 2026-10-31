@@ -51,6 +51,7 @@ export class JobController {
     @ApiQuery({ name: 'neLng', required: false, description: 'Xarita hududi — shimoli-sharqiy burchak uzunligi' })
     @ApiQuery({ name: 'lat', required: false, description: 'Foydalanuvchining joriy joylashuvi (kenglik) — berilsa, ro\'yxat shu nuqtaga eng yaqinidan boshlab qaytadi' })
     @ApiQuery({ name: 'lng', required: false, description: 'Foydalanuvchining joriy joylashuvi (uzunlik)' })
+    @ApiQuery({ name: 'sort', required: false, enum: ['cheapest', 'expensive'], description: "Saralash: arzon/qimmat. Berilmasa — eng yangisi. Coin bilan boost qilinganlar HAR DOIM avval chiqadi" })
     getAll(
         @Req() req: any,
         @Query('page') page = 1,
@@ -72,6 +73,7 @@ export class JobController {
         @Query('neLng') neLng?: string,
         @Query('lat') lat?: string,
         @Query('lng') lng?: string,
+        @Query('sort') sort?: 'cheapest' | 'expensive',
     ) {
         return this.jobService.getAll({
             page: +page, limit: +limit, search, status,
@@ -90,6 +92,7 @@ export class JobController {
             neLng: neLng ? +neLng : undefined,
             lat: lat ? +lat : undefined,
             lng: lng ? +lng : undefined,
+            sort,
         });
     }
 

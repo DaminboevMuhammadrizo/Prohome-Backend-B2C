@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DealType, PropertyType, RealEstateStatus, SellerType } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 
 export class CreateRealEstateDto {
   @ApiProperty({ example: '3 xonali kvartira Yunusobodda' })
@@ -37,9 +37,20 @@ export class CreateRealEstateDto {
   @IsInt()
   locationId: number;
 
-  @ApiProperty({ example: '+998901234567' })
+  @ApiPropertyOptional({ example: '+998901234567', description: "Majburiy emas — kamida shuncha yoki `links`dan bittasi bo'lsa yetarli" })
+  @IsOptional()
   @IsString()
-  contactPhone: string;
+  contactPhone?: string;
+
+  @ApiPropertyOptional({
+    example: ['https://t.me/username', 'https://instagram.com/username'],
+    description: "Aloqa havolalari — Telegram, Instagram va h.k., soni/turi erkin",
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  links?: string[];
 
   @ApiPropertyOptional({ example: 'Mega Qurilish' })
   @IsOptional()
@@ -143,6 +154,13 @@ export class UpdateRealEstateDto {
   @IsOptional()
   @IsString()
   contactPhone?: string;
+
+  @ApiPropertyOptional({ example: ['https://t.me/username', 'https://instagram.com/username'] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  links?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()

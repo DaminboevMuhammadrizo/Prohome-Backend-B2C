@@ -65,6 +65,14 @@ export class RegisterAuthDto {
   @IsInt()
   @Min(1)
   locationId?: number;
+
+  @ApiPropertyOptional({
+    example: 'AB12CD34',
+    description: "Do'stni taklif qilgan foydalanuvchining referral kodi (GET /wallet/me dan) — berilsa, o'sha foydalanuvchiga bonus beriladi",
+  })
+  @IsOptional()
+  @IsString()
+  referralCode?: string;
 }
 
 export class MasterRegisterDto {
@@ -109,6 +117,11 @@ export class MasterRegisterDto {
   @IsOptional()
   @IsString()
   bio?: string;
+
+  @ApiPropertyOptional({ example: 'AB12CD34', description: "Do'stni taklif qilgan foydalanuvchining referral kodi" })
+  @IsOptional()
+  @IsString()
+  referralCode?: string;
 }
 
 export class CompanyLoginDto {

@@ -69,6 +69,7 @@ export class MasterController {
   @ApiQuery({ name: 'workType', required: false, enum: MasterWorkType, description: "Yakka o'zi (INDIVIDUAL) yoki jamoa (TEAM) bo'lib ishlashi" })
   @ApiQuery({ name: 'createdFrom', required: false, description: 'Qo\'shilgan sana — shundan boshlab', example: '2026-01-01' })
   @ApiQuery({ name: 'createdTo', required: false, description: 'Qo\'shilgan sana — shungacha', example: '2026-12-31' })
+  @ApiQuery({ name: 'sort', required: false, enum: ['cheapest', 'expensive'], description: "Saralash: arzon/qimmat (maosh bo'yicha). Berilmasa — eng yangisi. Coin bilan boost qilinganlar HAR DOIM avval chiqadi" })
   getAll(
     @Req() req: any,
     @Query('page') page = 1,
@@ -82,6 +83,7 @@ export class MasterController {
     @Query('workType') workType?: MasterWorkType,
     @Query('createdFrom') createdFrom?: string,
     @Query('createdTo') createdTo?: string,
+    @Query('sort') sort?: 'cheapest' | 'expensive',
   ) {
     return this.masterService.getAll({
       page: +page, limit: +limit, search,
@@ -93,6 +95,7 @@ export class MasterController {
       status: status as any,
       workType,
       createdFrom, createdTo,
+      sort,
     });
   }
 

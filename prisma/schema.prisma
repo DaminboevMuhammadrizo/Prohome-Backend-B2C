@@ -133,6 +133,31 @@ enum DevicePlatform {
   WEB
 }
 
+enum WalletTxType {
+  SIGNUP_BONUS
+  REFERRAL_BONUS
+  DAILY_CHECKIN
+  TOPUP
+  BOOST_PURCHASE
+  ADMIN_ADJUSTMENT
+}
+
+enum TopUpStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// "E'lonni eng tepaga chiqarish" (boost) qo'llanadigan kontent turlari —
+// amalda shu nomdagi modellarning har biriga mos keladi.
+enum BoostableEntityType {
+  REAL_ESTATE
+  JOB
+  MASTER
+  NEWS
+  REELS
+}
+
 model User {
   id         Int     @id @default(autoincrement())
   phone      String? @unique
@@ -163,8 +188,95 @@ model User {
   chats               Chat[]
   devices             UserDevice[]
   notifications       Notification[]
+  wallet              Wallet?
 
   @@map("users")
+}
+
+// ───────────────────────── Ichki valyuta (Wallet) tizimi ─────────────────────────
+
+model Wallet {
+  id               Int       @id @default(autoincrement())
+  userId           Int       @unique @map("user_id")
+  balance          Int       @default(0)
+  referralCode     String    @unique @map("referral_code")
+  referredByUserId Int?      @map("referred_by_user_id")
+  currentStreak    Int       @default(0) @map("current_streak")
+  longestStreak    Int       @default(0) @map("longest_streak")
+  lastCheckInAt    DateTime? @map("last_check_in_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id            Int                  @id @default(autoincrement())
+  userId        Int                  @map("user_id")
+  type          WalletTxType
+  amount        Int // musbat — kredit, manfiy — debet
+  balanceAfter  Int                  @map("balance_after")
+  description   String?
+  relatedUserId Int?                 @map("related_user_id") // masalan taklif qilingan do'st
+  entityType    BoostableEntityType? @map("entity_type") // BOOST_PURCHASE uchun
+  entityId      Int?                 @map("entity_id")
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  wallet Wallet @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("wallet_transactions")
+}
+
+// Haqiqiy pulga valyuta sotib olish so'rovi — hozircha to'lov tizimi
+// ulanmagan, admin qo'lda tasdiqlaydi (keyinroq Payme/Click shu bosqichni
+// avtomatlashtiradi).
+model TopUpRequest {
+  id               Int         @id @default(autoincrement())
+  userId           Int         @map("user_id")
+  amount           Int
+  note             String?
+  status           TopUpStatus @default(PENDING)
+  reviewedByUserId Int?        @map("reviewed_by_user_id")
+  reviewedAt       DateTime?   @map("reviewed_at")
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  @@map("topup_requests")
+}
+
+// Har bir "boost" sotib olish — audit/tarix uchun. Qaysi kontent HOZIR
+// boost qilinganini bilish uchun esa tegishli jadvaldagi `boostedUntil`
+// ustuni ishlatiladi (tezkor, join kerak emas).
+model ContentBoost {
+  id         Int                 @id @default(autoincrement())
+  entityType BoostableEntityType @map("entity_type")
+  entityId   Int                 @map("entity_id")
+  userId     Int                 @map("user_id")
+  days       Int
+  costPaid   Int                 @map("cost_paid")
+  startAt    DateTime            @default(now()) @map("start_at")
+  expiresAt  DateTime            @map("expires_at")
+  createdAt  DateTime            @default(now()) @map("created_at")
+
+  @@index([entityType, entityId])
+  @@map("content_boosts")
+}
+
+// Admin-sozlanadigan ichki valyuta sozlamalari (ContentLimitConfig'dagi
+// singleton naqshi bilan bir xil — src/modules/company/company.service.ts).
+model CurrencySettings {
+  id                Int      @id @default(1)
+  currencyName      String   @default("Coin") @map("currency_name")
+  signupBonus       Int      @default(0) @map("signup_bonus")
+  referralBonus     Int      @default(0) @map("referral_bonus")
+  dailyCheckInBonus Int      @default(0) @map("daily_checkin_bonus")
+  boostCostPerDay   Int      @default(0) @map("boost_cost_per_day")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("currency_settings")
 }
 
 model Location {
@@ -186,17 +298,20 @@ model Location {
 }
 
 model Master {
-  id         Int            @id @default(autoincrement())
-  profileImg String?        @map("profile_img")
-  experience Int            @default(0)
-  bio        String?
-  salary     Decimal?       @db.Decimal(15, 2)
-  workImgs   String[]       @map("work_imgs")
-  isFree     Boolean        @default(true) @map("is_free")
-  workType   MasterWorkType @default(INDIVIDUAL) @map("work_type")
-  userId     Int            @unique @map("user_id")
-  likeCount  Int            @default(0) @map("like_count")
-  viewCount  Int            @default(0) @map("view_count")
+  id           Int            @id @default(autoincrement())
+  profileImg   String?        @map("profile_img")
+  experience   Int            @default(0)
+  bio          String?
+  salary       Decimal?       @db.Decimal(15, 2)
+  workImgs     String[]       @map("work_imgs")
+  isFree       Boolean        @default(true) @map("is_free")
+  workType     MasterWorkType @default(INDIVIDUAL) @map("work_type")
+  userId       Int            @unique @map("user_id")
+  likeCount    Int            @default(0) @map("like_count")
+  viewCount    Int            @default(0) @map("view_count")
+  // Coin to'lab "eng tepada ko'rsatish" (boost) muddati — kelajakdagi sana
+  // bo'lsa hozir boost qilingan deb hisoblanadi, ro'yxatda avval chiqadi.
+  boostedUntil DateTime?      @map("boosted_until")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -210,6 +325,7 @@ model Master {
   reels   Reel[]
   chats   Chat[]
 
+  @@index([boostedUntil])
   @@map("masters")
 }
 
@@ -294,7 +410,10 @@ model RealEstate {
   sellerType   SellerType       @map("seller_type")
   userId       Int              @map("user_id")
   locationId   Int              @map("location_id")
-  contactPhone String           @map("contact_phone")
+  contactPhone String?          @map("contact_phone")
+  // Telegram/Instagram/Website kabi aloqa havolalari — soni/turi erkin,
+  // frontend xohlagancha ko'rsatadi (masalan "https://t.me/...", "https://instagram.com/...").
+  links        String[]         @default([])
   companyName  String?          @map("company_name")
   companyLogo  String?          @map("company_logo")
   areaSize     Float            @map("area_size")
@@ -309,6 +428,8 @@ model RealEstate {
   viewCount    Int              @default(0) @map("view_count")
   likeCount    Int              @default(0) @map("like_count")
   status       RealEstateStatus @default(ACTIVE)
+  // Coin to'lab "eng tepada ko'rsatish" (boost) muddati.
+  boostedUntil DateTime?        @map("boosted_until")
 
   // Xaritada aniq nuqta (masalan Yandex/OSM xarita tanlagichidan) — address matn ko'rinishi,
   // latitude/longitude esa bounding-box (xarita hududi) bo'yicha qidirish uchun ishlatiladi.
@@ -328,6 +449,7 @@ model RealEstate {
   @@index([propertyType, dealType])
   @@index([locationId])
   @@index([userId])
+  @@index([boostedUntil])
   @@map("real_estates")
 }
 
@@ -374,13 +496,15 @@ model Job {
   title        String
   description  String
   price        Decimal?  @db.Decimal(15, 2)
-  contactPhone String    @map("contact_phone")
+  contactPhone String?   @map("contact_phone")
+  links        String[]  @default([])
   userId       Int       @map("user_id")
   locationId   Int?      @map("location_id")
   skillTypeId  Int       @map("skill_type_id")
   status       JobStatus @default(OPEN)
   viewCount    Int       @default(0) @map("view_count")
   likeCount    Int       @default(0) @map("like_count")
+  boostedUntil DateTime? @map("boosted_until")
 
   // Masofaviy (remote) ish uchun manzil shart emas — joyida ishlash uchun aniq nuqta kerak.
   isRemote  Boolean @default(false) @map("is_remote")
@@ -405,6 +529,7 @@ model Job {
   @@index([skillTypeId])
   @@index([locationId])
   @@index([userId])
+  @@index([boostedUntil])
   @@map("jobs")
 }
 
@@ -640,19 +765,20 @@ model NewsCategory {
 }
 
 model News {
-  id          Int           @id @default(autoincrement())
-  title       String
-  slug        String        @unique
-  excerpt     String?
-  content     String
-  coverImage  String?       @map("cover_image")
-  categoryId  Int?          @map("category_id")
-  status      ContentStatus @default(DRAFT)
-  publishedAt DateTime?     @map("published_at")
-  viewCount   Int           @default(0) @map("view_count")
-  masterId    Int?          @map("master_id")
-  jobId       Int?          @map("job_id")
-  companyId   Int?          @map("company_id")
+  id           Int           @id @default(autoincrement())
+  title        String
+  slug         String        @unique
+  excerpt      String?
+  content      String
+  coverImage   String?       @map("cover_image")
+  categoryId   Int?          @map("category_id")
+  status       ContentStatus @default(DRAFT)
+  publishedAt  DateTime?     @map("published_at")
+  viewCount    Int           @default(0) @map("view_count")
+  masterId     Int?          @map("master_id")
+  jobId        Int?          @map("job_id")
+  companyId    Int?          @map("company_id")
+  boostedUntil DateTime?     @map("boosted_until")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -664,6 +790,7 @@ model News {
 
   @@index([status, publishedAt])
   @@index([companyId])
+  @@index([boostedUntil])
   @@map("news")
 }
 
@@ -680,6 +807,7 @@ model Reel {
   masterId     Int?          @map("master_id")
   jobId        Int?          @map("job_id")
   companyId    Int?          @map("company_id")
+  boostedUntil DateTime?     @map("boosted_until")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -690,6 +818,7 @@ model Reel {
 
   @@index([status, order])
   @@index([companyId])
+  @@index([boostedUntil])
   @@map("reels")
 }
 

@@ -84,6 +84,7 @@ export class RealEstateController {
     @ApiQuery({ name: 'neLng', required: false, description: 'Xarita hududi — shimoli-sharqiy burchak uzunligi' })
     @ApiQuery({ name: 'lat', required: false, description: 'Foydalanuvchining joriy joylashuvi (kenglik) — berilsa, ro\'yxat shu nuqtaga eng yaqinidan boshlab qaytadi' })
     @ApiQuery({ name: 'lng', required: false, description: 'Foydalanuvchining joriy joylashuvi (uzunlik)' })
+    @ApiQuery({ name: 'sort', required: false, enum: ['cheapest', 'expensive', 'largest'], description: "Saralash: arzon/qimmat/katta maydon. Berilmasa — eng yangisi. Coin bilan boost qilinganlar HAR DOIM avval chiqadi" })
     getAll(
         @Req() req: any,
         @Query('page') page = 1,
@@ -107,6 +108,7 @@ export class RealEstateController {
         @Query('neLng') neLng?: string,
         @Query('lat') lat?: string,
         @Query('lng') lng?: string,
+        @Query('sort') sort?: 'cheapest' | 'expensive' | 'largest',
     ) {
         return this.realEstateService.getAll({
             page: +page, limit: +limit, search, propertyType, dealType, sellerType,
@@ -125,6 +127,7 @@ export class RealEstateController {
             neLng: neLng ? +neLng : undefined,
             lat: lat ? +lat : undefined,
             lng: lng ? +lng : undefined,
+            sort,
         });
     }
 

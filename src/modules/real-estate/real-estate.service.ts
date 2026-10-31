@@ -35,6 +35,7 @@ export class RealEstateService {
     dealType: true,
     sellerType: true,
     contactPhone: true,
+    links: true,
     companyName: true,
     companyLogo: true,
     areaSize: true,
@@ -69,6 +70,7 @@ export class RealEstateService {
     priceDesc: true,
     address: true,
     contactPhone: true,
+    links: true,
     propertyType: true,
     dealType: true,
     roomCount: true,
@@ -82,6 +84,7 @@ export class RealEstateService {
     createdAt: true,
     location: { select: { id: true, name: true } },
     media: { orderBy: { isMain: 'desc' as const }, select: { id: true, url: true, mediaType: true, isMain: true } },
+    boostedUntil: true,
   };
 
   async getAll(params: {
@@ -107,9 +110,18 @@ export class RealEstateService {
     neLng?: number;
     lat?: number;
     lng?: number;
+    sort?: 'cheapest' | 'expensive' | 'largest';
   }) {
-    const { page = 1, limit = 20, id, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId, createdFrom, createdTo, swLat, swLng, neLat, neLng, lat, lng } = params;
+    const { page = 1, limit = 20, id, search, propertyType, dealType, sellerType, locationId, minPrice, maxPrice, roomCount, status, userId, subscriberUserId, createdFrom, createdTo, swLat, swLng, neLat, neLng, lat, lng, sort } = params;
     const skip = (page - 1) * limit;
+
+    // Coin to'lab boost qilinganlar har doim avval (1-tier), so'ngra `sort`
+    // (arzon/qimmat/katta maydon) yoki default (eng yangi) — 2-tier.
+    const orderBy: any[] = [{ boostedUntil: { sort: 'desc', nulls: 'last' } }];
+    if (sort === 'cheapest') orderBy.push({ price: 'asc' });
+    else if (sort === 'expensive') orderBy.push({ price: 'desc' });
+    else if (sort === 'largest') orderBy.push({ areaSize: 'desc' });
+    else orderBy.push({ createdAt: 'desc' });
 
     // Foydalanuvchining joriy joylashuvi (ixtiyoriy) — berilsa, ro'yxat unga
     // eng yaqinidan boshlab qaytariladi. ~1.1km katakka yaxlitlanadi — kesh
@@ -155,7 +167,7 @@ export class RealEstateService {
     const key = cacheKey(CACHE_NS, 'list', {
       page, limit, id, search, propertyType, dealType, sellerType, locationId,
       minPrice, maxPrice, roomCount, status, userId, createdFrom, createdTo,
-      swLat, swLng, neLat, neLng, lat: nearLat, lng: nearLng,
+      swLat, swLng, neLat, neLng, lat: nearLat, lng: nearLng, sort,
     });
     const result = await this.redis.wrap(key, CACHE_TTL, async () => {
       const total = await this.prisma.realEstate.count({ where });
@@ -163,21 +175,25 @@ export class RealEstateService {
       let data: any[];
       if (nearLat !== undefined && nearLng !== undefined) {
         // Yaqinlik bo'yicha saralash oddiy Float ustunlarda DB darajasida arzon
-        // hisoblanmaydi — mos yozuvlarni (cheklangan hajmda) olib, JS'da Haversine
-        // masofa bo'yicha saralaymiz, keyin sahifalab qaymoqlaymiz. Koordinatasi
-        // yo'q yozuvlar oxiriga tushadi.
+        // hisoblanmaydi — mos yozuvlarni (cheklangan hajmda) olib, JS'da avval
+        // boost (1-tier), keyin Haversine masofa (2-tier) bo'yicha saralaymiz,
+        // so'ng sahifalab qaymoqlaymiz. Koordinatasi yo'q yozuvlar oxiriga tushadi.
+        const now = Date.now();
+        const isBoosted = (r: any) => r.boostedUntil && new Date(r.boostedUntil).getTime() > now;
         const origin = { latitude: nearLat, longitude: nearLng };
         const candidates = await this.prisma.realEstate.findMany({
           where, take: 500, orderBy: { createdAt: 'desc' }, select: this.cardSelect,
         });
         candidates.sort((a: any, b: any) => {
+          const boostDiff = Number(isBoosted(b)) - Number(isBoosted(a));
+          if (boostDiff !== 0) return boostDiff;
           const da = a.latitude != null && a.longitude != null ? haversineKm(origin, { latitude: a.latitude, longitude: a.longitude }) : Infinity;
           const db = b.latitude != null && b.longitude != null ? haversineKm(origin, { latitude: b.latitude, longitude: b.longitude }) : Infinity;
           return da - db;
         });
         data = candidates.slice(skip, skip + limit);
       } else {
-        data = await this.prisma.realEstate.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' }, select: this.cardSelect });
+        data = await this.prisma.realEstate.findMany({ where, skip, take: limit, orderBy, select: this.cardSelect });
       }
 
       return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
