@@ -58,6 +58,7 @@ export class RealEstateService {
     location: { select: { id: true, name: true, type: true, parent: { select: { id: true, name: true } } } },
     user: { select: { id: true, firstName: true, lastName: true, phone: true } },
     media: { orderBy: { isMain: 'desc' as const } },
+    boostedUntil: true,
   };
 
   // Ro'yxat (karta) uchun yengil select — og'ir maydonlar (description,

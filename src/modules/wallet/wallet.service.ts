@@ -182,6 +182,10 @@ export class WalletService {
   // ───────────────────────── Foydalanuvchi uchun ma'lumot ─────────────────────────
 
   async getMyWallet(userId: number) {
+    // Mobil ilova qayta login qilmaydi (token refresh bilan haftalab kirib
+    // yuradi) — kunlik bonus/strike faqat login'da hisoblansa, mobilda deyarli
+    // hech qachon ishlamas edi. Kuniga bir marta ishlaydi (idempotent).
+    await this.recordDailyVisit(userId);
     const [wallet, settings, recentTransactions] = await Promise.all([
       this.getOrCreateWallet(userId),
       this.getSettings(),
