@@ -205,7 +205,17 @@ export class NotificationService {
     const broadcast = await this.prisma.adminBroadcast.findUnique({ where: { id: broadcastId } });
     if (!broadcast || broadcast.status !== NotificationStatus.PENDING) return;
 
-    const targetUserIds = await this.resolveBroadcastAudience(broadcast.filters as any);
+    const filters = broadcast.filters as any;
+    // Filtrsiz broadcast — "hammaga": login qilmagan (mehmon) qurilmalar ham
+    // olishi uchun push `all` topic'iga BIR MARTA yuboriladi.
+    const toEveryone = !filters || (!filters.searchType && !filters.locationId);
+    if (toEveryone && this.firebase.isEnabled()) {
+      await this.firebase
+        .sendToTopic({ topic: 'all', title: broadcast.title, body: broadcast.body, data: { entityType: 'broadcast' } })
+        .catch((e) => this.logger.warn(`Topic push xatosi: ${(e as Error).message}`));
+    }
+
+    const targetUserIds = await this.resolveBroadcastAudience(filters);
 
     const notifications = await Promise.all(
       targetUserIds.map((userId) =>
@@ -221,7 +231,7 @@ export class NotificationService {
       ),
     );
 
-    await Promise.all(notifications.map((n) => this.dispatch(n)));
+    await Promise.all(notifications.map((n) => this.dispatch(n, { skipPush: toEveryone })));
 
     await this.prisma.adminBroadcast.update({
       where: { id: broadcastId },
@@ -299,7 +309,7 @@ export class NotificationService {
     return { REAL_ESTATE: 'search_match_real_estate', JOB: 'search_match_job', MASTER: 'search_match_master' }[type];
   }
 
-  private renderNotificationText(type: SearchType, template: { title: string; body: string } | null, entity: any) {
+  private buildTemplateVars(type: SearchType, entity: any): Record<string, string> {
     const vars: Record<string, string> = {};
     if (type === SearchType.REAL_ESTATE) {
       vars.location = entity.location?.name ?? '';
@@ -312,11 +322,57 @@ export class NotificationService {
       vars.skillType = entity.skills?.[0]?.skill?.type?.name ?? entity.skillTypeName ?? '';
       vars.title = [entity.user?.firstName, entity.user?.lastName].filter(Boolean).join(' ') || 'Usta';
     }
+    return vars;
+  }
 
+  private renderNotificationText(type: SearchType, template: { title: string; body: string } | null, entity: any) {
+    const vars = this.buildTemplateVars(type, entity);
     const fallback = { title: 'Yangi moslik topildi!', body: 'Siz qidirgan narsaga mos yangi e\'lon paydo bo\'ldi.' };
     const source = template && template.title && template.body ? template : fallback;
     const render = (text: string) => text.replace(/\{(\w+)\}/g, (_, key) => vars[key] ?? '');
     return { title: render(source.title), body: render(source.body) };
+  }
+
+  // ─────────── Login qilsa ham, qilmasa ham — HAMMAGA: yangi uy/usta qo'shilganda ───────────
+  // Admin filtrsiz broadcast bilan bir xil naqsh: (1) `all` FCM topic'iga BIR MARTA push
+  // (mehmon/anonim qurilmalar ham oladi — mobil ilova "all" topic'iga obuna bo'lgani sharti bilan),
+  // (2) har bir RO'YXATDAN O'TGAN foydalanuvchiga in-app/WebSocket bildirishnoma (push qaytarilmaydi,
+  // chunki topic orqali allaqachon yuborilgan — ikki marta kelmasin).
+  private templateKeyForEveryone(type: typeof SearchType.REAL_ESTATE | typeof SearchType.MASTER) {
+    return type === SearchType.REAL_ESTATE ? 'new_real_estate_everyone' : 'new_master_everyone';
+  }
+
+  async notifyEveryoneNewListing(type: typeof SearchType.REAL_ESTATE | typeof SearchType.MASTER, entity: any) {
+    try {
+      const templateKey = this.templateKeyForEveryone(type);
+      const template = await this.prisma.notificationTemplate.findUnique({ where: { key: templateKey } });
+      const { title, body } = this.renderNotificationText(type, template, entity);
+
+      if (this.firebase.isEnabled()) {
+        await this.firebase
+          .sendToTopic({ topic: 'all', title, body, data: { entityType: type, entityId: String(entity.id) } })
+          .catch((e) => this.logger.warn(`Topic push xatosi (${type}): ${(e as Error).message}`));
+      }
+
+      const users = await this.prisma.user.findMany({ select: { id: true } });
+      const notifications = await Promise.all(
+        users.map((u) =>
+          this.prisma.notification.create({
+            data: {
+              userId: u.id,
+              title,
+              body,
+              category: NotificationCategory.NEW_LISTING,
+              data: { entityType: type, entityId: entity.id },
+            },
+          }),
+        ),
+      );
+
+      await Promise.all(notifications.map((n) => this.dispatch(n, { skipPush: true })));
+    } catch (e) {
+      this.logger.error(`notifyEveryoneNewListing(${type}) xatosi`, e as Error);
+    }
   }
 
   private async calculateMatchScore(
@@ -394,10 +450,12 @@ export class NotificationService {
 
   // ───────────────────────── Yuborish (dispatch) ─────────────────────────
 
-  async dispatch(notification: { id: number; userId: number; title: string; body: string; data?: any }) {
+  // skipPush — push boshqa yo'l bilan (topic orqali) allaqachon yuborilgan bo'lsa,
+  // ikki marta kelmasligi uchun faqat in-app + WebSocket qismi bajariladi.
+  async dispatch(notification: { id: number; userId: number; title: string; body: string; data?: any }, opts?: { skipPush?: boolean }) {
     try {
       this.gateway.emitToUser(notification.userId, notification);
-      await this.sendPush(notification);
+      if (!opts?.skipPush) await this.sendPush(notification);
 
       await this.prisma.notification.update({ where: { id: notification.id }, data: { status: NotificationStatus.SENT } });
     } catch (e) {

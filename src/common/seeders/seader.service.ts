@@ -147,6 +147,16 @@ export class SeederService implements OnModuleInit {
           title: '👷 Siz qidirgan usta topildi!',
           body: 'Siz qidirgan {skillType} ustasi ro\'yxatdan o\'tdi. Endi buyurtma berishingiz mumkin!',
         },
+        {
+          key: 'new_real_estate_everyone',
+          title: '🏠 Yangi e\'lon qo\'shildi!',
+          body: '"{title}" — {location} hududida yangi uy-joy e\'loni joylandi.',
+        },
+        {
+          key: 'new_master_everyone',
+          title: '👷 Yangi usta qo\'shildi!',
+          body: '{title} — {skillType} bo\'yicha yangi usta ro\'yxatdan o\'tdi.',
+        },
       ];
 
       for (const t of templates) {

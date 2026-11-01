@@ -276,6 +276,8 @@ export class RealEstateService {
 
     // Shu e'longa mos "topilmagan qidiruv"lar bo'lsa — egalariga bildirishnoma yuboriladi
     this.notificationService.matchAndNotify(SearchType.REAL_ESTATE, realEstate).catch(() => null);
+    // Login qilsa ham, qilmasa ham — HAMMAGA: yangi uy-joy e'loni qo'shildi
+    this.notificationService.notifyEveryoneNewListing(SearchType.REAL_ESTATE, realEstate).catch(() => null);
     await this.invalidateCache();
 
     return realEstate;

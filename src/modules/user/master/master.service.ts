@@ -220,6 +220,8 @@ export class MasterService {
     await this.invalidateCache();
     const created = await this.getById(master.id);
     this.notificationService.matchAndNotify(SearchType.MASTER, created).catch(() => null);
+    // Login qilsa ham, qilmasa ham — HAMMAGA: yangi usta qo'shildi
+    this.notificationService.notifyEveryoneNewListing(SearchType.MASTER, created).catch(() => null);
     return created;
   }
 
@@ -247,6 +249,8 @@ export class MasterService {
     await this.invalidateCache();
     const created = await this.getById(master.id);
     this.notificationService.matchAndNotify(SearchType.MASTER, created).catch(() => null);
+    // Login qilsa ham, qilmasa ham — HAMMAGA: yangi usta qo'shildi
+    this.notificationService.notifyEveryoneNewListing(SearchType.MASTER, created).catch(() => null);
     return created;
   }
 

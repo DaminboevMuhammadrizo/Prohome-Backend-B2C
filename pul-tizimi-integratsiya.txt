@@ -1,0 +1,298 @@
+================================================================================
+ICHKI VALYUTA (COIN/PUL) TIZIMI — MOBIL ILOVAGA ULASH UCHUN TO'LIQ QO'LLANMA
+================================================================================
+Sana   : 2026-11-01
+Maqsad : Faqat ODDIY FOYDALANUVCHI (client/master) uchun kerak bo'ladigan Wallet
+         (ichki valyuta) API'lari. Admin panelga tegishli narsalar (sozlamalar,
+         top-up tasdiqlash, qo'lda balans tuzatish) BU FAYLDA YO'Q — ular
+         alohida, faqat admin-veb panel uchun.
+
+Umumiy: 1-4-bo'limlardagi barcha endpoint uchun `Authorization: Bearer
+<accessToken>` header SHART (foydalanuvchi login qilgan bo'lishi kerak).
+
+
+================================================================================
+0-BO'LIM: TIZIM NIMA VA UMUMAN QANDAY ISHLAYDI (MUHIM — avval shuni o'qing)
+================================================================================
+Platformada o'z ichki valyutasi bor (nomi backendda sozlanadi, default "Coin" —
+buni GET /wallet/me dagi `currencyName` orqali olib ko'rsating, hardcode
+qilmang, chunki admin istalgan vaqt nomini o'zgartirishi mumkin).
+
+Foydalanuvchi bu valyutani TO'RT XIL yo'l bilan oladi:
+  1) Ro'yxatdan o'tganda — bir martalik SIGNUP bonusi (avtomatik, mobil
+     tarafdan hech narsa qilish kerak emas — oddiy register chaqirilganda
+     backend o'zi qo'shadi).
+  2) Do'stini "referral link" orqali taklif qilganda — do'sti shu link bilan
+     ro'yxatdan o'tsa, TAKLIF QILGAN odamga bonus tushadi (1-BO'LIM).
+  3) Har kuni ilovaga (yoki saytga) kirganda — "strike" (ketma-ket kunlar
+     hisoblagichi) + kunlik bonus (avtomatik, LOGIN qilinganda backend o'zi
+     hisoblaydi — mobil faqat natijasini GET /wallet/me dan o'qib ko'rsatadi).
+  4) Haqiqiy pulga sotib olish — hozircha oddiy "so'rov yuborish, admin
+     tasdiqlaydi" tartibida (3-BO'LIM) — Payme/Click keyinroq ulanadi.
+
+Yig'ilgan valyuta nimaga ishlatiladi — ASOSIY MAQSAD:
+  Foydalanuvchi o'zining ISTALGAN e'loni/profilini (uy-joy, ish e'loni, usta
+  profili, yangilik, reels) coin to'lab ro'yxat(lar)ning ENG TEPASIGA necha
+  kunga chiqarishi mumkin ("boost" — 4-BO'LIM). Narx (1 kunga nechchi coin)
+  admin tomonidan belgilanadi, mobil buni oldindan GET /wallet/boost/cost
+  orqali so'rab ko'rsatishi kerak.
+
+MUHIM: bu API'lar SAYT (web) va MOBIL uchun BIR XIL — ikkalasi ham xuddi shu
+endpoint'larni chaqiradi, alohida mobil-logika yozish shart emas.
+
+
+================================================================================
+1-BO'LIM: MENING HAMYONIM — balans, strike, referral kodi
+================================================================================
+1.1) Hamyonim ma'lumotlari
+--------------------------------------------------------------------------------
+  GET /wallet/me
+
+  Javob:
+  {
+    "balance": 150,
+    "currencyName": "Coin",
+    "currentStreak": 3,
+    "longestStreak": 7,
+    "referralCode": "A1B2C3D4",
+    "lastCheckInAt": "2026-11-01T08:12:00.000Z",
+    "recentTransactions": [ /* 1.2-banddagi ko'rinishda, oxirgi 20 ta */ ]
+  }
+
+  Qayerda ishlatiladi:
+    - "Mening hamyonim" / profil ekranida balans va strike'ni ko'rsatish
+    - Ilova ochilganda / profilga kirganda chaqiring (login qilingan bo'lsa)
+
+  `currentStreak` — necha kun ketma-ket kirgan (bugungi kun hisobga olinadi,
+  agar bugun hali kirmagan bo'lsa ham kecha kirgan bo'lsa buzilmaydi).
+  `longestStreak` — eng uzun ketma-ketlik rekordi (hech qachon kamaymaydi).
+  Bu ikkisi FAQAT o'qish uchun — ularni mobil tarafdan hisoblashning HOJATI
+  YO'Q, backend login paytida o'zi avtomatik yangilaydi (siz faqat UI'da
+  ko'rsatasiz, masalan "🔥 3 kun ketma-ket!").
+
+1.2) Tranzaksiyalar tarixi
+--------------------------------------------------------------------------------
+  GET /wallet/transactions?page=1&limit=20
+
+  Javob:
+  {
+    "data": [
+      {
+        "id": 55,
+        "userId": 45,
+        "type": "DAILY_CHECKIN",
+        "amount": 5,
+        "balanceAfter": 150,
+        "description": null,
+        "relatedUserId": null,
+        "entityType": null,
+        "entityId": null,
+        "createdAt": "2026-11-01T08:12:00.000Z"
+      },
+      ...
+    ],
+    "meta": { "page": 1, "limit": 20, "total": 12, "totalPages": 1 }
+  }
+
+  `type` qiymatlari va ma'nosi (UI'da ikonka/rang tanlash uchun tavsiya):
+    "SIGNUP_BONUS"      — ro'yxatdan o'tish bonusi (bir marta, +)
+    "REFERRAL_BONUS"    — do'stingiz sizning link bilan ro'yxatdan o'tdi (+)
+    "DAILY_CHECKIN"     — kunlik kirish bonusi (+)
+    "TOPUP"             — admin tasdiqlagan pul to'ldirish (+)
+    "BOOST_PURCHASE"    — e'lonni tepaga chiqarish uchun sarflandi (-, manfiy)
+    "ADMIN_ADJUSTMENT"  — admin qo'lda tuzatgan (+ yoki -)
+
+  `amount` musbat — kredit (balansga qo'shildi), manfiy — debet (ayirildi).
+  `entityType`/`entityId` — faqat BOOST_PURCHASE'da to'ladi (qaysi kontent
+  boost qilingani, 4-BO'LIM'dagi `entityType` bilan bir xil qiymatlar).
+
+  "Tranzaksiyalar tarixi" / "Coin tarixi" ekrani uchun ishlatiladi.
+
+
+================================================================================
+2-BO'LIM: DO'STNI TAKLIF QILISH (REFERRAL) — TO'LIQ ISHLASH MANTIG'I
+================================================================================
+Mobil tarafdan HECH QANDAY alohida "invite" API chaqirish KERAK EMAS — bu
+oddiy RO'YXATDAN O'TISH endpoint'iga BIR dona qo'shimcha maydon yuborish
+orqali ishlaydi. Mana aniq oqim:
+
+2.1) Taklif qiluvchi — o'z linkini olish
+--------------------------------------------------------------------------------
+  1-BO'LIM'dagi GET /wallet/me dan `referralCode` ni oling (masalan "A1B2C3D4").
+  Shu kod asosida O'ZINGIZ (mobil/frontend) link yasaysiz, masalan:
+
+    https://prohome.uz/register?ref=A1B2C3D4
+    yoki mobil deep-link:  prohome://register?ref=A1B2C3D4
+
+  Bu linkni "Do'stingizni taklif qiling" tugmasi orqali share qilasiz
+  (share_plus / Share.share() kabi — oddiy matn/link ulashish, backend bilan
+  bog'liq emas).
+
+2.2) Taklif qilingan — link orqali ro'yxatdan o'tish
+--------------------------------------------------------------------------------
+  Do'stingiz linkni ochganda, undagi `ref=A1B2C3D4` qiymatini URL'dan o'qib
+  oling (deep-link parsing — mobil tarafning o'zi) va RO'YXATDAN O'TISH
+  so'rovida shu qiymatni YUBORING:
+
+    POST /auth/register
+    Body: {
+      "phone": "+998901234567",
+      "password": "...",
+      ... (boshqa oddiy register maydonlari),
+      "referralCode": "A1B2C3D4"      <-- MANA SHU YANGI, IXTIYORIY MAYDON
+    }
+
+    (Usta sifatida ro'yxatdan o'tish bo'lsa — xuddi shunday, lekin:
+     POST /auth/master/register — bu yerda ham `referralCode` ixtiyoriy
+     maydon sifatida qo'shiladi.)
+
+  `referralCode` IXTIYORIY — agar foydalanuvchi oddiy (link'siz) ro'yxatdan
+  o'tsa, shunchaki bu maydonni yubormang/`null` qoldiring, hammasi odatdagidek
+  ishlaydi (faqat signup bonusi beriladi, referral bonusi yo'q).
+
+2.3) Natija — avtomatik, ortiqcha chaqiriq KERAK EMAS
+--------------------------------------------------------------------------------
+  Agar `referralCode` to'g'ri va mavjud bo'lsa:
+    - Yangi ro'yxatdan o'tgan odam — SIGNUP bonusini oladi (har doimgidek)
+    - Taklif qilgan odam (referralCode egasi) — REFERRAL bonusini oladi
+      (avtomatik, backend register ichida hal qiladi — alohida so'rov yo'q)
+
+  Noto'g'ri/mavjud bo'lmagan kod yuborilsa — register BARIBIR muvaffaqiyatli
+  o'tadi (xatolik QAYTARILMAYDI), faqat referral bonusi berilmaydi. Shuning
+  uchun mobil tarafda referralCode yuborishdan oldin uni tekshirish/validatsiya
+  qilishning HOJATI YO'Q.
+
+  MUHIM: bu BIR XIL mantiq — ham saytda (web), ham mobilda bitta register
+  endpoint orqali ishlaydi, ikki xil implementatsiya yozish shart emas.
+
+
+================================================================================
+3-BO'LIM: HAQIQIY PULGA COIN SOTIB OLISH (hozircha: so'rov + admin tasdiqlash)
+================================================================================
+Hozircha Payme/Click to'g'ridan-to'g'ri ULANMAGAN. Oqim quyidagicha:
+
+  POST /wallet/topup-request
+  Body: {
+    "amount": 100,                              // qancha COIN sotib olmoqchi
+    "note": "Click orqali to'ladim, screenshot yuboraman"   // ixtiyoriy
+  }
+  Javob: { "id": 7, "userId": 45, "amount": 100, "note": "...",
+            "status": "PENDING", ... }
+
+  UI oqimi (tavsiya):
+    1. Foydalanuvchi "Coin sotib olish" tugmasini bosadi, miqdorni tanlaydi
+    2. Hozircha (real to'lov yo'q) — tashqarida (masalan Telegram/qo'ng'iroq
+       orqali) to'laganini ko'rsatish uchun shu so'rovni yuboradi
+    3. Status "PENDING" — "Ko'rib chiqilmoqda" deb ko'rsating
+    4. Admin tasdiqlagandan keyin (backend tarafda) balans avtomatik oshadi —
+       buni foydalanuvchi GET /wallet/me / GET /wallet/transactions orqali
+       (type: "TOPUP") ko'radi. Push/bildirishnoma orqali xabar BERILMAYDI
+       hozircha — foydalanuvchi o'zi ekranni yangilashi kerak.
+
+  ESLATMA: real to'lov tizimi (Payme/Click) keyinroq ulanadi — ulanganda bu
+  endpoint o'zgarmaydi, faqat orasiga avtomatik to'lov tasdiqlash qo'shiladi
+  (mobil tarafda hech narsa o'zgartirish kerak bo'lmaydi).
+
+
+================================================================================
+4-BO'LIM: E'LONNI/PROFILNI "ENG TEPAGA" CHIQARISH (BOOST) — ASOSIY FUNKSIYA
+================================================================================
+Coin'ning asosiy ishlatilish joyi — shu. Foydalanuvchi O'ZINING kontentini
+(yoki admin — ISTALGAN kontentni, bepul) coin to'lab necha kunga ro'yxat(lar)
+boshida ko'rsatilishini sotib oladi.
+
+QAYSI KONTENT TURLARI boost qilinishi mumkin (`entityType` qiymatlari):
+    "REAL_ESTATE"   — uy-joy e'loni
+    "JOB"           — ish e'loni
+    "MASTER"        — usta profili
+    "NEWS"          — yangilik
+    "REELS"         — reels
+
+4.1) Narxni oldindan ko'rish
+--------------------------------------------------------------------------------
+  GET /wallet/boost/cost?days=7
+  Javob: { "days": 7, "cost": 70 }
+
+  "Necha kunga chiqarmoqchisiz?" ekranida foydalanuvchi kun sonini
+  o'zgartirganda shu endpoint'ni qayta chaqirib narxni jonli yangilang
+  (narx = admin belgilagan "1 kunlik narx" * kunlar soni — bu qiymat admin
+  tomonidan istalgan vaqt o'zgartirilishi mumkin, shuning uchun HARDCODE
+  QILMANG, har doim shu endpoint orqali so'rang).
+
+4.2) Sotib olish (boost qilish)
+--------------------------------------------------------------------------------
+  POST /wallet/boost
+  Body: {
+    "entityType": "REAL_ESTATE",   // yuqoridagi 5 qiymatdan biri
+    "entityId": 91,                 // boost qilinayotgan yozuvning ID si
+    "days": 7
+  }
+  Javob: {
+    "entityType": "REAL_ESTATE",
+    "entityId": 91,
+    "days": 7,
+    "costPaid": 70,
+    "boostedUntil": "2026-11-08T08:12:00.000Z"
+  }
+
+  Xatoliklar (UI'da ko'rsatish uchun ushlang):
+    403 Forbidden     — bu kontent SIZNIKI emas (faqat egasi yoki admin
+                         boost qila oladi)
+    404 Not Found     — entityId bo'yicha kontent topilmadi
+    400 Bad Request   — balans YETARLI emas ("Balansingiz yetarli emas" kabi
+                         xabar bilan — aniq matnni backend javobidan o'qing)
+
+  MUHIM — agar kontent ALLAQACHON boost qilingan bo'lsa (muddati tugamagan):
+  yangi kunlar MAVJUD muddatga QO'SHILADI (masalan hali 2 kun qolgan bo'lsa va
+  yana 7 kun sotib olinsa — jami 9 kun bo'lib qoladi), ustiga yozilmaydi.
+  Shuning uchun boost qilishdan oldin UI'da joriy holatni ko'rsating (4.3).
+
+4.3) Kontent hozir boost qilinganmi — qayerdan bilish mumkin
+--------------------------------------------------------------------------------
+  Har bir RealEstate/Job/Master/News/Reel obyektida `boostedUntil` maydoni
+  bor (ro'yxat va detail API'larida allaqachon qaytadi — alohida so'rov
+  kerak emas):
+    "boostedUntil": "2026-11-08T08:12:00.000Z"   // hali boost muddati tugamagan
+    "boostedUntil": null                           // boost qilinmagan / muddati tugagan
+
+  UI tavsiyasi: `boostedUntil` kelajakda bo'lsa — kartochkada "🔥 TOP" yoki
+  "Tanlangan" belgisi ko'rsating. Boost qilingan e'lonlar RO'YXATDA (GET
+  /real-estates, /jobs, /masters va h.k.) HAR DOIM eng tepada chiqadi —
+  mobil tarafda saralashni o'zgartirish SHART EMAS, backend o'zi shunday
+  qaytaradi.
+
+4.4) Ro'yxatlarda saralash (ixtiyoriy, mavjud API'larga qo'shimcha)
+--------------------------------------------------------------------------------
+  Quyidagi ro'yxat API'lariga `sort` query parametri qo'shildi (ixtiyoriy):
+    GET /real-estates?sort=cheapest|expensive|largest
+    GET /jobs?sort=cheapest|expensive
+    GET /masters?sort=cheapest|expensive
+
+  Berilmasa — eng yangisi bo'yicha. Qaysi `sort` bo'lsa ham, boost qilingan
+  kontent BARIBIR har doim birinchi chiqadi (yuqorida aytilganidek) — `sort`
+  faqat boost qilinmaganlar orasidagi tartibga ta'sir qiladi.
+
+
+================================================================================
+5-BO'LIM: QISQA — INTEGRATSIYA QADAMLARI (CHECKLIST)
+================================================================================
+[ ] 1. Login qilingandan keyin (yoki profil/hamyon ekraniga kirganda)
+       GET /wallet/me — balans, strike, referralCode ko'rsatish
+[ ] 2. "Coin tarixi" ekrani — GET /wallet/transactions (pagination bilan)
+[ ] 3. "Do'stni taklif qilish" tugmasi — referralCode'dan link yasab share
+       qilish (2.1)
+[ ] 4. Register ekranida deep-link'dan `ref` parametrini o'qib, uni
+       POST /auth/register (yoki /auth/master/register) ga `referralCode`
+       sifatida yuborish (2.2)
+[ ] 5. "Coin sotib olish" ekrani — POST /wallet/topup-request + status
+       ko'rsatish (3-BO'LIM)
+[ ] 6. Har bir e'lon/profil detail (va o'ziniki bo'lgan kartochkalarda)
+       "Reklama qilish" / "Eng tepaga chiqarish" tugmasi:
+         - GET /wallet/boost/cost?days=N bilan narxni jonli ko'rsatish
+         - POST /wallet/boost bilan sotib olish, xatoliklarni ushlash (4.2)
+[ ] 7. Kartochkalarda `boostedUntil` maydoniga qarab "🔥 TOP" belgisi
+       ko'rsatish (4.3) — alohida so'rov shart emas, mavjud ro'yxat/detail
+       javobida keladi
+[ ] 8. (Ixtiyoriy) ro'yxat ekranlariga "Arzon/Qimmat/Katta maydon" filtri —
+       `sort` query parametri (4.4)
+================================================================================

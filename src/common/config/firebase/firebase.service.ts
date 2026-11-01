@@ -70,6 +70,14 @@ export class FirebaseService {
     return this.messaging.send({ token, notification: { title, body }, data });
   }
 
+  // Topic'ka obuna bo'lgan barcha qurilmalarga (login qilmaganlar ham) — mobil
+  // ilova har ishga tushganda `all` topic'iga obuna bo'ladi.
+  async sendToTopic(params: { topic: string; title: string; body: string; data?: Record<string, string> }) {
+    if (!this.messaging) return null;
+    const { topic, title, body, data } = params;
+    return this.messaging.send({ topic, notification: { title, body }, data });
+  }
+
   async sendToTokens(params: { tokens: string[]; title: string; body: string; data?: Record<string, string> }) {
     if (!this.messaging) return { successCount: 0, failureCount: 0, responses: [] };
 

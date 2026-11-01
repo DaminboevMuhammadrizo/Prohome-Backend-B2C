@@ -119,6 +119,7 @@ enum NotificationCategory {
   ADMIN_BROADCAST
   CHAT_MESSAGE
   SYSTEM
+  NEW_LISTING
 }
 
 enum NotificationStatus {
